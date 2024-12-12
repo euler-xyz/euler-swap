@@ -149,7 +149,6 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil, Ownable {
         return EVCUtil._msgSender();
     }
 
-
     function myDebt(address vault) internal view returns (uint256) {
         return IEVault(vault).debtOf(myAccount);
     }

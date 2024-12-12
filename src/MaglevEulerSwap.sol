@@ -131,7 +131,8 @@ contract MaglevEulerSwap is MaglevBase {
         returns (uint256)
     {
         require(_xt <= _x0, InvalidInputCoordinate());
-        return _y0 + _px * 1e18 / _py * (_cx * (2 * _x0 - _xt) / 1e18 + (1e18 - _cx) * _x0 / 1e18 * _x0 / _xt - _x0) / 1e18;
+        return
+            _y0 + _px * 1e18 / _py * (_cx * (2 * _x0 - _xt) / 1e18 + (1e18 - _cx) * _x0 / 1e18 * _x0 / _xt - _x0) / 1e18;
     }
 
     function fx2(uint256 _xt, uint256 _px, uint256 _py, uint256 _x0, uint256 _y0, uint256, uint256 _cy)

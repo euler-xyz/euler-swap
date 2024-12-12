@@ -5,11 +5,10 @@ import {MaglevBase} from "./MaglevBase.sol";
 
 contract MaglevConstantSum is MaglevBase {
     error KNotSatisfied();
-    
+
     uint64 public fee;
     uint96 public priceA;
     uint96 public priceB;
-
 
     struct ConstantSumParams {
         uint64 fee;
