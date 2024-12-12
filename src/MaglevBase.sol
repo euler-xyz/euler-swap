@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
+import {IMaglevBase} from "./interfaces/IMaglevBase.sol";
 import {console} from "forge-std/Test.sol";
 import {Ownable, Context} from "openzeppelin-contracts/access/Ownable.sol";
 import {EVCUtil} from "evc/utils/EVCUtil.sol";
@@ -8,7 +9,15 @@ import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IERC20, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
 import {IUniswapV2Callee} from "./interfaces/IUniswapV2Callee.sol";
 
-abstract contract MaglevBase is EVCUtil, Ownable {
+abstract contract MaglevBase is IMaglevBase, EVCUtil, Ownable {
+    error Reentrancy();
+    error Overflow();
+    error UnsupportedPair();
+    error InsufficientReserves();
+    error InsufficientCash();
+
+    uint32 private locked;
+
     address public immutable vault0;
     address public immutable vault1;
     address public immutable asset0;
@@ -17,27 +26,8 @@ abstract contract MaglevBase is EVCUtil, Ownable {
 
     uint112 public reserve0;
     uint112 public reserve1;
-    uint32 private locked;
-
     uint112 public initialReserve0;
     uint112 public initialReserve1;
-
-    error Reentrancy();
-    error Overflow();
-    error UnsupportedPair();
-    error InsufficientReserves();
-    error InsufficientCash();
-
-    modifier nonReentrant() {
-        require(locked == 0, Reentrancy());
-        locked = 1;
-        _;
-        locked = 0;
-    }
-
-    function _msgSender() internal view override(Context, EVCUtil) returns (address) {
-        return EVCUtil._msgSender();
-    }
 
     struct BaseParams {
         address evc;
@@ -52,6 +42,13 @@ abstract contract MaglevBase is EVCUtil, Ownable {
         asset0 = IEVault(vault0).asset();
         asset1 = IEVault(vault1).asset();
         myAccount = params.myAccount;
+    }
+
+    modifier nonReentrant() {
+        require(locked == 0, Reentrancy());
+        locked = 1;
+        _;
+        locked = 0;
     }
 
     // Owner functions
@@ -117,29 +114,6 @@ abstract contract MaglevBase is EVCUtil, Ownable {
 
     // Internal utilities
 
-    function myDebt(address vault) internal view returns (uint256) {
-        return IEVault(vault).debtOf(myAccount);
-    }
-
-    function myBalance(address vault) internal view returns (uint256) {
-        uint256 shares = IEVault(vault).balanceOf(myAccount);
-        return shares == 0 ? 0 : IEVault(vault).convertToAssets(shares);
-    }
-
-    function adjustReserve(uint112 reserve, address vault) internal view returns (uint112) {
-        uint256 adjusted;
-        uint256 debt = myDebt(vault);
-
-        if (debt != 0) {
-            adjusted = reserve > debt ? reserve - debt : 0;
-        } else {
-            adjusted = reserve + myBalance(vault);
-        }
-
-        require(adjusted <= type(uint112).max, Overflow());
-        return uint112(adjusted);
-    }
-
     function withdrawAssets(address vault, uint256 amount, address to) internal {
         uint256 balance = myBalance(vault);
 
@@ -169,6 +143,34 @@ abstract contract MaglevBase is EVCUtil, Ownable {
                 IEVC(evc).call(vault, myAccount, 0, abi.encodeCall(IRiskManager.disableController, ()));
             }
         }
+    }
+
+    function _msgSender() internal view override(Context, EVCUtil) returns (address) {
+        return EVCUtil._msgSender();
+    }
+
+
+    function myDebt(address vault) internal view returns (uint256) {
+        return IEVault(vault).debtOf(myAccount);
+    }
+
+    function myBalance(address vault) internal view returns (uint256) {
+        uint256 shares = IEVault(vault).balanceOf(myAccount);
+        return shares == 0 ? 0 : IEVault(vault).convertToAssets(shares);
+    }
+
+    function adjustReserve(uint112 reserve, address vault) internal view returns (uint112) {
+        uint256 adjusted;
+        uint256 debt = myDebt(vault);
+
+        if (debt != 0) {
+            adjusted = reserve > debt ? reserve - debt : 0;
+        } else {
+            adjusted = reserve + myBalance(vault);
+        }
+
+        require(adjusted <= type(uint112).max, Overflow());
+        return uint112(adjusted);
     }
 
     function _computeQuote(address tokenIn, address tokenOut, uint256 amount, bool exactIn)

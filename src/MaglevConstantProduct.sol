@@ -4,9 +4,9 @@ pragma solidity ^0.8.27;
 import {MaglevBase} from "./MaglevBase.sol";
 
 contract MaglevConstantProduct is MaglevBase {
-    uint64 public fee;
-
     error KNotSatisfied();
+
+    uint64 public fee;
 
     struct ConstantProductParams {
         uint64 fee;
