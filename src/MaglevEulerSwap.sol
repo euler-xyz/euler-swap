@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
+import {IMaglevEulerSwap} from "./interfaces/IMaglevEulerSwap.sol";
 import {console} from "forge-std/Test.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {MaglevBase} from "./MaglevBase.sol";
 
-contract MaglevEulerSwap is MaglevBase {
+contract MaglevEulerSwap is IMaglevEulerSwap, MaglevBase {
     error KNotSatisfied();
     error ReservesZero();
     error InvalidInputCoordinate();
