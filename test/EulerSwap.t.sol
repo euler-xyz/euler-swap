@@ -8,7 +8,7 @@ import {TestERC20} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {MaglevTestBase} from "./MaglevTestBase.t.sol";
 
-import {MaglevEulerSwap as Maglev} from "../src/MaglevEulerSwap.sol";
+import {MaglevEulerSwap as Maglev, MaglevBase} from "../src/MaglevEulerSwap.sol";
 
 contract EulerSwapTest is MaglevTestBase {
     Maglev public maglev;
@@ -33,6 +33,14 @@ contract EulerSwapTest is MaglevTestBase {
         maglev.setDebtLimit(50e18, 50e18);
 
         assertTrue(maglev.asset0() < maglev.asset1());
+    }
+
+    function test_deploying_unsupported_pairs() public {
+        vm.expectRevert(MaglevBase.UnsupportedPair.selector);
+        new Maglev(
+            MaglevBase.BaseParams({evc: address(evc), vaultA: address(eTST), vaultB: address(eTST), myAccount: holder}),
+            Maglev.EulerSwapParams({px: 1e18, py: 1e18, cx: 0.4e18, cy: 0.85e18, fee: minFee})
+        );
     }
 
     function test_basicSwap_exactIn() public monotonicHolderNAV {

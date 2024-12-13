@@ -40,6 +40,8 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil, Ownable {
         address assetA = IEVault(params.vaultA).asset();
         address assetB = IEVault(params.vaultB).asset();
 
+        require(assetA != assetB, UnsupportedPair());
+
         (vault0, asset0, vault1, asset1) = assetA < assetB
             ? (params.vaultA, assetA, params.vaultB, assetB)
             : (params.vaultB, assetB, params.vaultA, assetA);
