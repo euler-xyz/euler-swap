@@ -31,16 +31,18 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil, Ownable {
 
     struct BaseParams {
         address evc;
-        address vault0;
-        address vault1;
+        address vaultA;
+        address vaultB;
         address myAccount;
     }
 
     constructor(BaseParams memory params) EVCUtil(params.evc) Ownable(msg.sender) {
-        vault0 = params.vault0;
-        vault1 = params.vault1;
-        asset0 = IEVault(vault0).asset();
-        asset1 = IEVault(vault1).asset();
+        address assetA = IEVault(params.vaultA).asset();
+        address assetB = IEVault(params.vaultB).asset();
+
+        (vault0, asset0, vault1, asset1) = assetA < assetB
+            ? (params.vaultA, assetA, params.vaultB, assetB)
+            : (params.vaultB, assetB, params.vaultA, assetA);
         myAccount = params.myAccount;
     }
 

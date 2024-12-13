@@ -44,7 +44,7 @@ contract MaglevTestBase is EVaultTestBase {
 
     function _getMaglevBaseParams() internal view returns (MaglevBase.BaseParams memory) {
         return
-            MaglevBase.BaseParams({evc: address(evc), vault0: address(eTST), vault1: address(eTST2), myAccount: holder});
+            MaglevBase.BaseParams({evc: address(evc), vaultA: address(eTST), vaultB: address(eTST2), myAccount: holder});
     }
 
     function _mintAndDeposit(address who, IEVault vault, uint256 amount) internal {

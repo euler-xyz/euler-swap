@@ -31,6 +31,8 @@ contract EulerSwapTest is MaglevTestBase {
 
         vm.prank(owner);
         maglev.setDebtLimit(50e18, 50e18);
+
+        assertTrue(maglev.asset0() < maglev.asset1());
     }
 
     function test_basicSwap_exactIn() public monotonicHolderNAV {
