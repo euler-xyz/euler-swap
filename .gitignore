@@ -12,3 +12,10 @@ out/
 
 # Coverage file
 lcov.info
+
+# echidna
+_corpus/
+crytic-export/
+
+.DS_Store
+.vscode
