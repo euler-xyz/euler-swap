@@ -54,7 +54,7 @@ abstract contract BaseStorage {
     address internal targetActor;
 
     /// @notice The account that owns the maglev liqudity
-    address internal maglevLp;
+    address internal holder;
 
     address internal feeRecipient;
 
@@ -88,6 +88,10 @@ abstract contract BaseStorage {
     address balanceTracker;
     address sequenceRegistry;
 
+    /// @notice curve selector
+
+    Curve curve;
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                       EXTRA VARIABLES                                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,4 +111,10 @@ abstract contract BaseStorage {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                          STRUCTS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    enum Curve {
+        EULER_SWAP,
+        PRODUCT,
+        SUM
+    }
 }

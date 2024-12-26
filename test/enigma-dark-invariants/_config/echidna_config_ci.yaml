@@ -45,9 +45,7 @@ corpusDir: "corpus"
 #mutConsts: [100, 1, 1]
 
 #remappings
-cryticArgs: [ "--solc-remaps", "@crytic/properties/=lib/properties/ forge-std/=lib/forge-std/src/ ds-test/=lib/forge-std/lib/ds-test/src/ openzeppelin/=lib/openzeppelin-contracts/contracts/", "--compile-libraries=(Pretty,0xf01),(Strings,0xf02)" ]
-
-deployContracts: [ [ "0xf01", "Pretty" ], [ "0xf02", "Strings" ] ]
+cryticArgs: [ "--solc-remaps", "@crytic/properties/=lib/properties/ forge-std/=lib/forge-std/src/ ds-test/=lib/forge-std/lib/ds-test/src/ openzeppelin/=lib/openzeppelin-contracts/contracts/" ]
 
 # maximum value to send to payable functions
 maxValue: 1e+23 # 100000 eth

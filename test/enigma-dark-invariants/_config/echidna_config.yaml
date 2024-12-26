@@ -6,9 +6,9 @@ codeSize: 224576
 #multi-abi: true
 
 #balanceAddr is default balance for addresses
-balanceAddr: 0xffffffffffffffffffffffff
+balanceAddr: 0x1000000000000000000000000
 #balanceContract overrides balanceAddr for the contract address (2^128 = ~3e38)
-balanceContract: 0xffffffffffffffffffffffffffffffffffffffffffffffff
+balanceContract: 0x1000000000000000000000000000000000000000000000000
 
 #testLimit is the number of test sequences to run
 testLimit: 20000000
@@ -37,7 +37,7 @@ stopOnFail: false
 coverage: true
 
 # list of file formats to save coverage reports in; default is all possible formats
-coverageFormats: ["lcov", "html"]
+coverageFormats: [ "lcov", "html" ]
 
 #directory to save the corpus; by default is disabled
 corpusDir: "test/invariants/_corpus/echidna/default/_data/corpus"
@@ -45,12 +45,10 @@ corpusDir: "test/invariants/_corpus/echidna/default/_data/corpus"
 #mutConsts: [100, 1, 1]
 
 #remappings
-cryticArgs: ["--solc-remaps", "@crytic/properties/=lib/properties/ forge-std/=lib/forge-std/src/ ds-test/=lib/forge-std/lib/ds-test/src/ openzeppelin/=lib/openzeppelin-contracts/contracts/", "--compile-libraries=(Pretty,0xf01),(Strings,0xf02)"]
-
-deployContracts: [["0xf01", "Pretty"], ["0xf02", "Strings"]]
+cryticArgs: [ "--solc-remaps", "@crytic/properties/=lib/properties/ forge-std/=lib/forge-std/src/ ds-test/=lib/forge-std/lib/ds-test/src/ openzeppelin/=lib/openzeppelin-contracts/contracts/" ]
 
 # maximum value to send to payable functions
-maxValue: 100000000000000000000000 # 100000 eth
+maxValue: 1e+23 # 100000 eth
 
 #quiet produces (much) less verbose output
 quiet: false

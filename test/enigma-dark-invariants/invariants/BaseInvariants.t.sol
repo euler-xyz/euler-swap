@@ -19,5 +19,7 @@ abstract contract BaseInvariants is HandlerAggregator {
     //                                          BASE                                             //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function assert_INV_BASE_A() internal {}
+    function assert_INV_BASE_A() internal {
+        assertFalse(eTST.debtOf(holder) != 0 && eTST2.debtOf(holder) != 0, INV_BASE_A);
+    }
 }

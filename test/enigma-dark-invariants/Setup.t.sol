@@ -16,7 +16,9 @@ import {Base} from "evk/EVault/shared/Base.sol";
 import {Dispatch} from "evk/EVault/Dispatch.sol";
 import {EVault} from "evk/EVault/EVault.sol";
 import {MaglevBase} from "src/MaglevBase.sol";
-import {MaglevEulerSwap as Maglev} from "src/MaglevEulerSwap.sol";
+import {MaglevConstantSum} from "src/MaglevConstantSum.sol";
+import {MaglevConstantProduct} from "src/MaglevConstantProduct.sol";
+import {MaglevEulerSwap} from "src/MaglevEulerSwap.sol";
 
 // Modules
 import {Initialize} from "evk/EVault/modules/Initialize.sol";
@@ -42,7 +44,7 @@ import {Actor} from "./utils/Actor.sol";
 
 /// @notice Setup contract for the invariant test Suite, inherited by Tester
 contract Setup is BaseTest {
-    function _setUp() internal {
+    function _setUp(Curve _curveType) internal {
         // Deploy protocol contracts and protocol actors
         _deployEulerEnvContracts();
 
@@ -53,7 +55,7 @@ contract Setup is BaseTest {
         _setUpActors();
 
         // Deploy and setup maglev
-        _deployMaglev();
+        _deployMaglev(_curveType);
     }
 
     /// @notice Deploy euler env contracts
@@ -73,6 +75,10 @@ contract Setup is BaseTest {
         oracle = new MockPriceOracle();
         sequenceRegistry = address(new SequenceRegistry());
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                           VAULTS                                          //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     function _deployVaults() internal {
         // Deploy the modules
@@ -112,43 +118,6 @@ contract Setup is BaseTest {
         vaults.push(address(eTST2));
     }
 
-    function _deployMaglev() internal {
-        // Setup maglev lp as the first actor
-        maglevLp = address(actors[USER1]);
-
-        // Setup the maglev params∫
-        MaglevBase.BaseParams memory baseParams = MaglevBase.BaseParams({
-            evc: address(evc),
-            vault0: address(eTST),
-            vault1: address(eTST2),
-            myAccount: maglevLp,
-            debtLimit0: 50e18, // TODO tweak these numbers
-            debtLimit1: 50e18,
-            fee: 0
-        });
-
-        // Deploy the maglev contract
-        maglev = IMaglevBase(
-            address(
-                new Maglev(
-                    baseParams,
-                    Maglev.EulerSwapParams({priceX: 1e18, priceY: 1e18, concentrationX: 0.4e18, concentrationY: 0.85e18})
-                )
-            )
-        );
-
-        // Set maglev as operator for the lp and call configure
-        vm.prank(maglevLp);
-        evc.setAccountOperator(maglevLp, address(maglev), true);
-        maglev.configure();
-
-        // Setup actors token approvals to maglev
-        address[] memory contracts = new address[](1);
-        contracts[0] = address(maglev);
-
-        _setupActorApprovals(baseAssets, contracts);
-    }
-
     function _deployEVault(address asset) internal returns (IEVault eVault) {
         // Deploy the eTST
         eVault = IEVault(factory.createProxy(address(0), true, abi.encodePacked(asset, address(oracle), address(1))));
@@ -159,6 +128,81 @@ contract Setup is BaseTest {
         eVault.setMaxLiquidationDiscount(0.2e4);
         eVault.setFeeReceiver(feeRecipient);
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                           MAGLEV                                          //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    function _deployMaglev(Curve _curveType) internal {
+        // Setup maglev lp as the first actor
+        holder = address(actors[USER1]);
+
+        /// @dev store the curve selected
+        curve = _curveType;
+
+        // Setup the maglev params
+        MaglevBase.BaseParams memory baseParams = MaglevBase.BaseParams({
+            evc: address(evc),
+            vault0: address(eTST),
+            vault1: address(eTST2),
+            myAccount: holder,
+            debtLimit0: 50e18, // TODO tweak these numbers
+            debtLimit1: 50e18,
+            fee: 0
+        });
+
+        /// @dev Switch between the different curves
+        if (curve == Curve.EULER_SWAP) {
+            _deployMaglevEulerSwap(baseParams);
+        } else if (curve == Curve.PRODUCT) {
+            _deployMaglevConstantProduct(baseParams);
+        } else {
+            _deployMaglevConstantSum(baseParams);
+        }
+
+        // Set maglev as operator for the lp and call configure
+        vm.prank(holder);
+        evc.setAccountOperator(holder, address(maglev), true);
+        maglev.configure();
+
+        // Setup actors token approvals to maglev
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(maglev);
+
+        _setupActorApprovals(baseAssets, contracts);
+    }
+
+    function _deployMaglevEulerSwap(MaglevBase.BaseParams memory _baseParams) internal {
+        maglev = IMaglevBase(
+            address(
+                new MaglevEulerSwap(
+                    _baseParams,
+                    MaglevEulerSwap.EulerSwapParams({
+                        priceX: 1e18,
+                        priceY: 1e18,
+                        concentrationX: 0.4e18,
+                        concentrationY: 0.85e18
+                    })
+                )
+            )
+        );
+    }
+
+    function _deployMaglevConstantProduct(MaglevBase.BaseParams memory _baseParams) internal {
+        maglev = IMaglevBase(address(new MaglevConstantProduct(_baseParams)));
+    }
+
+    function _deployMaglevConstantSum(MaglevBase.BaseParams memory _baseParams) internal {
+        maglev = IMaglevBase(
+            address(
+                new MaglevConstantSum(_baseParams, MaglevConstantSum.ConstantSumParams({priceX: 1e18, priceY: 1e18}))
+            )
+        );
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                           ACTORS                                          //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /// @notice Deploy protocol actors and initialize their balances
     function _setUpActors() internal {

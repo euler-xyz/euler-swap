@@ -25,6 +25,8 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
     }
 
     struct DefaultVars {
+        // Holder
+        int256 holderNAV;
         mapping(address => User) users;
     }
 
@@ -51,14 +53,14 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
 
     function _defaultHooksBefore() internal {
         // Default values
-        _setVaultValues(defaultVarsBefore);
+        _setDefaultValues(defaultVarsBefore);
         // Health & user account data
         _setUserValues(defaultVarsBefore);
     }
 
     function _defaultHooksAfter() internal {
         // Default values
-        _setVaultValues(defaultVarsAfter);
+        _setDefaultValues(defaultVarsAfter);
         // Health & user account data
         _setUserValues(defaultVarsAfter);
     }
@@ -67,15 +69,22 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
     //                                       HELPERS                                             //
     /////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    function _setVaultValues(DefaultVars storage _defaultVars) internal {}
+    function _setDefaultValues(DefaultVars storage _defaultVars) internal {
+        // Holder
+        _defaultVars.holderNAV = _getHolderNAV();
+    }
 
     function _setUserValues(DefaultVars storage _defaultVars) internal {
         for (uint256 i; i < actorAddresses.length; i++) {
-            _setUserValuesPerActor(_defaultVars.users[actorAddresses[i]]);
+            address actorAddress_ = actorAddresses[i];
+            _setUserValuesPerActor(_defaultVars.users[actorAddress_], actorAddress_);
         }
     }
 
-    function _setUserValuesPerActor(User storage _user) internal {}
+    function _setUserValuesPerActor(User storage _user, address _actorAddress) internal {
+        _user.assetTSTBalance = assetTST.balanceOf(_actorAddress);
+        _user.assetTST2Balance = assetTST2.balanceOf(_actorAddress);
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                   POST CONDITIONS: BASE                                   //

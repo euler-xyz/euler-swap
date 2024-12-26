@@ -23,8 +23,12 @@ abstract contract PostconditionsSpec {
     /////////////////////////////////////////////////////////////////////////////////////////////*/
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    //                                          BASE                                             //
+    //                                          SWAP                                             //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    string constant GPOST_BASE_A = "GPOST_BASE_A: lastHarvestTimestamp increases monotonically";
+    string constant HSPOST_SWAP_A = "HSPOST_SWAP_A: Holder's NAV should increase monotonically";
+
+    string constant HSPOST_SWAP_B = "HSPOST_SWAP_B: Swapping back and forth does not lead to a profit";
+
+    string constant HSPOST_SWAP_C = "HSPOST_SWAP_C: User should receive the amount out specified after a swap";
 }

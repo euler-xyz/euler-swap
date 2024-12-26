@@ -17,6 +17,8 @@ abstract contract Invariants is BaseInvariants {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     function echidna_BASE_ASSETS_INVARIANTS() public returns (bool) {
+        assert_INV_BASE_A();
+
         return true;
     }
 }

@@ -22,7 +22,7 @@ contract CryticToFoundry is Invariants, Setup {
 
     function setUp() public {
         // Deploy protocol contracts
-        _setUp();
+        _setUp(Curve.EULER_SWAP);
 
         // Initialize handler contracts
         _setUpHandlers();
@@ -38,6 +38,11 @@ contract CryticToFoundry is Invariants, Setup {
 
     /// @dev Needed in order for foundry to recognise the contract as a test, faster debugging
     function testAux() public {}
+
+    function test_replaySwap() public {
+        Tester.mint(2000000, 0, 0);
+        Tester.swap(1, 0, 0, 0, 0);//@audit-issue is possible to extract value from the protocol 1 wei of value
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                  POSTCONDITIONS REPLAY                                    //

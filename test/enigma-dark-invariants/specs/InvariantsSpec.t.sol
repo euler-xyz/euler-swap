@@ -19,5 +19,5 @@ abstract contract InvariantsSpec {
     //                                         BASE                                              //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    string constant INV_BASE_A = "INV_BASE_A: performanceFee should be between bounds";
+    string constant INV_BASE_A = "INV_BASE_A: At most one of vault0 or vault1 has debt (unless the CDP is under water)";
 }
