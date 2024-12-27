@@ -137,6 +137,11 @@ contract Setup is BaseTest {
         // Setup maglev lp as the first actor
         holder = address(actors[USER1]);
 
+        vm.prank(holder);
+        eTST.deposit(50e18, holder);
+        vm.prank(holder);
+        eTST2.deposit(50e18, holder);
+
         /// @dev store the curve selected
         curve = _curveType;
 
@@ -146,8 +151,8 @@ contract Setup is BaseTest {
             vault0: address(eTST),
             vault1: address(eTST2),
             myAccount: holder,
-            debtLimit0: 50e18, // TODO tweak these numbers
-            debtLimit1: 50e18,
+            debtLimit0: 500e18, // TODO tweak these numbers
+            debtLimit1: 500e18,
             fee: 0
         });
 

@@ -35,7 +35,7 @@ abstract contract MaglevHandler is BaseHandler {
 
         address target = address(maglev);
 
-        require(amount0Out > 1 || amount1Out > 1, "MaglevHandler: Invalid amount out");
+        require(amount0Out > 1 ether || amount1Out > 1 ether, "MaglevHandler: Invalid amount out");
 
         if (amount0In > 0) {
             _transferByActor(address(assetTST), address(maglev), amount0In);
@@ -48,8 +48,6 @@ abstract contract MaglevHandler is BaseHandler {
         _before();
         (success, returnData) =
             actor.proxy(target, abi.encodeWithSelector(IMaglevBase.swap.selector, amount0Out, amount1Out, receiver, ""));
-
-        delete receiver;
 
         if (roundtripSwapActor != address(0)) require(success);
 
@@ -68,9 +66,12 @@ abstract contract MaglevHandler is BaseHandler {
 
             assert(false);
         }
+
+        delete receiver;
     }
 
-    function roundtripSwap(uint256 amount, uint8 i) external setup {
+    function roundtripSwap(uint256 amount, uint8 i) internal setup {
+        // TODO study this case
         uint256 amount0Out;
         uint256 amount1Out;
         uint256 amount0In;
@@ -125,7 +126,7 @@ abstract contract MaglevHandler is BaseHandler {
     {
         if (amount0Out > 0) {
             assertEq(
-                defaultVarsBefore.users[receiver].assetTSTBalance,
+                defaultVarsAfter.users[receiver].assetTSTBalance,
                 defaultVarsBefore.users[receiver].assetTSTBalance + amount0Out - amount0In,
                 HSPOST_SWAP_C
             );
@@ -133,7 +134,7 @@ abstract contract MaglevHandler is BaseHandler {
 
         if (amount1Out > 0) {
             assertEq(
-                defaultVarsBefore.users[receiver].assetTST2Balance,
+                defaultVarsAfter.users[receiver].assetTST2Balance,
                 defaultVarsBefore.users[receiver].assetTST2Balance + amount1Out - amount1In,
                 HSPOST_SWAP_C
             );

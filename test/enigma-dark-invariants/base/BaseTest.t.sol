@@ -115,7 +115,7 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
     //                                   MAGLEV SPECIFIC HELPERS                                 //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function _getHolderNAV() public view returns (int256) {
+    function _getHolderNAV() internal view returns (int256) {
         uint256 balance0 = eTST.convertToAssets(eTST.balanceOf(holder));
         uint256 debt0 = eTST.debtOf(holder);
         uint256 balance1 = eTST2.convertToAssets(eTST2.balanceOf(holder));

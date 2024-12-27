@@ -41,12 +41,17 @@ contract CryticToFoundry is Invariants, Setup {
 
     function test_replaySwap() public {
         Tester.mint(2000000, 0, 0);
-        Tester.swap(1, 0, 0, 0, 0);//@audit-issue is possible to extract value from the protocol 1 wei of value
+        Tester.swap(1, 0, 0, 0, 0); //@audit-issue is possible to extract value from the protocol 1 wei of value
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                  POSTCONDITIONS REPLAY                                    //
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    function test_replay_swap() public {
+        Tester.deposit(2000 ether, 0, 0);
+        Tester.swap(2 ether, 0, 0, 10 ether, 0);
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                     INVARIANTS REPLAY                                     //
