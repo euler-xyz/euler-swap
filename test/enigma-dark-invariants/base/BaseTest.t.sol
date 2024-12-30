@@ -12,6 +12,7 @@ import {StdUtils} from "forge-std/StdUtils.sol";
 import {Actor} from "../utils/Actor.sol";
 import {PropertiesConstants} from "../utils/PropertiesConstants.sol";
 import {StdAsserts} from "../utils/StdAsserts.sol";
+import {CoverageChecker} from "../utils/CoverageChecker.sol";
 
 // Base
 import {BaseStorage} from "./BaseStorage.t.sol";
@@ -21,7 +22,7 @@ import "forge-std/console.sol";
 /// @notice Base contract for all test contracts extends BaseStorage
 /// @dev Provides setup modifier and cheat code setup
 /// @dev inherits Storage, Testing constants assertions and utils needed for testing
-abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdUtils {
+abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdUtils, CoverageChecker {
     bool internal IS_TEST = true;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

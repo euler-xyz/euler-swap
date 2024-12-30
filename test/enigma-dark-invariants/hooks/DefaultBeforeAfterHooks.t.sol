@@ -27,6 +27,10 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
     struct DefaultVars {
         // Holder
         int256 holderNAV;
+        uint256 holderETSTAssets;
+        uint256 holderETST2Assets;
+        uint256 holderETSTDebt;
+        uint256 holderETST2Debt;
         mapping(address => User) users;
     }
 
@@ -72,6 +76,10 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
     function _setDefaultValues(DefaultVars storage _defaultVars) internal {
         // Holder
         _defaultVars.holderNAV = _getHolderNAV();
+        _defaultVars.holderETSTAssets = eTST.convertToAssets(eTST.balanceOf(holder));
+        _defaultVars.holderETST2Assets = eTST2.convertToAssets(eTST2.balanceOf(holder));
+        _defaultVars.holderETSTDebt = eTST.debtOf(holder);
+        _defaultVars.holderETST2Debt = eTST2.debtOf(holder);
     }
 
     function _setUserValues(DefaultVars storage _defaultVars) internal {

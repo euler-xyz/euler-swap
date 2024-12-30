@@ -31,4 +31,16 @@ abstract contract PostconditionsSpec {
     string constant HSPOST_SWAP_B = "HSPOST_SWAP_B: Swapping back and forth does not lead to a profit";
 
     string constant HSPOST_SWAP_C = "HSPOST_SWAP_C: User should receive the amount out specified after a swap";
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                         RESERVES                                          //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    string constant HSPOST_RESERVES_A = "HSPOST_RESERVES_A: If there is debt in tokenIn, the debt must be repaid";
+
+    string constant HSPOST_RESERVES_B =
+        "HSPOST_RESERVES_B: If amountOut does not exceed tokenOut collateral, tokenOut amount is withdrawn";
+
+    string constant HSPOST_RESERVES_C =
+        "HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed";
 }

@@ -35,7 +35,9 @@ abstract contract MaglevHandler is BaseHandler {
 
         address target = address(maglev);
 
-        require(amount0Out > 1 ether || amount1Out > 1 ether, "MaglevHandler: Invalid amount out");
+        //if (amount0Out >= 2 ether && amount1In >= 10 ether) assert(false);
+
+        //require(amount0Out > 1 ether || amount1Out > 1 ether, "MaglevHandler: Invalid amount out");
 
         if (amount0In > 0) {
             _transferByActor(address(assetTST), address(maglev), amount0In);
@@ -64,7 +66,9 @@ abstract contract MaglevHandler is BaseHandler {
                 _constantSumPostconditions();
             }
 
-            assert(false);
+            //assert((amount0Out > 1 && amount1In > 1) || (amount1Out > 1 && amount0In > 1));
+
+            _checkCoverage(amount0Out, 0, type(uint256).max);
         }
 
         delete receiver;
@@ -124,6 +128,8 @@ abstract contract MaglevHandler is BaseHandler {
     function _commonPostconditions(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In)
         internal
     {
+        /// @dev HSPOST_SWAP_A
+
         if (amount0Out > 0) {
             assertEq(
                 defaultVarsAfter.users[receiver].assetTSTBalance,
@@ -139,7 +145,49 @@ abstract contract MaglevHandler is BaseHandler {
                 HSPOST_SWAP_C
             );
         }
-        assertGe(defaultVarsBefore.holderNAV, defaultVarsAfter.holderNAV, HSPOST_SWAP_A);
+        assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
+
+        /// @dev HSPOST_RESERVES_A
+
+        if (amount0In < defaultVarsBefore.holderETSTDebt) {
+            assertEq(defaultVarsAfter.holderETSTDebt, defaultVarsBefore.holderETSTDebt - amount0In, HSPOST_SWAP_B);
+        } else {
+            assertEq(defaultVarsAfter.holderETSTDebt, 0, HSPOST_RESERVES_A);
+        }
+
+        if (amount1In < defaultVarsBefore.holderETST2Debt) {
+            assertEq(defaultVarsAfter.holderETST2Debt, defaultVarsBefore.holderETST2Debt - amount1In, HSPOST_SWAP_B);
+        } else {
+            assertEq(defaultVarsAfter.holderETST2Debt, 0, HSPOST_RESERVES_A);
+        }
+
+        /// @dev HSPOST_RESERVES_B
+
+        if (amount0Out < defaultVarsBefore.holderETSTAssets) {
+            assertEq(
+                defaultVarsAfter.holderETSTAssets,
+                defaultVarsBefore.holderETSTAssets - amount0Out + amount0In,
+                HSPOST_RESERVES_B
+            );
+        } else {
+            assertEq(defaultVarsAfter.holderETSTAssets, 0, HSPOST_RESERVES_B);
+            assertEq(
+                defaultVarsAfter.holderETSTDebt, amount0Out - defaultVarsBefore.holderETSTAssets, HSPOST_RESERVES_C
+            );
+        }
+
+        if (amount1Out < defaultVarsBefore.holderETST2Assets) {
+            assertEq(
+                defaultVarsAfter.holderETST2Assets,
+                defaultVarsBefore.holderETST2Assets - amount1Out + amount1In,
+                HSPOST_RESERVES_B
+            );
+        } else {
+            assertEq(defaultVarsAfter.holderETST2Assets, 0, HSPOST_RESERVES_B);
+            assertEq(
+                defaultVarsAfter.holderETST2Debt, amount1Out - defaultVarsBefore.holderETST2Assets, HSPOST_RESERVES_C
+            );
+        }
     }
 
     /// @notice Postconditions for EulerSwap curve

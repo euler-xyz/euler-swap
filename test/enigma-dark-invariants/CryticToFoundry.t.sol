@@ -49,8 +49,8 @@ contract CryticToFoundry is Invariants, Setup {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     function test_replay_swap() public {
-        Tester.deposit(2000 ether, 0, 0);
-        Tester.swap(2 ether, 0, 0, 10 ether, 0);
+        Tester.setPrice(1, 1);
+        Tester.swap(0, 0, 0, 1000313385499984830, 0);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
