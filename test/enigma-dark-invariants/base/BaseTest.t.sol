@@ -23,8 +23,6 @@ import "forge-std/console.sol";
 /// @dev Provides setup modifier and cheat code setup
 /// @dev inherits Storage, Testing constants assertions and utils needed for testing
 abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdUtils, CoverageChecker {
-    bool internal IS_TEST = true;
-
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                   ACTOR PROXY MECHANISM                                   //
     ///////////////////////////////////////////////////////////////////////////////////////////////

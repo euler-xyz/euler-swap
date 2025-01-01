@@ -55,6 +55,10 @@ contract BaseHandler is HookAggregator {
         return vaults[_vaultIndex];
     }
 
+    function _getAssetsByDir(bool dir) internal view returns (address assetIn, address assetOut) {
+        return dir ? (address(assetTST), address(assetTST2)) : (address(assetTST2), address(assetTST));
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                             HELPERS                                       //
     ///////////////////////////////////////////////////////////////////////////////////////////////

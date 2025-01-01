@@ -19,5 +19,7 @@ abstract contract NonRevertPropertiesSpec {
     //                                          BASE                                             //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    string constant NR_BASE_A = "NR_BASE_A: updateInterestAccrued should not revert";
+    string constant NR_QUOTE_A = "NR_QUOTE_A: quoteExactInput should not revert";
+
+    string constant NR_QUOTE_B = "NR_QUOTE_B: quoteExactOutput should not revert";
 }
