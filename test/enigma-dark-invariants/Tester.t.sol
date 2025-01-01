@@ -8,7 +8,7 @@ import {Setup} from "./Setup.t.sol";
 /// @notice Entry point for invariant testing, inherits all contracts, invariants & handler
 /// @dev Mono contract that contains all the testing logic
 contract Tester is Invariants, Setup {
-    bool internal IS_TEST = true;
+    bool public IS_TEST = true;
 
     constructor() payable {
         // Deploy protocol contracts and protocol actors

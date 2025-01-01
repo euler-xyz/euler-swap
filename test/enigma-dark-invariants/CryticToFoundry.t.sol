@@ -14,8 +14,6 @@ import {Setup} from "./Setup.t.sol";
  * The objective is to go from random values to hardcoded values that can be analyzed more easily
  */
 contract CryticToFoundry is Invariants, Setup {
-    bool internal IS_TEST = true;
-
     CryticToFoundry Tester = this;
 
     modifier setup() override {
