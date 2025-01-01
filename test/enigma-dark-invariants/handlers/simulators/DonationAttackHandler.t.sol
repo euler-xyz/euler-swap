@@ -34,7 +34,7 @@ contract DonationAttackHandler is BaseHandler {
         _token.mint(address(this), amount);
 
         _token.transfer(target, amount); */
-            // TODO remove comments when fixed
+        // TODO remove comments when fixed
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
