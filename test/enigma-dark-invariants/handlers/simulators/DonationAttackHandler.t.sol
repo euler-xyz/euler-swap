@@ -26,14 +26,15 @@ contract DonationAttackHandler is BaseHandler {
 
     /// @notice This function transfers any amount of assets to a contract in the system simulating
     /// a big range of donation attacks
-    function donateUnderlying(uint256 amount, uint8 i) external {// TODO remove comments when fixed
-/*         TestERC20 _token = TestERC20(_getRandomBaseAsset(i));
+    function donateUnderlying(uint256 amount, uint8 i) external {
+        /*         TestERC20 _token = TestERC20(_getRandomBaseAsset(i));
 
         address target = address(maglev);
 
         _token.mint(address(this), amount);
 
         _token.transfer(target, amount); */
+            // TODO remove comments when fixed
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
