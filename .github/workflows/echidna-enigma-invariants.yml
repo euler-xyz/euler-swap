@@ -3,7 +3,7 @@ name: Echidna Enigma Invariants
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
 
 env:
@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
