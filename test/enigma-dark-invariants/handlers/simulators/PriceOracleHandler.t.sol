@@ -18,7 +18,7 @@ abstract contract PriceOracleHandler is BaseHandler {
     //                                           ACTIONS                                         //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    /// @notice This function simulates changes in the interest rate model
+    /// @notice This function simulates changes in asset price
     function setPrice(uint8 i, uint256 price) external {
         address baseAsset = _getRandomBaseAsset(i);
 

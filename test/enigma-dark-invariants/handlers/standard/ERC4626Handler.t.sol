@@ -38,6 +38,8 @@ abstract contract ERC4626Handler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("ERC4626Handler: deposit failed");
         }
     }
 
@@ -56,6 +58,8 @@ abstract contract ERC4626Handler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("ERC4626Handler: mint failed");
         }
     }
 
@@ -75,6 +79,8 @@ abstract contract ERC4626Handler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("ERC4626Handler: withdraw failed");
         }
     }
 
@@ -94,6 +100,8 @@ abstract contract ERC4626Handler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("ERC4626Handler: redeem failed");
         }
     }
 

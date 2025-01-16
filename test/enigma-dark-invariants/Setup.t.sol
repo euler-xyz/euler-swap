@@ -15,10 +15,6 @@ import {SequenceRegistry} from "evk/SequenceRegistry/SequenceRegistry.sol";
 import {Base} from "evk/EVault/shared/Base.sol";
 import {Dispatch} from "evk/EVault/Dispatch.sol";
 import {EVault} from "evk/EVault/EVault.sol";
-import {MaglevBase} from "src/MaglevBase.sol";
-import {MaglevConstantSum} from "src/MaglevConstantSum.sol";
-import {MaglevConstantProduct} from "src/MaglevConstantProduct.sol";
-import {MaglevEulerSwap} from "src/MaglevEulerSwap.sol";
 
 // Modules
 import {Initialize} from "evk/EVault/modules/Initialize.sol";
@@ -34,7 +30,6 @@ import {MockBalanceTracker} from "evk/../test/mocks/MockBalanceTracker.sol";
 // Interfaces
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IRMTestDefault} from "evk-test/mocks/IRMTestDefault.sol";
-import {IMaglevBase} from "src/interfaces/IMaglevBase.sol";
 
 // Test Contracts
 import {TestERC20} from "test/enigma-dark-invariants/utils/mocks/TestERC20.sol";
@@ -55,7 +50,7 @@ contract Setup is BaseTest {
         _setUpActors();
 
         // Deploy and setup maglev
-        _deployMaglev(_curveType);
+        _setUpMaglev(_curveType);
     }
 
     /// @notice Deploy euler env contracts
@@ -108,7 +103,7 @@ contract Setup is BaseTest {
         baseAssets.push(address(assetTST));
         oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
 
-        assetTST2 = new TestERC20("Test Token 2", "TST2", 18);
+        assetTST2 = new TestERC20("Test Token 2", "TST2", 18); // TODO change decimals
         baseAssets.push(address(assetTST2));
         oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
 
@@ -135,76 +130,9 @@ contract Setup is BaseTest {
     //                                           MAGLEV                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function _deployMaglev(Curve _curveType) internal {
+    function _setUpMaglev(Curve _curveType) internal {
         // Setup maglev lp as the first actor
         holder = address(actors[USER1]);
-
-        vm.prank(holder);
-        eTST.deposit(50e18, holder);
-        vm.prank(holder);
-        eTST2.deposit(50e18, holder);
-
-        /// @dev store the curve selected
-        curve = _curveType;
-
-        // Setup the maglev params
-        MaglevBase.BaseParams memory baseParams = MaglevBase.BaseParams({
-            evc: address(evc),
-            vault0: address(eTST),
-            vault1: address(eTST2),
-            myAccount: holder,
-            debtLimit0: 500e18, // TODO tweak these numbers
-            debtLimit1: 500e18,
-            fee: 0
-        });
-
-        /// @dev Switch between the different curves
-        if (curve == Curve.EULER_SWAP) {
-            _deployMaglevEulerSwap(baseParams);
-        } else if (curve == Curve.PRODUCT) {
-            _deployMaglevConstantProduct(baseParams);
-        } else {
-            _deployMaglevConstantSum(baseParams);
-        }
-
-        // Set maglev as operator for the lp and call configure
-        vm.prank(holder);
-        evc.setAccountOperator(holder, address(maglev), true);
-        maglev.configure();
-
-        // Setup actors token approvals to maglev
-        address[] memory contracts = new address[](1);
-        contracts[0] = address(maglev);
-
-        _setupActorApprovals(baseAssets, contracts);
-    }
-
-    function _deployMaglevEulerSwap(MaglevBase.BaseParams memory _baseParams) internal {
-        maglev = IMaglevBase(
-            address(
-                new MaglevEulerSwap(
-                    _baseParams,
-                    MaglevEulerSwap.EulerSwapParams({
-                        priceX: 1e18,
-                        priceY: 1e18,
-                        concentrationX: 0.4e18,
-                        concentrationY: 0.85e18
-                    })
-                )
-            )
-        );
-    }
-
-    function _deployMaglevConstantProduct(MaglevBase.BaseParams memory _baseParams) internal {
-        maglev = IMaglevBase(address(new MaglevConstantProduct(_baseParams)));
-    }
-
-    function _deployMaglevConstantSum(MaglevBase.BaseParams memory _baseParams) internal {
-        maglev = IMaglevBase(
-            address(
-                new MaglevConstantSum(_baseParams, MaglevConstantSum.ConstantSumParams({priceX: 1e18, priceY: 1e18}))
-            )
-        );
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -256,15 +184,5 @@ contract Setup is BaseTest {
         (success,) = address(_actor).call{value: INITIAL_ETH_BALANCE}("");
         assert(success);
         actorAddress = address(_actor);
-    }
-
-    function _setupActorApprovals(address[] memory tokens, address[] memory contracts_) internal {
-        for (uint256 i; i < actorAddresses.length; i++) {
-            for (uint256 j; j < tokens.length; j++) {
-                for (uint256 k; k < contracts_.length; k++) {
-                    _approve(tokens[j], actorAddresses[i], contracts_[k], type(uint256).max);
-                }
-            }
-        }
     }
 }

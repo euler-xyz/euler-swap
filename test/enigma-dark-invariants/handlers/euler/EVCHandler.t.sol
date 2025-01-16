@@ -41,6 +41,8 @@ abstract contract EVCHandler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("EVCHandler: setAccountOperator failed");
         }
     }
 
@@ -63,6 +65,8 @@ abstract contract EVCHandler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("EVCHandler: enableCollateral failed");
         }
     }
 
@@ -83,6 +87,8 @@ abstract contract EVCHandler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("EVCHandler: disableCollateral failed");
         }
     }
 
@@ -101,6 +107,8 @@ abstract contract EVCHandler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("EVCHandler: disableCollateral failed");
         }
     }
 
@@ -122,6 +130,8 @@ abstract contract EVCHandler is BaseHandler {
 
         if (success) {
             _after();
+        } else {
+            revert("EVCHandler: enableController failed");
         }
     }
 
@@ -136,7 +146,12 @@ abstract contract EVCHandler is BaseHandler {
         (success, returnData) = actor.proxy(
             address(evc), abi.encodeWithSelector(EthereumVaultConnector.disableController.selector, account)
         );
-        _after();
+
+        if (success) {
+            _after();
+        } else {
+            revert("EVCHandler: disableControllerEVC failed");
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

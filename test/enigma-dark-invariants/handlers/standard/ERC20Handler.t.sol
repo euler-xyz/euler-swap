@@ -37,8 +37,8 @@ abstract contract ERC20Handler is BaseHandler {
 
         if (success) {
             _after();
-
-            assert(true);
+        } else {
+            revert("ERC20Handler: approve failed");
         }
     }
 
@@ -57,8 +57,8 @@ abstract contract ERC20Handler is BaseHandler {
 
         if (success) {
             _after();
-
-            assert(true);
+        } else {
+            revert("ERC20Handler: transfer failed");
         }
     }
 
@@ -80,8 +80,8 @@ abstract contract ERC20Handler is BaseHandler {
 
         if (success) {
             _after();
-
-            assert(true);
+        } else {
+            revert("ERC20Handler: transferFrom failed");
         }
     }
 

@@ -19,6 +19,20 @@ contract BaseHandler is HookAggregator {
     using EnumerableSet for EnumerableSet.UintSet;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                         MODIFIERS                                         //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    modifier maglevNotDeployed() {
+        if (address(maglev) != address(0)) revert("BaseHandler: Maglev already deployed on this trace");
+        _;
+    }
+
+    modifier maglevDeployed() {
+        if (address(maglev) == address(0)) revert("BaseHandler: Maglev has not been deployed on this trace");
+        _;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                       SHARED VARAIBLES                                    //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 

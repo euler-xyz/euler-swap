@@ -6,6 +6,7 @@ import {EVCHandler} from "./handlers/euler/EVCHandler.t.sol";
 import {ERC20Handler} from "./handlers/standard/ERC20Handler.t.sol";
 import {ERC4626Handler} from "./handlers/standard/ERC4626Handler.t.sol";
 import {MaglevHandler} from "./handlers/swap/MaglevHandler.t.sol";
+import {MaglevSetupHandler} from "./handlers/setup/MaglevSetupHandler.t.sol";
 
 // Simulator Handler contracts,
 import {DonationAttackHandler} from "./handlers/simulators/DonationAttackHandler.t.sol";
@@ -17,6 +18,7 @@ abstract contract HandlerAggregator is
     ERC20Handler, // Module handlers
     ERC4626Handler,
     MaglevHandler,
+    MaglevSetupHandler,
     DonationAttackHandler, // Simulator handlers
     PriceOracleHandler
 {

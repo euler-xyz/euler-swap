@@ -45,7 +45,7 @@ corpusDir: "test/invariants/_corpus/echidna/default/_data/corpus"
 #mutConsts: [100, 1, 1]
 
 #remappings
-cryticArgs: [ "--solc-remaps", "@crytic/properties/=lib/properties/ forge-std/=lib/forge-std/src/ ds-test/=lib/forge-std/lib/ds-test/src/ openzeppelin/=lib/openzeppelin-contracts/contracts/" ]
+cryticArgs: [ "--ignore-compile", "--solc-remaps", "@crytic/properties/=lib/properties/ forge-std/=lib/forge-std/src/ ds-test/=lib/forge-std/lib/ds-test/src/ openzeppelin/=lib/openzeppelin-contracts/contracts/" ]
 
 # maximum value to send to payable functions
 maxValue: 1e+23 # 100000 eth

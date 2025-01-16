@@ -26,11 +26,7 @@ abstract contract MaglevHandler is BaseHandler {
     //                                          ACTIONS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function swap(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In, uint8 i) public setup {
-        console.log("amount0Out: %s", amount0Out);
-        console.log("amount1Out: %s", amount1Out);
-        console.log("amount0In: %s", amount0In);
-        console.log("amount1In: %s", amount1In);
+    function swap(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In, uint8 i) public  setup maglevDeployed  {
         bool success;
         bytes memory returnData;
 
@@ -55,8 +51,6 @@ abstract contract MaglevHandler is BaseHandler {
         (success, returnData) =
             actor.proxy(target, abi.encodeWithSelector(IMaglevBase.swap.selector, amount0Out, amount1Out, receiver, ""));
 
-        if (roundtripSwapActor != address(0)) require(success);
-
         if (success) {
             _after();
 
@@ -73,6 +67,8 @@ abstract contract MaglevHandler is BaseHandler {
             //assert((amount0Out > 1 && amount1In > 1) || (amount1Out > 1 && amount0In > 1));
 
             _checkCoverage(amount0Out, 0, type(uint256).max);
+        } else {
+            revert("MaglevHandler: swap failed");
         }
 
         delete receiver;
