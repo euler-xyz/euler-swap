@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 // Interfaces
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
+import {IEVault} from "evk/EVault/IEVault.sol";
 
 // Libraries
 import "forge-std/console.sol";
@@ -103,6 +104,16 @@ abstract contract ERC4626Handler is BaseHandler {
         } else {
             revert("ERC4626Handler: redeem failed");
         }
+    }
+
+    function skim(uint8 i, uint8 j) external {
+        // Get one of the three actors randomly
+        address receiver = _getRandomActor(i);
+
+        // Get one of the vaults randomly
+        address target = _getRandomVault(j);
+
+        IEVault(target).skim(type(uint256).max, receiver);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

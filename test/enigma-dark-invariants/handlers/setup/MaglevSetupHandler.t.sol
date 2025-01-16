@@ -28,11 +28,15 @@ abstract contract MaglevSetupHandler is BaseHandler {
         uint112 initialAmount0,
         uint112 initialAmount1,
         uint256 fee,
-        Curve _curveType,
+        Curve, /*_curveType*/
         MaglevEulerSwap.EulerSwapParams memory eulerSwapParams
     ) public maglevNotDeployed {
         // Clamp leverage at x10
         leverage = uint8(clampBetween(leverage, 1, 10));
+
+        // Clamp minimum amount at 1000 tokens
+        initialAmount0 = uint112(clampBetween(initialAmount0, 1000e18, type(uint112).max));
+        initialAmount1 = uint112(clampBetween(initialAmount1, 1000e18, type(uint112).max));
 
         uint112 debtLimit0 = initialAmount0 * leverage;
         uint112 debtLimit1 = initialAmount1 * leverage;
@@ -57,6 +61,8 @@ abstract contract MaglevSetupHandler is BaseHandler {
             debtLimit1: debtLimit1,
             fee: fee
         });
+
+        Curve _curveType = Curve.EULER_SWAP; // TODO remove hardcoded curve type -> try other curves on different instances
 
         /// Deploy the specific curve type maglev contract
         if (_curveType == Curve.EULER_SWAP) {

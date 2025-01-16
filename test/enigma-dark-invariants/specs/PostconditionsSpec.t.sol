@@ -43,4 +43,11 @@ abstract contract PostconditionsSpec {
 
     string constant HSPOST_RESERVES_C =
         "HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed";
+
+
+    // TODO 
+    // - if it has debt it shouldnt have balance
+    /* 
+        - donations should only increase nav or reduce leverage
+     */
 }

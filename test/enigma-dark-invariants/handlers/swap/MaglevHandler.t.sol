@@ -26,7 +26,11 @@ abstract contract MaglevHandler is BaseHandler {
     //                                          ACTIONS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function swap(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In, uint8 i) public  setup maglevDeployed  {
+    function swap(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In, uint8 i)
+        public
+        setup
+        maglevDeployed
+    {
         bool success;
         bytes memory returnData;
 
@@ -63,10 +67,6 @@ abstract contract MaglevHandler is BaseHandler {
             } else {
                 _constantSumPostconditions();
             }
-
-            //assert((amount0Out > 1 && amount1In > 1) || (amount1Out > 1 && amount0In > 1));
-
-            _checkCoverage(amount0Out, 0, type(uint256).max);
         } else {
             revert("MaglevHandler: swap failed");
         }
@@ -74,7 +74,7 @@ abstract contract MaglevHandler is BaseHandler {
         delete receiver;
     }
 
-    function roundtripSwap(uint256 amount, uint8 i) external setup {
+    function roundtripSwap(uint256 amount, uint8 i) external setup maglevDeployed {
         uint256 amount0Out;
         uint256 amount1Out;
         uint256 amount0In;
@@ -120,10 +120,10 @@ abstract contract MaglevHandler is BaseHandler {
         uint256 actorInBalanceAfter = assetTSTIn.balanceOf(roundtripSwapActor);
 
         // HSPOST
-        //assertLe(actorInBalanceAfter, actorInBalanceBefore, HSPOST_SWAP_B);
+        assertLe(actorInBalanceAfter, actorInBalanceBefore, HSPOST_SWAP_B);
     }
 
-    function quoteExactInput(uint256 amountIn, bool dir) external {
+    function quoteExactInput(uint256 amountIn, bool dir) external maglevDeployed {// TODO add if quote says to do x it should work and that quote shouldn't overestimate
         (address assetIn, address assetOut) = _getAssetsByDir(dir);
 
         try maglev.quoteExactInput(assetIn, assetOut, amountIn) returns (uint256 amountOut) {}
@@ -133,7 +133,7 @@ abstract contract MaglevHandler is BaseHandler {
         }
     }
 
-    function quoteExactOutput(uint256 amountIn, bool dir) external {
+    function quoteExactOutput(uint256 amountIn, bool dir) external maglevDeployed {
         (address assetIn, address assetOut) = _getAssetsByDir(dir);
 
         try maglev.quoteExactOutput(assetIn, assetOut, amountIn) returns (uint256 amountOut) {}
@@ -169,7 +169,7 @@ abstract contract MaglevHandler is BaseHandler {
             );
         }
 
-        //assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);// TODO remove + 1 when rounding is fixed
+        //assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
 
         /// @dev HSPOST_RESERVES_A
 

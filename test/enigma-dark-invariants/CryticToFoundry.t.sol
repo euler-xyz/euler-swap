@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 // Contracts
+import {MaglevEulerSwap} from "src/MaglevEulerSwap.sol";
 import {Invariants} from "./Invariants.t.sol";
 import {Setup} from "./Setup.t.sol";
 
@@ -40,29 +41,31 @@ contract CryticToFoundry is Invariants, Setup {
     //                                  POSTCONDITIONS REPLAY                                    //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function test_replaySwap() public {
-        Tester.mint(2000000, 0, 0);
-        Tester.swap(1, 0, 0, 0, 0); //@audit-issue is possible to extract value from the protocol 1 wei of value
-    }
-
     function test_replay_swap() public {
-        Tester.swap(0, 1, 0, 0, 0); //@audit-issue is possible to extract value from the protocol 1 wei of value -> rounding down on fx and fy functions fx(y) == fx(y-1) -> HSPOST_SWAP_A
+        //@audit-issue is possible to extract value from the protocol 1 wei of value
+        Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
+        Tester.mint(2000000, 0, 0);
+        Tester.swap(1, 0, 0, 0, 0);
     }
 
     function test_replay_nav() public {
         //@audit-issue when price changes user lp looses nav after a trade
+        Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
         Tester.setPrice(1, 0.1 ether);
         Tester.swap(10, 0, 0, 10, 0);
     }
 
     function test_replay_roundtripswap() public {
+        // @audit-ok user receives the amount donated -> HSPOST_SWAP_B -> expected functionality
+        Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
         Tester.donateUnderlying(300000000000, 0);
-        Tester.roundtripSwap(100000000, 0); // @audit-issue user receives the amount donated -> HSPOST_SWAP_B
+        Tester.roundtripSwap(100000000, 0);
     }
 
-    function test_replay_swap_roundtripswap() public {
+    function test_replay_2roundtripswap() public {
         //@audit-issue user gets 1 wei more one the swap back -> HSPOST_SWAP_B
-        Tester.swap(15167520363383348756138763841789458381, 16455119106352766170018672268887607023990, 2, 0, 0);
+        Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
+        Tester.swap(1516752036338334875613876384, 1645511910635276617001867226888, 2, 0, 0);
         Tester.roundtripSwap(200000000, 0);
     }
 
