@@ -26,3 +26,4 @@ tests
   when exchange rate in vaults != 1
   uniswap callback, flash swaps
   hitting reserve/utilisation limits
+  AssetsOutOfOrderOrEqual

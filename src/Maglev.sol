@@ -5,46 +5,37 @@ import {EVCUtil} from "evc/utils/EVCUtil.sol";
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IERC20, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
 import {IUniswapV2Callee} from "./interfaces/IUniswapV2Callee.sol";
-import {IMaglevBase} from "./interfaces/IMaglevBase.sol";
+import {IMaglev} from "./interfaces/IMaglev.sol";
 
-abstract contract MaglevBase is IMaglevBase, EVCUtil {
+contract Maglev is IMaglev, EVCUtil {
+    bytes32 public curve = keccak256("EulerSwap v1");
+
     address public immutable vault0;
     address public immutable vault1;
     address public immutable asset0;
     address public immutable asset1;
     address public immutable myAccount;
+    uint112 public immutable debtLimit0;
+    uint112 public immutable debtLimit1;
+    uint112 public immutable initialReserve0;
+    uint112 public immutable initialReserve1;
     uint256 public immutable feeMultiplier;
+
+    uint256 public immutable priceX;
+    uint256 public immutable priceY;
+    uint256 public immutable concentrationX;
+    uint256 public immutable concentrationY;
 
     uint112 public reserve0;
     uint112 public reserve1;
-    uint32 internal locked; // uses single storage slot, accessible via getReserves()
+    uint32 internal locked;
 
     error Locked();
     error Overflow();
-    error UnsupportedPair();
     error BadFee();
-    error InsufficientReserves();
-    error InsufficientCash();
     error DifferentEVC();
     error AssetsOutOfOrderOrEqual();
     error CurveViolation();
-
-    modifier nonReentrant() {
-        require(locked == 0, Locked());
-        locked = 1;
-        _;
-        locked = 0;
-    }
-
-    struct BaseParams {
-        address evc;
-        address vault0;
-        address vault1;
-        address myAccount;
-        uint112 debtLimit0;
-        uint112 debtLimit1;
-        uint256 fee;
-    }
 
     event Swap(
         address indexed sender,
@@ -57,7 +48,33 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil {
         address indexed to
     );
 
-    constructor(BaseParams memory params) EVCUtil(params.evc) {
+    modifier nonReentrant() {
+        require(locked == 0, Locked());
+        locked = 1;
+        _;
+        locked = 0;
+    }
+
+    struct Params {
+        address evc;
+        address vault0;
+        address vault1;
+        address myAccount;
+        uint112 debtLimit0;
+        uint112 debtLimit1;
+        uint256 fee;
+    }
+
+    struct CurveParams {
+        uint256 priceX;
+        uint256 priceY;
+        uint256 concentrationX;
+        uint256 concentrationY;
+    }
+
+    constructor(Params memory params, CurveParams memory curveParams) EVCUtil(params.evc) {
+        // Maglev params
+
         require(params.fee < 1e18, BadFee());
 
         address vault0Evc = IEVault(params.vault0).EVC();
@@ -68,21 +85,28 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil {
         address asset1Addr = IEVault(params.vault1).asset();
         require(asset0Addr < asset1Addr, AssetsOutOfOrderOrEqual());
 
-        myAccount = params.myAccount;
         vault0 = params.vault0;
         vault1 = params.vault1;
         asset0 = asset0Addr;
         asset1 = asset1Addr;
-        reserve0 = offsetReserve(params.debtLimit0, params.vault0);
-        reserve1 = offsetReserve(params.debtLimit1, params.vault1);
+        myAccount = params.myAccount;
+        debtLimit0 = params.debtLimit0;
+        debtLimit1 = params.debtLimit1;
+        initialReserve0 = reserve0 = offsetReserve(params.debtLimit0, params.vault0);
+        initialReserve1 = reserve1 = offsetReserve(params.debtLimit1, params.vault1);
         feeMultiplier = 1e18 - params.fee;
+
+        // Curve params
+
+        priceX = curveParams.priceX;
+        priceY = curveParams.priceY;
+        concentrationX = curveParams.concentrationX;
+        concentrationY = curveParams.concentrationY;
     }
 
-    // Owner functions
-
-    /// @notice Approve the vaults to access the Maglev instance's tokens,
-    /// and enables vaults as collateral. Must call *after* installing
-    /// the Maglev instance as an operator.
+    /// @notice Approve the vaults to access the Maglev instance's tokens, and enables
+    /// vaults as collateral. Must call *after* installing the Maglev instance as an operator.
+    /// Can be invoked by anybody, and is harmless if invoked again.
     function activate() external {
         IERC20(asset0).approve(vault0, type(uint256).max);
         IERC20(asset1).approve(vault1, type(uint256).max);
@@ -91,7 +115,24 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil {
         IEVC(evc).enableCollateral(myAccount, vault1);
     }
 
-    // Swapper interface
+    /// @dev EulerSwap curve definition
+    function f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+        return y0 + px * 1e18 / py * (c * (2 * x0 - xt) / 1e18 + (1e18 - c) * x0 / 1e18 * x0 / xt - x0) / 1e18;
+    }
+
+    /// @notice Function that defines the shape of the swapping curve. Returns true iff
+    /// the provided reserve amounts are acceptable to the pool. Geometrically, this
+    /// can be visualised as checking if a point is on or above/to the right of
+    /// the swapping curve. This function must be implemented by a sub-class.
+    function verify(uint256 newReserve0, uint256 newReserve1) public view returns (bool) {
+        if (newReserve0 >= initialReserve0) {
+            if (newReserve1 >= initialReserve1) return true;
+            return newReserve0 >= f(newReserve1, priceY, priceX, initialReserve1, initialReserve0, concentrationY);
+        } else {
+            if (newReserve1 < initialReserve1) return false;
+            return newReserve1 >= f(newReserve0, priceX, priceY, initialReserve0, initialReserve1, concentrationX);
+        }
+    }
 
     /// @notice Optimistically sends the requested amounts of tokens to the `to`
     /// address, invokes `uniswapV2Call` callback on `to` (if `data` provided), and
@@ -146,16 +187,6 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil {
     /// @notice Convenience function for when both reserve values are needed.
     function getReserves() public view returns (uint112, uint112, uint32) {
         return (reserve0, reserve1, locked);
-    }
-
-    /// @notice How much `tokenOut` can I get for `amountIn` of `tokenIn`?
-    function quoteExactInput(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256) {
-        return computeFullQuote(tokenIn, tokenOut, amountIn, true);
-    }
-
-    /// @notice How much `tokenIn` do I need to get `amountOut` of `tokenOut`?
-    function quoteExactOutput(address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint256) {
-        return computeFullQuote(tokenIn, tokenOut, amountOut, false);
     }
 
     // Internal utilities
@@ -213,90 +244,4 @@ abstract contract MaglevBase is IMaglevBase, EVCUtil {
             }
         }
     }
-
-    /// @dev This function handles quoting, including swap fees. Curve-specific
-    /// quote calculations are delegated to computeQuote().
-    function computeFullQuote(address tokenIn, address tokenOut, uint256 amount, bool exactIn)
-        internal
-        view
-        returns (uint256)
-    {
-        // exactIn: decrease received amountIn, rounding down
-        if (exactIn) amount = amount * feeMultiplier / 1e18;
-
-        bool asset0IsInput;
-        if (tokenIn == asset0 && tokenOut == asset1) asset0IsInput = true;
-        else if (tokenIn == asset1 && tokenOut == asset0) asset0IsInput = false;
-        else revert UnsupportedPair();
-
-        uint256 quote = computeQuote(amount, exactIn, asset0IsInput);
-
-        if (exactIn) {
-            // if `exactIn`, `quote` is the amount of assets to buy from the AMM
-            require(quote <= (asset0IsInput ? reserve1 : reserve0), InsufficientReserves());
-            require(quote <= IEVault(asset0IsInput ? vault1 : vault0).cash(), InsufficientCash());
-        } else {
-            // if `!exactIn`, `amount` is the amount of assets to buy from the AMM
-            require(amount <= (asset0IsInput ? reserve1 : reserve0), InsufficientReserves());
-            require(amount <= IEVault(asset0IsInput ? vault1 : vault0).cash(), InsufficientCash());
-        }
-
-        // exactOut: increase required quote(amountIn), rounding up
-        if (!exactIn) quote = (quote * 1e18 + (feeMultiplier - 1)) / feeMultiplier;
-
-        return quote;
-    }
-
-    /// @dev This function generates quotes given the specific installed curve
-    /// instance. The base-class implementation is a binary search, however this
-    /// may be overridden by a subclass if there is a more efficient method
-    /// of computing quotes, or if a curve is non-convex.
-    function computeQuote(uint256 amount, bool exactIn, bool asset0IsInput)
-        internal
-        view
-        virtual
-        returns (uint256 output)
-    {
-        int256 dx;
-        int256 dy;
-
-        if (exactIn) {
-            if (asset0IsInput) dx = int256(amount);
-            else dy = int256(amount);
-        } else {
-            if (asset0IsInput) dy = -int256(amount);
-            else dx = -int256(amount);
-        }
-
-        unchecked {
-            int256 reserve0New = int256(uint256(reserve0)) + dx;
-            int256 reserve1New = int256(uint256(reserve1)) + dy;
-
-            uint256 low;
-            uint256 high = type(uint112).max;
-
-            while (low < high) {
-                uint256 mid = (low + high) / 2;
-                if (dy == 0 ? verify(uint256(reserve0New), mid) : verify(mid, uint256(reserve1New))) high = mid;
-                else low = mid + 1;
-            }
-
-            if (dx != 0) dy = int256(low) - reserve1New;
-            else dx = int256(low) - reserve0New;
-        }
-
-        if (exactIn) {
-            if (asset0IsInput) output = uint256(-dy);
-            else output = uint256(-dx);
-        } else {
-            if (asset0IsInput) output = uint256(dx);
-            else output = uint256(dy);
-        }
-    }
-
-    /// @dev Function that defines the shape of the swapping curve. Returns true iff
-    /// the provided reserve amounts are acceptable to the pool. Geometrically, this
-    /// can be visualised as checking if a point is on or above/to the right of
-    /// the swapping curve. This function must be implemented by a sub-class.
-    function verify(uint256 newReserve0, uint256 newReserve1) internal view virtual returns (bool);
 }

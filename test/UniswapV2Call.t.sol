@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IUniswapV2Callee} from "../src/interfaces/IUniswapV2Callee.sol";
 // import {Test, console} from "forge-std/Test.sol";
 import {MaglevTestBase} from "./MaglevTestBase.t.sol";
-import {MaglevEulerSwap as Maglev} from "../src/MaglevEulerSwap.sol";
+import {Maglev} from "../src/Maglev.sol";
 
 contract UniswapV2CallTest is MaglevTestBase {
     Maglev public maglev;
@@ -29,8 +29,8 @@ contract UniswapV2CallTest is MaglevTestBase {
     ) internal {
         vm.prank(creator);
         maglev = new Maglev(
-            getMaglevBaseParams(debtLimitA, debtLimitB, fee),
-            Maglev.EulerSwapParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy})
+            getMaglevParams(debtLimitA, debtLimitB, fee),
+            Maglev.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy})
         );
 
         vm.prank(holder);
@@ -42,7 +42,7 @@ contract UniswapV2CallTest is MaglevTestBase {
 
     function test_callback() public {
         uint256 amountIn = 1e18;
-        uint256 amountOut = maglev.quoteExactInput(address(assetTST), address(assetTST2), amountIn);
+        uint256 amountOut = periphery.quoteExactInput(address(maglev), address(assetTST), address(assetTST2), amountIn);
         assertApproxEqAbs(amountOut, 0.9974e18, 0.0001e18);
 
         assetTST.mint(address(this), amountIn);

@@ -7,7 +7,8 @@ import {Test, console} from "forge-std/Test.sol";
 import {EVaultTestBase, TestERC20} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 
-import {MaglevBase} from "../src/MaglevBase.sol";
+import {Maglev} from "../src/Maglev.sol";
+import {MaglevPeriphery} from "../src/MaglevPeriphery.sol";
 
 contract MaglevTestBase is EVaultTestBase {
     address public depositor = makeAddr("depositor");
@@ -16,8 +17,12 @@ contract MaglevTestBase is EVaultTestBase {
     address public recipient = makeAddr("recipient");
     address public anyone = makeAddr("anyone");
 
+    MaglevPeriphery public periphery;
+
     function setUp() public virtual override {
         super.setUp();
+
+        periphery = new MaglevPeriphery();
 
         // Vault config
 
@@ -43,12 +48,12 @@ contract MaglevTestBase is EVaultTestBase {
         _mintAndDeposit(holder, eTST2, 10e18);
     }
 
-    function getMaglevBaseParams(uint112 debtLimitA, uint112 debtLimitB, uint256 fee)
+    function getMaglevParams(uint112 debtLimitA, uint112 debtLimitB, uint256 fee)
         internal
         view
-        returns (MaglevBase.BaseParams memory)
+        returns (Maglev.Params memory)
     {
-        return MaglevBase.BaseParams({
+        return Maglev.Params({
             evc: address(evc),
             vault0: address(eTST),
             vault1: address(eTST2),
@@ -91,7 +96,7 @@ contract MaglevTestBase is EVaultTestBase {
     }
 
     function logState(address ml) internal view {
-        (uint112 reserve0, uint112 reserve1,) = MaglevBase(ml).getReserves();
+        (uint112 reserve0, uint112 reserve1,) = Maglev(ml).getReserves();
 
         console.log("--------------------");
         console.log("Account States:");

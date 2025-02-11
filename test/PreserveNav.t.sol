@@ -8,7 +8,7 @@ import {TestERC20} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {MaglevTestBase} from "./MaglevTestBase.t.sol";
 
-import {MaglevEulerSwap as Maglev, MaglevBase} from "../src/MaglevEulerSwap.sol";
+import {Maglev} from "../src/Maglev.sol";
 
 contract PreserveNav is MaglevTestBase {
     Maglev public maglev;
@@ -28,8 +28,8 @@ contract PreserveNav is MaglevTestBase {
     ) internal {
         vm.prank(creator);
         maglev = new Maglev(
-            getMaglevBaseParams(debtLimitA, debtLimitB, fee),
-            Maglev.EulerSwapParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy})
+            getMaglevParams(debtLimitA, debtLimitB, fee),
+            Maglev.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy})
         );
 
         vm.prank(holder);
@@ -70,7 +70,7 @@ contract PreserveNav is MaglevTestBase {
             if (dir1) (t1, t2) = (assetTST, assetTST2);
             else (t1, t2) = (assetTST2, assetTST);
 
-            uint256 q = maglev.quoteExactInput(address(t1), address(t2), amount1);
+            uint256 q = periphery.quoteExactInput(address(maglev), address(t1), address(t2), amount1);
 
             t1.mint(address(this), amount1);
             t1.transfer(address(maglev), amount1);
@@ -94,7 +94,7 @@ contract PreserveNav is MaglevTestBase {
             if (dir2) (t1, t2) = (assetTST, assetTST2);
             else (t1, t2) = (assetTST2, assetTST);
 
-            uint256 q = maglev.quoteExactInput(address(t1), address(t2), amount2);
+            uint256 q = periphery.quoteExactInput(address(maglev), address(t1), address(t2), amount2);
 
             t1.mint(address(this), amount2);
             t1.transfer(address(maglev), amount2);
