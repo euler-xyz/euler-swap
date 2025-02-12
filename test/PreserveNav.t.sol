@@ -58,7 +58,7 @@ contract PreserveNav is MaglevTestBase {
 
         createMaglev(50e18, 50e18, fee, 1e18, 1e18, cx, cy);
 
-        skimAll(preSkimDir);
+        skimAll(maglev, preSkimDir);
         int256 nav1 = getHolderNAV();
 
         {
@@ -108,49 +108,5 @@ contract PreserveNav is MaglevTestBase {
         }
 
         assertGe(getHolderNAV(), nav1);
-    }
-
-    function _skimAll(bool dir) public returns (uint256) {
-        uint256 skimmed = 0;
-        uint256 val = 1;
-
-        // Phase 1: Keep doubling skim amount until it fails
-
-        while (true) {
-            (uint256 amount0, uint256 amount1) = dir ? (val, uint256(0)) : (uint256(0), val);
-
-            try maglev.swap(amount0, amount1, address(0xDEAD), "") {
-                skimmed += val;
-                val *= 2;
-            } catch {
-                break;
-            }
-        }
-
-        // Phase 2: Keep halving skim amount until 1 wei skim fails
-
-        while (true) {
-            if (val > 1) val /= 2;
-
-            (uint256 amount0, uint256 amount1) = dir ? (val, uint256(0)) : (uint256(0), val);
-
-            try maglev.swap(amount0, amount1, address(0xDEAD), "") {
-                skimmed += val;
-            } catch {
-                if (val == 1) break;
-            }
-        }
-
-        return skimmed;
-    }
-
-    function skimAll(bool order) public {
-        if (order) {
-            _skimAll(true);
-            _skimAll(false);
-        } else {
-            _skimAll(false);
-            _skimAll(true);
-        }
     }
 }

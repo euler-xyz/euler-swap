@@ -108,4 +108,50 @@ contract MaglevTestBase is EVaultTestBase {
         console.log("  reserve0:           ", reserve0);
         console.log("  reserve1:           ", reserve1);
     }
+
+
+
+    function _skimAll(Maglev ml, bool dir) internal returns (uint256) {
+        uint256 skimmed = 0;
+        uint256 val = 1;
+
+        // Phase 1: Keep doubling skim amount until it fails
+
+        while (true) {
+            (uint256 amount0, uint256 amount1) = dir ? (val, uint256(0)) : (uint256(0), val);
+
+            try ml.swap(amount0, amount1, address(0xDEAD), "") {
+                skimmed += val;
+                val *= 2;
+            } catch {
+                break;
+            }
+        }
+
+        // Phase 2: Keep halving skim amount until 1 wei skim fails
+
+        while (true) {
+            if (val > 1) val /= 2;
+
+            (uint256 amount0, uint256 amount1) = dir ? (val, uint256(0)) : (uint256(0), val);
+
+            try ml.swap(amount0, amount1, address(0xDEAD), "") {
+                skimmed += val;
+            } catch {
+                if (val == 1) break;
+            }
+        }
+
+        return skimmed;
+    }
+
+    function skimAll(Maglev ml, bool order) public {
+        if (order) {
+            _skimAll(ml, true);
+            _skimAll(ml, false);
+        } else {
+            _skimAll(ml, false);
+            _skimAll(ml, true);
+        }
+    }
 }
