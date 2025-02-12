@@ -4,7 +4,7 @@
 
 Maglev is an Automated Market Maker (AMM) that uses [Euler Vaults](https://docs.euler.finance/euler-vault-kit-white-paper/) to **mag**nify capital efficiency using **lev**erage. By borrowing assets as needed, Maglev AMMs can extend the range of their reserves and earn fees on trades several times larger than their actual liquidity.
 
-To swappers, Maglev presents a conventional Uniswap2-style interface but internally it supports borrow and repaying, custom pricing curves, and other advanced functionality. Although invokeable by anyone, the primary swapper user-base is intended to be aggregators, intents solvers, and MEV bots.
+To swappers, Maglev presents a hopefully familiar Uniswap2-style interface but internally it supports borrow and repaying, custom pricing curves, and other advanced functionality. Although useable by anyone, it is primarily intended to be invoked by sophisticated actors such as swap aggregators, intents solvers, and MEV bots. Similar to Uniswap, there is a careful separation between the critical core functionality for servicing swaps and the surrounding periphery functions for quoting, etc.
 
 <!-- TOC FOLLOWS -->
 <!-- START OF TOC -->
@@ -38,7 +38,7 @@ The down-side is that while the AMM holds this leveraged position, it is paying 
 
 ## Operation
 
-Since the level of acceptable borrowing risk is not be the same for every user, pooled deposits are not supported. Each Maglev instance manages funds for a single entity (who of course may be jointly owned).
+Since the level of acceptable borrowing risk is not necessarily the same for every user, pooled deposits are not supported. Each Maglev instance manages funds for a single entity (which of course may be jointly owned).
 
 Maglev is a contract designed to be used as an [EVC operator](https://evc.wtf/docs/whitepaper/#operators). This means that the user, known as the *holder*, does not give up control over their funds to a smart contract, but instead retains it in their wallet. The holder can be any compatible address, including standard multisig wallets or even an EOA.
 
@@ -47,12 +47,10 @@ Maglev is a contract designed to be used as an [EVC operator](https://evc.wtf/do
 The following are the high-level steps required to setup Maglev:
 
 * Deposit funds into one or both of the vaults in proportion to the initial price
-* Deploy the desired Maglev contract, choosing parameters such as the vaults, debt limits, and the desired `fee`
-  * Note that the Maglev contract must be created after the funds are deposited, because its constructor will read the current debts and balances to setup its reserves cache
+* Deploy the desired Maglev contract, choosing parameters such as the vaults, initial price ratio, debt limits, and the swapping fee
+  * Note that the Maglev contract must be created *after* the funds are deposited, because its constructor will read the current debts and balances to setup its reserves cache
 * Install the Maglev contract as an operator for your account
-* Optional: Invoke the `activate()` function on the Maglev contract
-  * If not invoked, Maglev will be activated when the first swap is performed
-  * This function can be invoked by anyone, and it is harmless to re-invoke it
+* Optional: Invoke the `activate()` function on the Maglev contract. Otherwise, Maglev will be activated when the first swap is performed (increasing its gas cost somewhat)
 
 ### Reconfiguration
 
@@ -60,7 +58,7 @@ All user-configurable parameters are stored in immutable variables, meaning they
 
 ### Debt Limits
 
-The initial deposits in the two vaults represent the initial investment, and are swapped back and forth in response to swapping activity. In order to prevent loss to arbitrage, the initial investment should be made in proportion to the price of the assets.
+The initial deposits in the two vaults represent the initial investment, and are swapped back and forth in response to swapping activity. In order to prevent immediate losses to arbitrage, the initial investment should be made in proportion to the price of the assets.
 
 In a conventional AMM such as Uniswap, the balances held by the contract are called *reserves*, and these represent a hard upper-bound on the amounts that can be swapped: In other words, no matter how much you are willing to pay, you can never receive more than the amount currently held in reserve.
 
@@ -70,66 +68,30 @@ For example, if the initial investment has a NAV of $1000, and the debt limit is
 
 Each vault can have its own independent debt limit, which may be useful in case of vaults configured with asymmetric LTVs. A debt limit of 0 could be specified for one of the vaults if the holder only ever wants a borrow position in one of the assets. In the future we may add a debt minimum, allowing the holder to retain a position within a certain leverage range while continuing to profit off swapping activity.
 
-Note that it depends on the [curve](#curves) if the maximum LTV can actually be achieved. A constant product curve will only approach these reserve levels asymptotically, since each unit will get more and more expensive. With a constant sum curve, the LTV can be achieved precisely.
+Note that the the maximum LTV cannot actually be achieved because of the design of the curve. Instead, it will only approach these reserve levels asymptotically, since each unit gets more and more expensive.
 
 ### Desynchronised Reserves
 
-The Maglev contract tracks what it believes the reserves (amount available plus borrowable) to be by caching in storage. These reserves are updated on each swap. However, since the balance is not actually held by the Maglev contract (it is simply an operator), the actual underlying debts and balances may get out of sync. This can happen gradually as interest and fees are accrued, or suddenly if the holder moves funds or the position is liquidated.
+The Maglev contract tracks what it believes the reserves (balance available plus borrowable) to be by caching in storage. These reserves are updated on each swap. However, since the balance is not actually held by the Maglev contract (it is simply an operator), the actual underlying debts and balances may get out of sync. This can happen gradually as interest and fees are accrued, or suddenly if the holder moves funds or the position is liquidated.
 
 Normally this is not a problem, because swapping will still occur on the static curve (such actions do not change the offered prices). However, if there is a significant decrease in NAV then the desired LTVs may be exceeded (since the debt limit becomes higher relative to the NAV). If there is a significant increase in NAV then the AMM may become less capital efficient. To resynchronise, the Maglev instance should be uninstalled as an EVC operator, and a new one created and installed in its place.
 
 ### Fees
 
-Maglev collects swap fees in the input token.
+Maglev collects swap fees in the input token. In the core, after depositing but prior to verifying the curve invariant, all input amounts are adjusted down (rounding down).
 
-When quoting exact input swaps the effective input amount is decreased by the fee (rounding down) before consulting the curve. When quoting exact output swaps, the required input amount is increased by the fee (rounding up).
+In the periphery, when quoting exact input swaps the effective input amount is decreased by the fee (rounding down) before consulting the curve. When quoting exact output swaps, the required input amount is increased by the fee (rounding up).
 
-After depositing but prior to verifying the curve invariant, all input amounts are adjusted down (rounding down).
-
-Since the full amount including fees is actually deposited (or repaid), fees have the effect of increasing the NAV of the position. However, they are not currently "fed back" into the reserves to be used by future swaps. If fees build up significantly, the Maglev instance should be [replaced](#desynchronised-reserves).
+Since the full amount including fees is actually deposited (or repaid), fees have the effect of increasing the NAV of the position. However, they are not currently "fed back" into the reserves to be used by future swaps. If fees build up significantly, and compounding of these proceeds is desired, the Maglev instance should be [replaced](#desynchronised-reserves) by an instance with higher debt limits.
 
 
-## Curves
+## EulerSwap Curve
 
-### Constant Sum
+Although the Maglev interface can support various types of curves, the current implementation only uses the *EulerSwap curve*. This is a new curve developed by Euler Labs, and can be thought of as a hybrid between constant sum and constant product. The curve is defined piecewise: A piece to the left of an "initial reserves" point, and a piece to the right.
 
-This "curve" simply adds the values of the two reserves together and ensures that after a swap this sum has not decreased. It is mostly suitable for assets that are pegged to the same value, such as stable-stable pairs.
-
-This curve supports a price fraction so that the two tokens can have different relative values, which can be useful if the peg is other than 1:1, or if the tokens have differing decimals.
-
-In this curve, the entire virtual reserves can be consumed, and since each marginal unit of the swap has the same price, there is no direct incentive for arbitrageurs to deleverage the position. However, for the same reason this does allow fixed-size fees for swaps of any supported size (fixed price impact).
-
-### Constant Product
-
-This is the traditional Uniswap2 curve that preserves the product of the two reserves. The larger a swap, the higher the price impact and the more profitable it is to arbitrage a disbalanced pool back to the market price.
-
-### EulerSwap Curve
-
-This is a new curve developed by Euler. It can be thought of as a hybrid between constant sum and constant product. The curve is defined piecewise: A piece to the left of an "initial reserves" point, and a piece to the right.
-
-Each piece has a `concentration` parameter that determines the trade-off between constant sum and constant product. The higher the concentration (closer to 1), the more it is similar to a constant sum, and the lower (closer to 0), a constant product. The curve is also parameterised by a `price` parameter which determines the slope at the initial reserves point. There are actually two price parameters which can be considered the numerator and denominator of the price fraction.
+Each piece has a `concentration` parameter that determines the trade-off between constant sum and constant product. The higher the concentration (closer to 1), the more it resembles a constant sum, and the lower (closer to 0), a constant product. The curve is also parameterised by a `price` which determines the slope at the initial reserves point. There are actually two price parameters which can be considered the numerator and denominator of the price fraction.
 
 With careful parameter selection, the EulerSwap curve supports optimal tradeoffs between capital efficiency and arbitrage incentives.
-
-
-
-## Future directions
-
-* Currently we have only been supporting stable-stable pairs
-  * What extra considerations would there be for floating pairs?
-* Automatically re-invest fees. There are a few options:
-  * Don't do anything: Re-deploing probably isn't a huge deal
-  * Increase the reserves by the fee amount
-  * Increase the reserves by the extra amount of possible leverage supported by the new fee
-  * Apply fees to a super-concentrated middle section of the curve (needs R&D)
-* Could current reserves be calculated dynamically based on balances/debts/debt limits?
-  * I guess you would lose a chunk of interest to arbitrage
-  * Donation attacks?
-* What can we do to make this easily integrated with aggregators/MEV bots/etc?
-  * For sure we need events. What should be logged?
-  * How to handle a discovery/tracking of the different Maglev instances?
-    * Factory? Registry? Maybe a fake factory that reads the actually installed operators from a set of addresses?
-* Other misc stuff (see `TODO` file)
 
 
 ## See Also
