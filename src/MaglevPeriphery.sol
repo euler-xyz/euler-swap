@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
+import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IMaglev} from "./interfaces/IMaglev.sol";
 
 contract MaglevPeriphery {
+    address private immutable evc;
+
+    constructor(address evc_) {
+        evc = evc_;
+    }
+
     error UnsupportedCurve();
     error UnsupportedPair();
+    error OperatorNotInstalled();
     error InsufficientReserves();
     error InsufficientCash();
 
@@ -28,6 +36,7 @@ contract MaglevPeriphery {
         returns (uint256)
     {
         require(maglev.curve() == keccak256("EulerSwap v1"), UnsupportedCurve());
+        require(IEVC(evc).isAccountOperatorAuthorized(maglev.myAccount(), address(maglev)), OperatorNotInstalled());
 
         uint256 feeMultiplier = maglev.feeMultiplier();
         address vault0 = maglev.vault0();

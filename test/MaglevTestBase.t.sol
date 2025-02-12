@@ -22,7 +22,7 @@ contract MaglevTestBase is EVaultTestBase {
     function setUp() public virtual override {
         super.setUp();
 
-        periphery = new MaglevPeriphery();
+        periphery = new MaglevPeriphery(address(evc));
 
         // Vault config
 
