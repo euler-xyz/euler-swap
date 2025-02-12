@@ -8,7 +8,7 @@ import {IUniswapV2Callee} from "./interfaces/IUniswapV2Callee.sol";
 import {IMaglev} from "./interfaces/IMaglev.sol";
 
 contract Maglev is IMaglev, EVCUtil {
-    bytes32 public curve = keccak256("EulerSwap v1");
+    bytes32 public constant curve = keccak256("EulerSwap v1");
 
     address public immutable vault0;
     address public immutable vault1;

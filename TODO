@@ -1,21 +1,19 @@
-! events
-  * reserve change on each swap
-! Better revert messages when a swap cannot be satisifed due to debt-limit/utilisation/etc
+! natspec
+! Better revert messages when a swap fails due to maglev debt-limit/vault utilisation/etc
   * currently it's an arithmetic underflow
-! Don't make quotes that would cause a swap to fail due to supply or borrow caps
-* ConstantSum: incorporate price multipliers in quote methods
-* natspec
-* permit2 instead of regular approval: measure gas savings
+! Don't make quotes that would cause a swap to fail:
+  * supply/borrow caps
+  * maglev instance not activated, or is no longer an operator
+? permit2 instead of regular approval: measure gas savings
 ? a really small swap could fail because deposit() results in 0 shares, which EVK fails on. call convertToShares() first? Seems like overkill
-? pause guardian
 ? how should aggregators find instances
   ? factory/registry contract
   ? fake registry contract that looks at the actually installed operators for a list of accounts
   ? transparent proxy so AMM address can stay constant
 
 docs
+  periphery split
   low-level detail of how system works for auditors
-  how to add a curve
   information for aggregators
     how to maintain quotes off-chain, including tracking cash from VaultStatus logs of underlying vaults
   note how EVK stores balance and debt in same storage slot
