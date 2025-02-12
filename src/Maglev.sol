@@ -37,11 +37,7 @@ contract Maglev is IMaglev, EVCUtil {
     error AssetsOutOfOrderOrEqual();
     error CurveViolation();
 
-    event MaglevCreated(
-        address indexed maglev,
-        address indexed asset0,
-        address indexed asset1
-    );
+    event MaglevCreated(address indexed maglev, address indexed asset0, address indexed asset1);
 
     event Swap(
         address indexed sender,
