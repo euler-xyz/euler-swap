@@ -4,38 +4,37 @@ pragma solidity ^0.8.27;
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IMaglev} from "./interfaces/IMaglev.sol";
+import {IMaglevPeriphery} from "./interfaces/IMaglevPeriphery.sol";
 
-contract MaglevPeriphery {
+contract MaglevPeriphery is IMaglevPeriphery {
     address private immutable evc;
 
     constructor(address evc_) {
         evc = evc_;
     }
 
-    error UnsupportedCurve();
     error UnsupportedPair();
     error OperatorNotInstalled();
     error InsufficientReserves();
     error InsufficientCash();
 
-    /// @notice How much `tokenOut` can I get for `amountIn` of `tokenIn`?
+    /// @inheritdoc IMaglevPeriphery
     function quoteExactInput(address maglev, address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256) {
-        return computeFullQuote(IMaglev(maglev), tokenIn, tokenOut, amountIn, true);
+        return computeQuote(IMaglev(maglev), tokenIn, tokenOut, amountIn, true);
     }
 
-    /// @notice How much `tokenIn` do I need to get `amountOut` of `tokenOut`?
+    /// @inheritdoc IMaglevPeriphery
     function quoteExactOutput(address maglev, address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint256) {
-        return computeFullQuote(IMaglev(maglev), tokenIn, tokenOut, amountOut, false);
+        return computeQuote(IMaglev(maglev), tokenIn, tokenOut, amountOut, false);
     }
 
-    /// @dev This function handles quoting, including swap fees. Curve-specific
-    /// quote calculations are delegated to computeQuote().
-    function computeFullQuote(IMaglev maglev, address tokenIn, address tokenOut, uint256 amount, bool exactIn)
+    /// @dev High-level quoting function. It handles fees and performs
+    /// state validation, for example that there is sufficient cash available.
+    function computeQuote(IMaglev maglev, address tokenIn, address tokenOut, uint256 amount, bool exactIn)
         internal
         view
         returns (uint256)
     {
-        require(maglev.curve() == keccak256("EulerSwap v1"), UnsupportedCurve());
         require(IEVC(evc).isAccountOperatorAuthorized(maglev.myAccount(), address(maglev)), OperatorNotInstalled());
 
         uint256 feeMultiplier = maglev.feeMultiplier();
@@ -56,7 +55,7 @@ contract MaglevPeriphery {
             else revert UnsupportedPair();
         }
 
-        uint256 quote = computeQuote(maglev, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        uint256 quote = binarySearch(maglev, reserve0, reserve1, amount, exactIn, asset0IsInput);
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
@@ -74,11 +73,10 @@ contract MaglevPeriphery {
         return quote;
     }
 
-    /// @dev This function generates quotes given the specific installed curve
-    /// instance. The base-class implementation is a binary search, however this
-    /// may be overridden by a subclass if there is a more efficient method
-    /// of computing quotes, or if a curve is non-convex.
-    function computeQuote(IMaglev maglev, uint112 reserve0, uint112 reserve1, uint256 amount, bool exactIn, bool asset0IsInput)
+    /// @dev General-purpose routine for binary searching swapping curves.
+    /// Although some curves may have more efficient closed-form solutions,
+    /// this works with any monotonic curve.
+    function binarySearch(IMaglev maglev, uint112 reserve0, uint112 reserve1, uint256 amount, bool exactIn, bool asset0IsInput)
         internal
         view
         returns (uint256 output)

@@ -105,9 +105,7 @@ contract Maglev is IMaglev, EVCUtil {
         concentrationY = curveParams.concentrationY;
     }
 
-    /// @notice Approve the vaults to access the Maglev instance's tokens, and enables
-    /// vaults as collateral. Must call *after* installing the Maglev instance as an operator.
-    /// Can be invoked by anybody, and is harmless if invoked again.
+    /// @inheritdoc IMaglev
     function activate() public {
         require(status != 2, Locked());
         status = 1;
@@ -124,10 +122,7 @@ contract Maglev is IMaglev, EVCUtil {
         return y0 + px * 1e18 / py * (c * (2 * x0 - xt) / 1e18 + (1e18 - c) * x0 / 1e18 * x0 / xt - x0) / 1e18;
     }
 
-    /// @notice Function that defines the shape of the swapping curve. Returns true iff
-    /// the provided reserve amounts are acceptable to the pool. Geometrically, this
-    /// can be visualised as checking if a point is on or above/to the right of
-    /// the swapping curve.
+    /// @inheritdoc IMaglev
     function verify(uint256 newReserve0, uint256 newReserve1) public view returns (bool) {
         if (newReserve0 >= initialReserve0) {
             if (newReserve1 >= initialReserve1) return true;
@@ -138,10 +133,7 @@ contract Maglev is IMaglev, EVCUtil {
         }
     }
 
-    /// @notice Optimistically sends the requested amounts of tokens to the `to`
-    /// address, invokes `uniswapV2Call` callback on `to` (if `data` provided), and
-    /// then verifies that a sufficient amount of tokens were transferred to
-    /// satisfy the swapping curve invariant.
+    /// @inheritdoc IMaglev
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data)
         external
         callThroughEVC
@@ -188,7 +180,6 @@ contract Maglev is IMaglev, EVCUtil {
         }
     }
 
-    /// @notice Convenience function for when both reserve values are needed.
     function getReserves() external view returns (uint112, uint112, uint32) {
         return (reserve0, reserve1, status);
     }
