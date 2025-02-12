@@ -28,7 +28,7 @@ contract Maglev is IMaglev, EVCUtil {
 
     uint112 public reserve0;
     uint112 public reserve1;
-    uint32 internal locked;
+    uint32 public status; // 0 = unactivated, 1 = unlocked, 2 = locked
 
     error Locked();
     error Overflow();
@@ -49,10 +49,11 @@ contract Maglev is IMaglev, EVCUtil {
     );
 
     modifier nonReentrant() {
-        require(locked == 0, Locked());
-        locked = 1;
+        if (status == 0) activate();
+        require(status == 1, Locked());
+        status = 2;
         _;
-        locked = 0;
+        status = 1;
     }
 
     struct Params {
@@ -107,7 +108,10 @@ contract Maglev is IMaglev, EVCUtil {
     /// @notice Approve the vaults to access the Maglev instance's tokens, and enables
     /// vaults as collateral. Must call *after* installing the Maglev instance as an operator.
     /// Can be invoked by anybody, and is harmless if invoked again.
-    function activate() external {
+    function activate() public {
+        require(status != 2, Locked());
+        status = 1;
+
         IERC20(asset0).approve(vault0, type(uint256).max);
         IERC20(asset1).approve(vault1, type(uint256).max);
 
@@ -123,7 +127,7 @@ contract Maglev is IMaglev, EVCUtil {
     /// @notice Function that defines the shape of the swapping curve. Returns true iff
     /// the provided reserve amounts are acceptable to the pool. Geometrically, this
     /// can be visualised as checking if a point is on or above/to the right of
-    /// the swapping curve. This function must be implemented by a sub-class.
+    /// the swapping curve.
     function verify(uint256 newReserve0, uint256 newReserve1) public view returns (bool) {
         if (newReserve0 >= initialReserve0) {
             if (newReserve1 >= initialReserve1) return true;
@@ -185,8 +189,8 @@ contract Maglev is IMaglev, EVCUtil {
     }
 
     /// @notice Convenience function for when both reserve values are needed.
-    function getReserves() public view returns (uint112, uint112, uint32) {
-        return (reserve0, reserve1, locked);
+    function getReserves() external view returns (uint112, uint112, uint32) {
+        return (reserve0, reserve1, status);
     }
 
     // Internal utilities

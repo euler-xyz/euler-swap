@@ -34,9 +34,6 @@ contract PreserveNav is MaglevTestBase {
 
         vm.prank(holder);
         evc.setAccountOperator(holder, address(maglev), true);
-
-        vm.prank(anyone);
-        maglev.activate();
     }
 
     function test_preserve_nav(

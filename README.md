@@ -44,16 +44,15 @@ Maglev is a contract designed to be used as an [EVC operator](https://evc.wtf/do
 
 ### Usage
 
-The following are the high-level steps required to use Maglev:
+The following are the high-level steps required to setup Maglev:
 
 * Deposit funds into one or both of the vaults in proportion to the initial price
 * Deploy the desired Maglev contract, choosing parameters such as the vaults, debt limits, and the desired `fee`
   * Note that the Maglev contract must be created after the funds are deposited, because its constructor will read the current debts and balances to setup its reserves cache
 * Install the Maglev contract as an operator for your account
-* Invoke the `activate()` function on the Maglev contract
+* Optional: Invoke the `activate()` function on the Maglev contract
+  * If not invoked, Maglev will be activated when the first swap is performed
   * This function can be invoked by anyone, and it is harmless to re-invoke it
-
-At this point, anyone can invoke `swap()` on the Maglev contract, and this will perform borrowing and transferring activity between the two vaults.
 
 ### Reconfiguration
 

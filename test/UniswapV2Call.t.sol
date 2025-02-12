@@ -35,9 +35,6 @@ contract UniswapV2CallTest is MaglevTestBase {
 
         vm.prank(holder);
         evc.setAccountOperator(holder, address(maglev), true);
-
-        vm.prank(anyone);
-        maglev.activate();
     }
 
     function test_callback() public {
