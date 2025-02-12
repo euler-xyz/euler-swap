@@ -1,6 +1,32 @@
+! Don't make quotes that would cause a swap to fail if supply/borrow caps exceeded
+* Better revert messages when a swap fails due to maglev debt-limit/vault utilisation/etc
+  * currently it's an arithmetic underflow
+
+
+TESTING
+
+* when exchange rate in vaults != 1
+* uniswap callback, flash swaps
+* hitting reserve/utilisation limits
+* AssetsOutOfOrderOrEqual
+
+
+MISC
+
+? A really small swap could fail because deposit() results in 0 shares, which causes EVK to revert. Call convertToShares() first? Seems like overkill...
+? permit2 instead of regular approval: measure gas savings
+* Improve the efficiency of on-chain quoting
+  * Probably necessary for supporting non-zero slippage swaps
+  * Use unchecked math in verify() (needs careful boundary analysis)
+  * Closed-form quoting solutions
+  * "Range hints" for the binary search
+
+
+IDEAS
+
 * Currently we have only been supporting stable-stable pairs
   * What extra considerations would there be for floating pairs?
-* Automatically re-invest fees. There are a few options:
+* Automatically re-invest fees? There are a few options:
   * Don't do anything: Re-deploing probably isn't a huge deal
   * Increase the reserves by the fee amount
   * Increase the reserves by the extra amount of possible leverage supported by the new fee
@@ -9,33 +35,6 @@
   * I guess you would lose a chunk of interest to arbitrage
   * Donation attacks?
 * What can we do to make this easily integrated with aggregators/MEV bots/etc?
-  * For sure we need events. What should be logged?
   * How to handle a discovery/tracking of the different Maglev instances?
-    * Factory? Registry? Maybe a fake factory that reads the actually installed operators from a set of a
-ddresses?
-* Other misc stuff (see `TODO` file)
-
-
-! natspec
-! Better revert messages when a swap fails due to maglev debt-limit/vault utilisation/etc
-  * currently it's an arithmetic underflow
-! Don't make quotes that would cause a swap to fail if supply/borrow caps exceeded
-? permit2 instead of regular approval: measure gas savings
-? a really small swap could fail because deposit() results in 0 shares, which EVK fails on. call convertToShares() first? Seems like overkill
-? how should aggregators find instances
-  ? factory/registry contract
-  ? fake registry contract that looks at the actually installed operators for a list of accounts
-  ? transparent proxy so AMM address can stay constant
-
-docs
-  periphery split
-  low-level detail of how system works for auditors
-  information for aggregators
-    how to maintain quotes off-chain, including tracking cash from VaultStatus logs of underlying vaults
-  note how EVK stores balance and debt in same storage slot
-
-tests
-  when exchange rate in vaults != 1
-  uniswap callback, flash swaps
-  hitting reserve/utilisation limits
-  AssetsOutOfOrderOrEqual
+    ? Factory? Registry? Maybe a fake factory that reads the actually installed operators from a set of addresses?
+    ? Transparent proxy so a Maglev address can stay constant
