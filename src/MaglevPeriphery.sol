@@ -19,12 +19,20 @@ contract MaglevPeriphery is IMaglevPeriphery {
     error InsufficientCash();
 
     /// @inheritdoc IMaglevPeriphery
-    function quoteExactInput(address maglev, address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256) {
+    function quoteExactInput(address maglev, address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256)
+    {
         return computeQuote(IMaglev(maglev), tokenIn, tokenOut, amountIn, true);
     }
 
     /// @inheritdoc IMaglevPeriphery
-    function quoteExactOutput(address maglev, address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint256) {
+    function quoteExactOutput(address maglev, address tokenIn, address tokenOut, uint256 amountOut)
+        external
+        view
+        returns (uint256)
+    {
         return computeQuote(IMaglev(maglev), tokenIn, tokenOut, amountOut, false);
     }
 
@@ -76,11 +84,14 @@ contract MaglevPeriphery is IMaglevPeriphery {
     /// @dev General-purpose routine for binary searching swapping curves.
     /// Although some curves may have more efficient closed-form solutions,
     /// this works with any monotonic curve.
-    function binarySearch(IMaglev maglev, uint112 reserve0, uint112 reserve1, uint256 amount, bool exactIn, bool asset0IsInput)
-        internal
-        view
-        returns (uint256 output)
-    {
+    function binarySearch(
+        IMaglev maglev,
+        uint112 reserve0,
+        uint112 reserve1,
+        uint256 amount,
+        bool exactIn,
+        bool asset0IsInput
+    ) internal view returns (uint256 output) {
         int256 dx;
         int256 dy;
 
@@ -101,8 +112,11 @@ contract MaglevPeriphery is IMaglevPeriphery {
 
             while (low < high) {
                 uint256 mid = (low + high) / 2;
-                if (dy == 0 ? maglev.verify(uint256(reserve0New), mid) : maglev.verify(mid, uint256(reserve1New))) high = mid;
-                else low = mid + 1;
+                if (dy == 0 ? maglev.verify(uint256(reserve0New), mid) : maglev.verify(mid, uint256(reserve1New))) {
+                    high = mid;
+                } else {
+                    low = mid + 1;
+                }
             }
 
             if (dx != 0) dy = int256(low) - reserve1New;

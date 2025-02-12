@@ -109,8 +109,6 @@ contract MaglevTestBase is EVaultTestBase {
         console.log("  reserve1:           ", reserve1);
     }
 
-
-
     function _skimAll(Maglev ml, bool dir) internal returns (uint256) {
         uint256 skimmed = 0;
         uint256 val = 1;

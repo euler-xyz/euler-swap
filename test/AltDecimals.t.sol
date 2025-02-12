@@ -76,7 +76,6 @@ contract AltDecimals is MaglevTestBase {
         maglev.swap(0, amount, address(this), "");
     }
 
-
     function test_alt_decimals_18_6_in() public {
         createMaglev(50e18, 50e6, 0, 1e6, 1e18, 0.9e18, 0.9e18);
         skimAll(maglev, true);
@@ -96,7 +95,6 @@ contract AltDecimals is MaglevTestBase {
 
         maglev.swap(0, q, address(this), "");
     }
-
 
     function test_alt_decimals_18_6_out() public {
         createMaglev(50e18, 50e6, 0, 1e6, 1e18, 0.9e18, 0.9e18);
