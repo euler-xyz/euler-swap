@@ -37,6 +37,12 @@ contract Maglev is IMaglev, EVCUtil {
     error AssetsOutOfOrderOrEqual();
     error CurveViolation();
 
+    event MaglevCreated(
+        address indexed maglev,
+        address indexed asset0,
+        address indexed asset1
+    );
+
     event Swap(
         address indexed sender,
         uint256 amount0In,
@@ -103,6 +109,8 @@ contract Maglev is IMaglev, EVCUtil {
         priceY = curveParams.priceY;
         concentrationX = curveParams.concentrationX;
         concentrationY = curveParams.concentrationY;
+
+        emit MaglevCreated(address(this), asset0Addr, asset1Addr);
     }
 
     /// @inheritdoc IMaglev
