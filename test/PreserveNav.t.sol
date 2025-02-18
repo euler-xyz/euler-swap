@@ -33,7 +33,7 @@ contract PreserveNav is EulerSwapTestBase {
         eulerSwap = createEulerSwap(50e18, 50e18, fee, 1e18, 1e18, cx, cy);
 
         skimAll(eulerSwap, preSkimDir);
-        int256 nav1 = getHolderNAV();
+        int256 nav1 = getSwapAccountNAV();
 
         {
             TestERC20 t1;
@@ -57,7 +57,7 @@ contract PreserveNav is EulerSwapTestBase {
             else eulerSwap.swap(q, 0, address(this), "");
         }
 
-        assertGe(getHolderNAV(), nav1);
+        assertGe(getSwapAccountNAV(), nav1);
 
         {
             TestERC20 t1;
@@ -81,6 +81,6 @@ contract PreserveNav is EulerSwapTestBase {
             else eulerSwap.swap(q, 0, address(this), "");
         }
 
-        assertGe(getHolderNAV(), nav1);
+        assertGe(getSwapAccountNAV(), nav1);
     }
 }

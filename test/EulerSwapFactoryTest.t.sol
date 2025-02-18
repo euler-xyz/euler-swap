@@ -23,7 +23,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
         EulerSwap eulerSwap = EulerSwap(
             eulerSwapFactory.deployPool(
                 IEulerSwapFactory.DeployParams(
-                    address(eTST), address(eTST2), holder, 0, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
+                    address(eTST), address(eTST2), swapAccount, 0, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
                 )
             )
         );
@@ -34,7 +34,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
                 eulerSwap.asset0(),
                 eulerSwap.asset1(),
                 eulerSwap.feeMultiplier(),
-                eulerSwap.myAccount(),
+                eulerSwap.swapAccount(),
                 eulerSwap.priceX(),
                 eulerSwap.priceY(),
                 eulerSwap.concentrationX(),
@@ -62,7 +62,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
         vm.expectRevert(EulerSwap.AssetsOutOfOrderOrEqual.selector);
         eulerSwapFactory.deployPool(
             IEulerSwapFactory.DeployParams(
-                address(eTST), address(eTST), holder, 0, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
+                address(eTST), address(eTST), swapAccount, 0, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
             )
         );
     }
@@ -72,7 +72,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
         vm.expectRevert(EulerSwap.BadFee.selector);
         eulerSwapFactory.deployPool(
             IEulerSwapFactory.DeployParams(
-                address(eTST), address(eTST2), holder, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
+                address(eTST), address(eTST2), swapAccount, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
             )
         );
     }

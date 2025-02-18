@@ -44,7 +44,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         returns (uint256)
     {
         require(
-            IEVC(evc).isAccountOperatorAuthorized(eulerSwap.myAccount(), address(eulerSwap)), OperatorNotInstalled()
+            IEVC(evc).isAccountOperatorAuthorized(eulerSwap.swapAccount(), address(eulerSwap)), OperatorNotInstalled()
         );
 
         uint256 feeMultiplier = eulerSwap.feeMultiplier();

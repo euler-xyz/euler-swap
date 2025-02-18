@@ -5,7 +5,7 @@ interface IEulerSwapFactory {
     struct DeployParams {
         address vault0;
         address vault1;
-        address holder;
+        address swapAccount;
         uint256 fee;
         uint256 priceX;
         uint256 priceY;

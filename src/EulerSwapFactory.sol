@@ -36,7 +36,7 @@ contract EulerSwapFactory is IEulerSwapFactory, Ownable {
             IEulerSwap.Params({
                 vault0: params.vault0,
                 vault1: params.vault1,
-                myAccount: params.holder,
+                swapAccount: params.swapAccount,
                 debtLimit0: params.debtLimit0,
                 debtLimit1: params.debtLimit1,
                 fee: params.fee
@@ -58,7 +58,7 @@ contract EulerSwapFactory is IEulerSwapFactory, Ownable {
                 poolAsset0,
                 poolAsset1,
                 feeMultiplier,
-                params.holder,
+                params.swapAccount,
                 params.priceX,
                 params.priceY,
                 params.concentrationX,
@@ -73,7 +73,7 @@ contract EulerSwapFactory is IEulerSwapFactory, Ownable {
             poolAsset0,
             poolAsset1,
             feeMultiplier,
-            params.holder,
+            params.swapAccount,
             params.priceX,
             params.priceY,
             params.concentrationX,

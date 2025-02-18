@@ -12,7 +12,7 @@ contract EulerSwapTest is EulerSwapTestBase {
         eulerSwap = createEulerSwap(50e18, 50e18, 0, 1e18, 1e18, 0.4e18, 0.85e18);
     }
 
-    function test_basicSwap_exactIn() public monotonicHolderNAV {
+    function test_basicSwap_exactIn() public monotonicSwapAccountNAV {
         uint256 amountIn = 1e18;
         uint256 amountOut =
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
@@ -26,7 +26,7 @@ contract EulerSwapTest is EulerSwapTestBase {
         assertEq(assetTST2.balanceOf(address(this)), amountOut);
     }
 
-    function test_basicSwap_exactOut() public monotonicHolderNAV {
+    function test_basicSwap_exactOut() public monotonicSwapAccountNAV {
         uint256 amountOut = 1e18;
         uint256 amountIn =
             periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
@@ -47,7 +47,7 @@ contract EulerSwapTest is EulerSwapTestBase {
         oracle.setPrice(address(eTST), unitOfAccount, 0.5e18);
         oracle.setPrice(address(assetTST), unitOfAccount, 0.5e18);
 
-        int256 origNAV = getHolderNAV();
+        int256 origNAV = getSwapAccountNAV();
 
         eulerSwap = createEulerSwap(50e18, 50e18, 0, px, py, 0.4e18, 0.85e18);
 
@@ -61,10 +61,10 @@ contract EulerSwapTest is EulerSwapTestBase {
         eulerSwap.swap(0, amountOut, address(this), "");
         assertEq(assetTST2.balanceOf(address(this)), amountOut);
 
-        assertGe(getHolderNAV(), origNAV);
+        assertGe(getSwapAccountNAV(), origNAV);
     }
 
-    function test_pathIndependent(uint256 amount, bool dir) public monotonicHolderNAV {
+    function test_pathIndependent(uint256 amount, bool dir) public monotonicSwapAccountNAV {
         amount = bound(amount, 0.1e18, 25e18);
 
         TestERC20 t1;
@@ -105,7 +105,7 @@ contract EulerSwapTest is EulerSwapTestBase {
             eulerSwap = createEulerSwap(50e18, 50e18, 0, px, py, cx, cy);
         }
 
-        int256 origNAV = getHolderNAV();
+        int256 origNAV = getSwapAccountNAV();
 
         TestERC20 t1;
         TestERC20 t2;
@@ -128,7 +128,7 @@ contract EulerSwapTest is EulerSwapTestBase {
         else eulerSwap.swap(0, q2, address(this), "");
         assertEq(t1.balanceOf(address(this)), q2);
 
-        assertGe(getHolderNAV(), origNAV);
+        assertGe(getSwapAccountNAV(), origNAV);
     }
 
     function test_fuzzAll(uint256 cx, uint256 cy, uint256 fee, uint256[8] calldata amounts, bool[8] calldata dirs)
@@ -140,7 +140,7 @@ contract EulerSwapTest is EulerSwapTestBase {
 
         eulerSwap = createEulerSwap(50e18, 50e18, fee, 1e18, 1e18, cx, cy);
 
-        int256 origNAV = getHolderNAV();
+        int256 origNAV = getSwapAccountNAV();
 
         for (uint256 i = 0; i < 8; i++) {
             uint256 amount = bound(amounts[i], 0.1e18, 5e18);
@@ -172,7 +172,7 @@ contract EulerSwapTest is EulerSwapTestBase {
             else eulerSwap.swap(q, 0, address(this), "");
             assertEq(t2.balanceOf(address(this)), q + prevBal);
 
-            assertGe(getHolderNAV(), origNAV);
+            assertGe(getSwapAccountNAV(), origNAV);
         }
     }
 }

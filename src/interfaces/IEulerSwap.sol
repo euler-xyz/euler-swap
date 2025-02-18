@@ -5,7 +5,7 @@ interface IEulerSwap {
     struct Params {
         address vault0;
         address vault1;
-        address myAccount;
+        address swapAccount;
         uint112 debtLimit0;
         uint112 debtLimit1;
         uint256 fee;
@@ -41,7 +41,7 @@ interface IEulerSwap {
     function vault1() external view returns (address);
     function asset0() external view returns (address);
     function asset1() external view returns (address);
-    function myAccount() external view returns (address);
+    function swapAccount() external view returns (address);
     function initialReserve0() external view returns (uint112);
     function initialReserve1() external view returns (uint112);
     function feeMultiplier() external view returns (uint256);
