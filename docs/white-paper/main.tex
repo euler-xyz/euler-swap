@@ -105,7 +105,7 @@ Later, when a swap occurs in the reverse direction, the incoming `in token' repa
 
 \section{Virtual reserves and debt limits}
 
-EulerSwap AMMs utilise virtual reserves to simulate larger liquidity pools, effectively increasing the depth of trades that can be serviced. Virtual reserves allow swaps beyond the actual reserves --- the initial collateral deposited by the swap account holder --- by permitting borrowed liquidity, where EulerSwap dynamically loans the out token using the in token as collateral.
+EulerSwap AMMs utilise virtual reserves to simulate larger liquidity pools, effectively increasing the depth of trades that can be serviced. Virtual reserves allow swaps beyond the actual reserves --- the initial collateral deposited by the swap account --- by permitting borrowed liquidity, where EulerSwap dynamically loans the out token using the in token as collateral.
 
 Each swap account can configure independent virtual reserve levels. These reserves define the maximum debt exposure an AMM will take on. For instance, if a user deposits \$1,000 in collateral and sets virtual reserves at \$5,000 per vault, the AMM effectively supports up to \$10,000 in combined swap depth, with a loan-to-value (LTV) ratio of 83.3\%. 
 
@@ -113,7 +113,7 @@ Note that the effective LTV must always remain below the borrowing LTV of the le
 
 \subsection{Reserve desynchronisation}
 
-Unlike traditional AMMs, EulerSwap does not hold user funds directly. Instead, it operates as an EVC operator, meaning that all liquidity remains in the wallet of the account holder. This design provides enhanced security and flexibility but introduces the possibility of reserve desynchronisation. Causes of reserve desynchronisation:
+Unlike traditional AMMs, EulerSwap does not hold user funds directly. Instead, it operates as an EVC operator, meaning that all liquidity remains in the wallet of the swap account. This design provides enhanced security and flexibility but introduces the possibility of reserve desynchronisation. Causes of reserve desynchronisation:
 
 \begin{itemize}
     \item \textbf{Interest Accrual:} Over time, collateral deposits earn interest while borrowed tokens accumulate interest costs.
