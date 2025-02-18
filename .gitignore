@@ -12,3 +12,6 @@ out/
 
 # Coverage file
 lcov.info
+
+# misc
+.DS_Store
