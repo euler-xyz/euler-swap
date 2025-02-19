@@ -42,7 +42,7 @@ The `IEulerSwap` interface defines the core functionality for executing token sw
 
 - **description**: Returns the address of asset 1.
 
-#### `myAccount() external view returns (address);`
+#### `swapAccount() external view returns (address);`
 
 - **description**: Returns the address of the account managing EulerSwap.
 
