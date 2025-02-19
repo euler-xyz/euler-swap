@@ -131,7 +131,14 @@ contract EulerSwap is IEulerSwap, EVCUtil {
             reserve1 = uint112(newReserve1);
 
             emit Swap(
-                msg.sender, amount0In, amount1In, amount0Out, amount1Out, uint112(newReserve0), uint112(newReserve1), to
+                _msgSender(),
+                amount0In,
+                amount1In,
+                amount0Out,
+                amount1Out,
+                uint112(newReserve0),
+                uint112(newReserve1),
+                to
             );
         }
     }
