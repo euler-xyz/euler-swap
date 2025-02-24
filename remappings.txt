@@ -1,4 +1,5 @@
 openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
+@prb/math/=lib/prb-math/
 evc/=lib/ethereum-vault-connector/src/
 evk/=lib/euler-vault-kit/src/
 ethereum-vault-connector/=lib/ethereum-vault-connector/src/

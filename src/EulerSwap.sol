@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
+import {Test, console} from "forge-std/Test.sol";
 
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IERC20, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
@@ -7,6 +8,7 @@ import {IUniswapV2Callee} from "./interfaces/IUniswapV2Callee.sol";
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
 import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 import {EVCUtil} from "evc/utils/EVCUtil.sol";
+import * as Math from "@prb/math/src/Common.sol";
 
 contract EulerSwap is IEulerSwap, EVCUtil {
     bytes32 public constant curve = keccak256("EulerSwap v1");
@@ -235,8 +237,74 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         return uint112(offset);
     }
 
-    /// @dev EulerSwap curve definition
-    function f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    function fOrig(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
         return y0 + px * 1e18 / py * (c * (2 * x0 - xt) / 1e18 + (1e18 - c) * x0 / 1e18 * x0 / xt - x0) / 1e18;
+    }
+
+    function fNew(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        return y0 + px * 1e18 * (c * (2 * x0 - xt) + (1e18 - c) * x0 * x0 / xt - x0 * 1e18) / (py * 1e36);
+    }
+
+    function fMine(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        uint256 o = (x0 - xt) * ((xt*c) + (1e18 - c) * x0);
+        o = Math.mulDiv(px, o, py);
+        o /= 1e18 * xt;
+        return y0 + o;
+    }
+
+    /// @dev EulerSwap curve definition
+    function f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        console.log("px = ", px);
+        console.log("py = ", py);
+        console.log("x0 = ", x0);
+        console.log("y0 = ", y0);
+        console.log("c =  ", c);
+
+        //return y0 + px * 1e18 * (c * (2 * x0 - xt) + (1e18 - c) * x0 * x0 / xt - x0 * 1e18) / (py * 1e36);
+        int256 t3 = int256(2 * x0) - int256(xt);
+        console.log("DING1");
+        uint256 t4 = Math.mulDiv((1e18 - c) * x0, x0, xt);
+        int256 t2 = (int256(c) * t3 + int256(t4)) - int256(x0 * 1e18);
+        console.log("DING2");
+        int256 t1 = Math.mulDivSigned(int(px) * 1e18, t2, int(py * 1e36));
+        console.log("DING3");
+        int256 fin = int(y0) + t1;
+        if (fin < 0) revert("NOPE");
+        return uint256(fin);
+
+/*
+        //return y0 + px * 1e18 / py * (c * (2 * x0 - xt) / 1e18 + (1e18 - c) * x0 / 1e18 * x0 / xt - x0) / 1e18;
+
+        uint256 r2 = 2 * x0 - xt;
+        console.log("DING 1 r2 = ", r2);
+        uint256 t1 = c * r2 / 1e18;
+        console.log("DING 2 t1 = ", t1);
+        uint256 t2 = (1e18 - c) * x0 / 1e18 * x0 / xt;
+        console.log("DING 3 t2 = ", t2);
+        uint256 r1 = t1 + t2 - x0;
+        console.log("DING 4");
+        return y0 + px * 1e18 / py * r1 / 1e18;
+        */
+
+/*
+        //return y0 + px * 1e18 * (c * (2 * x0 - xt) + (1e18 - c) * x0 * x0 / xt - x0 * 1e18) / (py * 1e36);
+
+        uint256 t3 = (2 * x0 - xt);
+        console.log("DING 4");
+        //uint256 t4 = (1e18 - c) * x0 * x0;
+        uint256 t4 = Math.mulDiv((1e18 - c) * x0, x0, xt);
+        console.log("DING 3");
+        console.log("t3 = ", t3);
+        console.log("t4 = ", t4);
+        int256 t2 = int256(c * t3 + t4) - int(x0 * 1e18);
+        console.log("DING 2");
+        console.log("t2 = ", t2);
+        int256 t1 = int(px) * 1e18 * t2 / int(py * 1e36);
+        console.log("DING 1");
+        int256 fin = int(y0) + t1;
+        console.log("FINAL = ", fin);
+        if (fin < 0) revert("NOPE");
+        return uint256(fin);
+        */
     }
 }

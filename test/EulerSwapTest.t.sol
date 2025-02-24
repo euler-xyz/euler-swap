@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
+import {Test, console} from "forge-std/Test.sol";
 
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
 
@@ -174,5 +175,58 @@ contract EulerSwapTest is EulerSwapTestBase {
 
             assertGe(getHolderNAV(), origNAV);
         }
+    }
+
+    function test_rofl() public {
+        uint256 xt = 999999999999999999998; //0.6e18;
+        uint256 px = 1e18;
+        uint256 py = 1e18;
+        uint256 x0 = 1338110991843835711665; //1e18;
+        uint256 y0 = 1e18;
+        uint256 c = 0.9e18;
+
+        console.log("fOrig", eulerSwap.fOrig(xt, px, py, x0, y0, c));
+        console.log("fNew ", eulerSwap.fNew(xt, px, py, x0, y0, c));
+        console.log("fMine", eulerSwap.fMine(xt, px, py, x0, y0, c));
+
+/*
+        console.log("fOrig", eulerSwap.fOrig(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        console.log("fNew ", eulerSwap.fNew(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        console.log("f    ", eulerSwap.f(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        console.log("fMine", eulerSwap.fMine(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        */
+    }
+
+    function test_myFuzz(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public {
+        xt = bound(xt, 0.001e18, 1000e18);
+        px = bound(px, 0.1e18, 2e18);
+        py = bound(py, 0.1e18, 2e18);
+        //x0 = 1.5e18; //bound(x0, xt, xt*2);
+        x0 = bound(x0, xt, xt*2);
+        y0 = bound(y0, 0, type(uint112).max);
+        c = bound(c, 0.1e18, 0.9e18);
+        console.log("XT",xt);
+        console.log("X0",x0);
+        console.log("PX",px);
+        console.log("PY",py);
+
+        assertApproxEqAbs(
+            eulerSwap.fNew(xt, px, py, x0, y0, c),
+            eulerSwap.fMine(xt, px, py, x0, y0, c),
+            1
+        );
+    }
+
+    function test_fFunc(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public {
+        x0 = bound(x0, 0.0001e18, type(uint64).max);
+        xt = bound(xt, x0/2, x0);
+        //px = bound(px, 1, 1e36);
+        //py = bound(py, 1, 1e36);
+        px = bound(px, 1, 1e18);
+        py = bound(py, 1, 1e18);
+        y0 = bound(y0, 0, type(uint112).max);
+        c = bound(c, 0.1e18, 0.9e18);
+
+        eulerSwap.fMine(xt, px, py, x0, y0, c);
     }
 }
