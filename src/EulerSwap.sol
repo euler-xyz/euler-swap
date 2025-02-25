@@ -245,15 +245,17 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         return y0 + px * 1e18 * (c * (2 * x0 - xt) + (1e18 - c) * x0 * x0 / xt - x0 * 1e18) / (py * 1e36);
     }
 
-    function fMine(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
-        uint256 o = (x0 - xt) * ((xt*c) + (1e18 - c) * x0);
-        o = Math.mulDiv(px, o, py);
-        o /= 1e18 * xt;
-        return y0 + o;
+    function f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        console.log("py = ", py);
+        console.log("xt = ", xt);
+        console.log("A = ", px * (x0 - xt));
+        console.log("B = ", xt * c + (1e18 - c) * x0);
+        console.log("C = ", py * xt);
+        return y0 + Math.mulDiv(px * (x0 - xt), xt * c + (1e18 - c) * x0, 1e18 * xt) / py;
     }
 
     /// @dev EulerSwap curve definition
-    function f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+    function fJunk(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
         console.log("px = ", px);
         console.log("py = ", py);
         console.log("x0 = ", x0);

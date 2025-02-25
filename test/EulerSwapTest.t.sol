@@ -177,6 +177,7 @@ contract EulerSwapTest is EulerSwapTestBase {
         }
     }
 
+/*
     function test_rofl() public {
         uint256 xt = 999999999999999999998; //0.6e18;
         uint256 px = 1e18;
@@ -189,12 +190,10 @@ contract EulerSwapTest is EulerSwapTestBase {
         console.log("fNew ", eulerSwap.fNew(xt, px, py, x0, y0, c));
         console.log("fMine", eulerSwap.fMine(xt, px, py, x0, y0, c));
 
-/*
-        console.log("fOrig", eulerSwap.fOrig(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
-        console.log("fNew ", eulerSwap.fNew(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
-        console.log("f    ", eulerSwap.f(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
-        console.log("fMine", eulerSwap.fMine(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
-        */
+        //console.log("fOrig", eulerSwap.fOrig(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        //console.log("fNew ", eulerSwap.fNew(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        //console.log("f    ", eulerSwap.f(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
+        //console.log("fMine", eulerSwap.fMine(0.6e18, 1e18, 1e18, 1e18, 1e18, 0.9e18));
     }
 
     function test_myFuzz(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public {
@@ -216,17 +215,16 @@ contract EulerSwapTest is EulerSwapTestBase {
             1
         );
     }
+    */
 
-    function test_fFunc(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public {
-        x0 = bound(x0, 0.0001e18, type(uint64).max);
+    function test_fFuncOverflow(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public view {
+        x0 = bound(x0, 2, type(uint112).max);
         xt = bound(xt, x0/2, x0);
-        //px = bound(px, 1, 1e36);
-        //py = bound(py, 1, 1e36);
-        px = bound(px, 1, 1e18);
-        py = bound(py, 1, 1e18);
+        px = bound(px, 1, 1e36);
+        py = bound(py, 1, 1e36);
         y0 = bound(y0, 0, type(uint112).max);
-        c = bound(c, 0.1e18, 0.9e18);
+        c = bound(c, 1, 1e18);
 
-        eulerSwap.fMine(xt, px, py, x0, y0, c);
+        eulerSwap.f(xt, px, py, x0, y0, c);
     }
 }
