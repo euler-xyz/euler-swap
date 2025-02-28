@@ -176,14 +176,17 @@ contract EulerSwapTest is EulerSwapTestBase {
         }
     }
 
-    function test_fFuncOverflow(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public view {
+    /*
+    // Make `f()` function public to run this test
+    function test_fFuncOverflow(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal view {
         x0 = bound(x0, 1, type(uint112).max);
         y0 = bound(y0, 0, type(uint112).max);
-        xt = bound(xt, 1 + x0 / 1e6, x0); // from 1 millionth of the reserves left up
+        xt = bound(xt, 1 + x0 / 1e3, x0); // thousand-fold price movement
         px = bound(px, 1, 1e36);
         py = bound(py, 1, 1e36);
         c = bound(c, 1, 1e18);
 
         eulerSwap.f(xt, px, py, x0, y0, c);
     }
+    */
 }

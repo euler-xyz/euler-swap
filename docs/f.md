@@ -46,3 +46,15 @@ None of the computations for the arguments to `mulDiv` can overflow:
 If amounts/prices are large, and we travel too far down the curve, then `mulDiv` (or the subsequent `y0` addition) could overflow because its output value cannot be represented as a `uint256`. However, these output values would never be valid anyway, because they exceed `type(uint112).max`.
 
 To see this, consider the case where `mulDiv` fails due to overflow. This means that its result would've been greater than `2**256 - 1`. Dividing this value by the largest allowed value for `py` (`1e36`) gives approximately `2**136`, which is greater than the maximum allowed amount value of `2**112 - 1`. Both the rounding up operation and the final addition of `y0` can only further *increase* this value. This means that all cases where `mulDiv` or the subsequent additions overflow would involve `f()` returning values that are impossible for a swapper to satisfy, so they would revert anyways.
+
+### Unchecked Math
+
+As-per the previous section, none of the computations of the arguments to `mulDiv` can overflow. To prevent overflows in the remaining operations, the `mulDiv` output is further restricted to `2**248 - 1`:
+
+    unchecked {
+        uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
+        require(v <= type(uint248).max, Overflow());
+        return y0 + (v + (py - 1)) / py;
+    }
+
+Note that this does not change the analysis of the previous section: Values between `2**248 - 1` and `2**256 - 1` will also never reduce down to the required `2**112 - 1`, so this does not cause any additional failure cases.

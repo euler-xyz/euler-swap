@@ -47,7 +47,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
     error Locked();
     error Overflow();
-    error BadFee();
+    error BadParam();
     error DifferentEVC();
     error AssetsOutOfOrderOrEqual();
     error CurveViolation();
@@ -64,7 +64,11 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     constructor(Params memory params, CurveParams memory curveParams) EVCUtil(IEVault(params.vault0).EVC()) {
         // EulerSwap params
 
-        require(params.fee < 1e18, BadFee());
+        require(params.fee < 1e18, BadParam());
+        require(params.debtLimit0 <= type(uint112).max && params.debtLimit1 <= type(uint112).max, BadParam());
+        require(curveParams.priceX > 0 && curveParams.priceY > 0, BadParam());
+        require(curveParams.priceX <= 1e36 && curveParams.priceY <= 1e36, BadParam());
+        require(curveParams.concentrationX <= 1e18 && curveParams.concentrationY <= 1e18, BadParam());
         require(IEVault(params.vault0).EVC() == IEVault(params.vault1).EVC(), DifferentEVC());
 
         address asset0Addr = IEVault(params.vault0).asset();
@@ -241,6 +245,10 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     /// @dev EulerSwap curve definition
     /// Pre-conditions: x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
-        return y0 + (Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil) + (py - 1)) / py;
+        unchecked {
+            uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
+            require(v <= type(uint248).max, Overflow());
+            return y0 + (v + (py - 1)) / py;
+        }
     }
 }

@@ -79,7 +79,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
 
     function testDeployWithBadFee() public {
         vm.prank(creator);
-        vm.expectRevert(EulerSwap.BadFee.selector);
+        vm.expectRevert(EulerSwap.BadParam.selector);
         eulerSwapFactory.deployPool(
             IEulerSwapFactory.DeployParams(
                 address(eTST), address(eTST2), holder, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 50e18, 50e18
