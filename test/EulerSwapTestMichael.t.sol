@@ -13,15 +13,8 @@ contract EulerSwapTest is EulerSwapTestBase {
         eulerSwap = createEulerSwap(50e18, 50e18, 0, 1e18, 1e18, 0.4e18, 0.85e18);
     }
 
-// IEulerSwap eulerSwap,
-//         uint112 reserve0,
-//         uint112 reserve1,
-//         uint256 amount,
-//         bool exactIn,
-//         bool asset0IsInput
-
     function test_basicSwap_exactIn() public monotonicHolderNAV {
-        uint256 xIn = 2.3e18;
+        uint256 xIn = 0.45435e18;
         uint256 yOut = eulerSwap.f(xIn, 1e18, 1e18, 50e18, 50e18, 0.85e18);
         console.log("xIn: ", xIn);
         console.log("yOut: ", yOut);

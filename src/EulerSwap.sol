@@ -246,56 +246,70 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     }
        
 
-    function fInverse(uint x, uint px, uint py, uint x0, uint y0, uint c) public pure returns (uint){
-        require(x > x0, "Invalid input coordinate");
-        // intermediate values for solving quadratic equation
-        uint256 a = c;
-        int256 part1 = int256(y0) * (int256(2 * c)  - 1e18) / 1e18;
-        console.log("part1", part1);
+    /*
+    * @title EulerSwap fInverse Function
+    * @notice Computes the inverse of f() function required for solving quadratic liquidity curve equations
+    *         as described in the EulerSwap white paper.
+    * @dev This function solves for `x` given `y` in the liquidity curve equation.
+    * @param y The input value (must be greater than `x0`)
+    * @param px The price factor for the x-axis (must be ≥ 1)
+    * @param py The price factor for the y-axis (must be ≥ 1)
+    * @param x0 The reference x-value in the equation
+    * @param y0 The reference y-value in the equation
+    * @param c The curve parameter, controlling liquidity curve shape (scaled by `1e18`)
+    * @return x The computed inverse value of `x` in the EulerSwap curve equation.
+    */
+    function fInverse(
+        uint256 y, 
+        uint256 px, 
+        uint256 py, 
+        uint256 x0, 
+        uint256 y0, 
+        uint256 c
+    ) public pure returns (uint256) {
+        require(y > x0, "Invalid input coordinate");
+        
+        // b term in quadratic equation
+        int256 b = int256(Math.mulDiv(px, (y - x0), py)) - int256(Math.mulDiv(y0, (2 * c - 1e18), 1e18));
 
-        // xt > x0
-        uint256 part2 = px * (x - x0) / py;
-        console.log("part2", part2);
+        // Compute the discriminant of the quadratic formula
+        uint256 discriminant = squareFixedPoint(b) + 4 * Math.mulDiv(Math.mulDiv(c, (1e18 - c), 1e18), Math.mulDiv(y0, y0, 1e18), 1e18);
 
-        int256 part3 = int256(part1 - int256(part2)); 
-        uint256 part3abs = abs(part3);
-        console.log("part3", part3);
-
-        uint256 part3Squared = Math.mulDiv(part3abs, part3abs, 1e18);
-        console.log("part3squared", part3Squared);
-
-        uint256 part4 = 4 * Math.mulDiv(Math.mulDiv(c, (1e18 - c), 1e18), Math.mulDiv(y0, y0, 1e18), 1e18);
-        console.log("part4", part4);
-
-        uint256 discriminant = part3Squared + part4;
-        console.log("discriminant", discriminant);
-
+        // Compute the square root of the discriminant (rounded up)
         uint256 sqrt = sqrtRoundUpSafe(discriminant * 1e18);
-        console.log("sqrt: ", sqrt);
 
-        uint256 numerator = uint256(int256(sqrt) + part3);
-        console.log("numerator", numerator);
-
-        uint256 denominator = 2 * c;
-        console.log("part1", denominator);
-
-        // // int b = int(Math.mulDiv(px * 1e18, (xt - x0), py)) + int(Math.mulDiv(y0, int(1e18) - 2 * c, 1e18));
-        // int d = (int(c) - 1e18) * int(y0)**2 / 1e18 / 1e18;
-        // uint discriminant = uint(int(uint(b**2) / 1e18) - 4 * int(a) * int(d) / 1e18);
-        // uint numerator = uint(int(uint(Math.sqrt(discriminant) * 1e9)) - b);
-        // uint denominator = 2 * a;
-        return Math.mulDiv(numerator, 1e18, denominator);
+        // Solve for the inverse function result
+        return Math.mulDiv(uint256(int256(sqrt) - b), 1e18, 2 * c);
     }
 
+    /**
+    * @notice Computes the square of an `int256` while maintaining fixed-point precision.
+    * @dev This function ensures `b^2 / 1e18` to avoid precision loss in fixed-point calculations.
+    * @param b The integer value to be squared
+    * @return The squared value in fixed-point precision.
+    */
+    function squareFixedPoint(int256 b) internal pure returns (uint256) {
+        return Math.mulDiv(abs(b), abs(b), 1e18);
+    }
+
+    /**
+    * @notice Computes the square root of a `uint256`, rounding up if necessary.
+    * @param x The input value
+    * @return The square root of `x`, rounded up.
+    */
     function sqrtRoundUpSafe(uint256 x) internal pure returns (uint256) {
         uint256 result = Math.sqrt(x);
-        return (Math.mulDiv(result, result, 1) < x) ? result + 1 : result;
+        return (result * result < x) ? result + 1 : result;
     }
 
+    /**
+    * @notice Returns the absolute value of an `int256` as a `uint256`.
+    * @param x The signed integer input
+    * @return The absolute value as an unsigned integer.
+    */
     function abs(int256 x) internal pure returns (uint256) {
         return x < 0 ? uint256(-x) : uint256(x);
     }
-
 
 }
 
