@@ -9,6 +9,7 @@ import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
 import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 import {EVCUtil} from "evc/utils/EVCUtil.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
+import {Test, console} from "forge-std/Test.sol";
 
 contract EulerSwap is IEulerSwap, EVCUtil {
     bytes32 public constant curve = keccak256("EulerSwap v1");
@@ -243,4 +244,58 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
         return y0 + (Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil) + (py - 1)) / py;
     }
+       
+
+    function fInverse(uint x, uint px, uint py, uint x0, uint y0, uint c) public pure returns (uint){
+        require(x > x0, "Invalid input coordinate");
+        // intermediate values for solving quadratic equation
+        uint256 a = c;
+        int256 part1 = int256(y0) * (int256(2 * c)  - 1e18) / 1e18;
+        console.log("part1", part1);
+
+        // xt > x0
+        uint256 part2 = px * (x - x0) / py;
+        console.log("part2", part2);
+
+        int256 part3 = int256(part1 - int256(part2)); 
+        uint256 part3abs = abs(part3);
+        console.log("part3", part3);
+
+        uint256 part3Squared = Math.mulDiv(part3abs, part3abs, 1e18);
+        console.log("part3squared", part3Squared);
+
+        uint256 part4 = 4 * Math.mulDiv(Math.mulDiv(c, (1e18 - c), 1e18), Math.mulDiv(y0, y0, 1e18), 1e18);
+        console.log("part4", part4);
+
+        uint256 discriminant = part3Squared + part4;
+        console.log("discriminant", discriminant);
+
+        uint256 sqrt = sqrtRoundUpSafe(discriminant * 1e18);
+        console.log("sqrt: ", sqrt);
+
+        uint256 numerator = uint256(int256(sqrt) + part3);
+        console.log("numerator", numerator);
+
+        uint256 denominator = 2 * c;
+        console.log("part1", denominator);
+
+        // // int b = int(Math.mulDiv(px * 1e18, (xt - x0), py)) + int(Math.mulDiv(y0, int(1e18) - 2 * c, 1e18));
+        // int d = (int(c) - 1e18) * int(y0)**2 / 1e18 / 1e18;
+        // uint discriminant = uint(int(uint(b**2) / 1e18) - 4 * int(a) * int(d) / 1e18);
+        // uint numerator = uint(int(uint(Math.sqrt(discriminant) * 1e9)) - b);
+        // uint denominator = 2 * a;
+        return Math.mulDiv(numerator, 1e18, denominator);
+    }
+
+    function sqrtRoundUpSafe(uint256 x) internal pure returns (uint256) {
+        uint256 result = Math.sqrt(x);
+        return (Math.mulDiv(result, result, 1) < x) ? result + 1 : result;
+    }
+
+    function abs(int256 x) internal pure returns (uint256) {
+        return x < 0 ? uint256(-x) : uint256(x);
+    }
+
+
 }
+
