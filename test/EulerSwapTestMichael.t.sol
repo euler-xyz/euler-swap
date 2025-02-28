@@ -14,13 +14,13 @@ contract EulerSwapTest is EulerSwapTestBase {
     }
 
     function test_basicSwap_exactIn() public monotonicHolderNAV {
-        uint256 xIn = 0.45435e18;
-        uint256 yOut = eulerSwap.f(xIn, 1e18, 1e18, 50e18, 50e18, 0.85e18);
-        console.log("xIn: ", xIn);
-        console.log("yOut: ", yOut);
-        console.log("yIn: ", yOut);
-        uint256 outX = eulerSwap.fInverse(yOut, 1e18, 1e18, 50e18, 50e18, 0.85e18);
-        console.log("xOut: ", outX);    
+        uint256 x = 0.45435e18;
+        uint256 y = eulerSwap.f(x, 1e18, 1e18, 50e18, 50e18, 0.85e18);
+        uint256 outX = eulerSwap.fInverse(y, 1e18, 1e18, 50e18, 50e18, 0.85e18);
+        console.log("x: ", x);
+        console.log("y: ", y);
+        console.log("xOut: ", outX);  
+        assertEq(x, outX);  
     }
 
     function test_basicSwap_exactOut() public monotonicHolderNAV {
