@@ -3,10 +3,15 @@ pragma solidity ^0.8.27;
 
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IERC20, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
+import {Errors as EVKErrors} from "evk/EVault/shared/Errors.sol";
 import {IUniswapV2Callee} from "./interfaces/IUniswapV2Callee.sol";
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
 import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 import {EVCUtil} from "evc/utils/EVCUtil.sol";
+import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
+import {Test, console} from "forge-std/Test.sol";
+import "uniswap-v3/FullMath.sol";
+
 
 contract EulerSwap is IEulerSwap, EVCUtil {
     bytes32 public constant curve = keccak256("EulerSwap v1");
@@ -49,6 +54,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     error DifferentEVC();
     error AssetsOutOfOrderOrEqual();
     error CurveViolation();
+    error DepositFailure(bytes reason);
 
     modifier nonReentrant() {
         if (status == 0) activate();
@@ -107,16 +113,10 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         // Deposit all available funds, adjust received amounts downward to collect fees
 
         uint256 amount0In = IERC20(asset0).balanceOf(address(this));
-        if (amount0In > 0) {
-            depositAssets(vault0, amount0In);
-            amount0In = amount0In * feeMultiplier / 1e18;
-        }
+        if (amount0In > 0) amount0In = depositAssets(vault0, amount0In) * feeMultiplier / 1e18;
 
         uint256 amount1In = IERC20(asset1).balanceOf(address(this));
-        if (amount1In > 0) {
-            depositAssets(vault1, amount1In);
-            amount1In = amount1In * feeMultiplier / 1e18;
-        }
+        if (amount1In > 0) amount1In = depositAssets(vault1, amount1In) * feeMultiplier / 1e18;
 
         // Verify curve invariant is satisified
 
@@ -198,8 +198,12 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         }
     }
 
-    function depositAssets(address vault, uint256 amount) internal {
-        IEVault(vault).deposit(amount, myAccount);
+    function depositAssets(address vault, uint256 amount) internal returns (uint256) {
+        try IEVault(vault).deposit(amount, myAccount) {}
+        catch (bytes memory reason) {
+            require(bytes4(reason) == EVKErrors.E_ZeroShares.selector, DepositFailure(reason));
+            return 0;
+        }
 
         if (IEVC(evc).isControllerEnabled(myAccount, vault)) {
             IEVC(evc).call(
@@ -210,6 +214,8 @@ contract EulerSwap is IEulerSwap, EVCUtil {
                 IEVC(evc).call(vault, myAccount, 0, abi.encodeCall(IRiskManager.disableController, ()));
             }
         }
+
+        return amount;
     }
 
     function myDebt(address vault) internal view returns (uint256) {
@@ -236,7 +242,88 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     }
 
     /// @dev EulerSwap curve definition
-    function f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
-        return y0 + px * 1e18 / py * (c * (2 * x0 - xt) / 1e18 + (1e18 - c) * x0 / 1e18 * x0 / xt - x0) / 1e18;
+    /// Pre-conditions: x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
+    function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        return y0 + (Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil) + (py - 1)) / py;
     }
+       
+
+    /**
+    * @notice EulerSwap fInverse Function
+    * @notice Computes the inverse of the f() function for solving quadratic liquidity curve equations
+    *         as described in the EulerSwap white paper.
+    * @dev This function computes the inverse of the liquidity curve equation, solving for `x` given `y`.
+    *      The equation is derived from a quadratic formula with the form:
+    *      x = (-b + sqrt(b^2 + 4ac)) / 2a
+    *      The function uses Uniswap's FullMath to avoid intermediate overflow
+    *      and ensures precision by rounding up where necessary.
+    *
+    * @param y The y-coordinate input value (must be greater than `x0`).
+    * @param px The price factor for the x-axis (scaled by `1e18`, must be ≥ `1e18` and ≤ `1e36`).
+    * @param py The price factor for the y-axis (scaled by `1e18`, must be ≥ `1e18` and ≤ `1e36`).
+    * @param x0 The reference x-value in the liquidity curve equation (must be ≤ `2^112 - 1`).
+    * @param y0 The reference y-value in the liquidity curve equation (must be ≤ `2^112 - 1`).
+    * @param c The curve parameter that shapes the liquidity curve (scaled by `1e18`, must be > `1e18` and ≤ `1e18`).
+    * 
+    * @return x The computed inverse value of `x` on the liquidity curve.
+    *
+    * @custom:precision This function employs rounding up in all calculations to maintain precision.
+    * @custom:safety Uses FullMath to handle potential overflow when computing b^2.
+    * @custom:requirement The input `y` must be strictly greater than `x0`, otherwise the function will revert.
+    */
+    function fInverse(
+        uint256 y, 
+        uint256 px, 
+        uint256 py, 
+        uint256 x0, 
+        uint256 y0, 
+        uint256 c
+    ) public pure returns (uint256) {
+        require(y > x0, "Invalid input coordinate");
+        
+        // a component of quadratic equation
+        uint256 a = 2 * c;
+
+        // b component of quadratic equation
+        int256 b = int256((px * (y - x0) + py - 1) / py) - int256((y0 * (2 * c - 1e18) + 1e18 - 1) / 1e18); 
+
+        // b^2 component of quadratic equation
+        uint256 bAbs = abs(b); // next step FullMath needs a uint256 so first take absolute value
+        uint256 bSquared = FullMath.mulDiv(bAbs, bAbs, 1e18) + (bAbs * bAbs % 1e18 == 0 ? 0 : 1); // use Uniswap FullMath because it handles intermediate overflow if b^2 is too large
+
+        // 4 * a * c component of quadratic equation
+        uint256 cPart = Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil);
+        uint256 y0Squared = Math.mulDiv(y0, y0, 1e18, Math.Rounding.Ceil);
+        uint256 ac4 = Math.mulDiv(cPart, y0Squared, 1e18, Math.Rounding.Ceil);
+
+        // discriminant component of quadratic formula
+        uint256 discriminant = bSquared + ac4;
+
+        // square root of the discriminant (rounded up) component of quadratic formula
+        uint256 sqrt = sqrtRoundUpSafe(discriminant * 1e18);
+
+        // solve for x = fInverse(y)
+        return Math.mulDiv(uint256(int256(sqrt) - b), 1e18, a, Math.Rounding.Ceil);
+    }
+
+    /**
+    * @notice Computes the square root of a `uint256`, rounding up if necessary.
+    * @param x The input value
+    * @return The square root of `x`, rounded up.
+    */
+    function sqrtRoundUpSafe(uint256 x) internal pure returns (uint256) {
+        uint256 result = Math.sqrt(x);
+        return (result * result < x) ? result + 1 : result;
+    }
+
+    /**
+    * @notice Returns the absolute value of an `int256` as a `uint256`.
+    * @param x The signed integer input
+    * @return The absolute value as an unsigned integer.
+    */
+    function abs(int256 x) internal pure returns (uint256) {
+        return x < 0 ? uint256(-x) : uint256(x);
+    }
+
 }
+
