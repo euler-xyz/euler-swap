@@ -249,28 +249,24 @@ contract EulerSwap is IEulerSwap, EVCUtil {
        
 
     /**
-    * @notice EulerSwap fInverse Function
-    * @notice Computes the inverse of the f() function for solving quadratic liquidity curve equations
-    *         as described in the EulerSwap white paper.
-    * @dev This function computes the inverse of the liquidity curve equation, solving for `x` given `y`.
-    *      The equation is derived from a quadratic formula with the form:
-    *      x = (-b + sqrt(b^2 + 4ac)) / 2a
-    *      The function uses Uniswap's FullMath to avoid intermediate overflow
-    *      and ensures precision by rounding up where necessary.
-    *
-    * @param y The y-coordinate input value (must be greater than `x0`).
-    * @param px The price factor for the x-axis (scaled by `1e18`, must be ≥ `1e18` and ≤ `1e36`).
-    * @param py The price factor for the y-axis (scaled by `1e18`, must be ≥ `1e18` and ≤ `1e36`).
-    * @param x0 The reference x-value in the liquidity curve equation (must be ≤ `2^112 - 1`).
-    * @param y0 The reference y-value in the liquidity curve equation (must be ≤ `2^112 - 1`).
-    * @param c The curve parameter that shapes the liquidity curve (scaled by `1e18`, must be > `1e18` and ≤ `1e18`).
-    * 
-    * @return x The computed inverse value of `x` on the liquidity curve.
-    *
-    * @custom:precision This function employs rounding up in all calculations to maintain precision.
-    * @custom:safety Uses FullMath to handle potential overflow when computing b^2.
-    * @custom:requirement The input `y` must be strictly greater than `x0`, otherwise the function will revert.
-    */
+     * @notice Computes the inverse of the `f()` function for the EulerSwap liquidity curve.
+     * @dev Solves for `x` given `y` using the quadratic formula derived from the liquidity curve:
+     *      x = (-b + sqrt(b^2 + 4ac)) / 2a
+     *      Utilises Uniswap's FullMath to avoid overflow and ensures precision with upward rounding.
+     *
+     * @param y The y-coordinate input value (must be greater than `y0`).
+     * @param px Price factor for the x-axis (scaled by 1e18, between 1e18 and 1e36).
+     * @param py Price factor for the y-axis (scaled by 1e18, between 1e18 and 1e36).
+     * @param x0 Reference x-value on the liquidity curve (≤ 2^112 - 1).
+     * @param y0 Reference y-value on the liquidity curve (≤ 2^112 - 1).
+     * @param c Curve parameter shaping liquidity concentration (scaled by 1e18, between 0 and 1e18).
+     * 
+     * @return x The computed x-coordinate on the liquidity curve.
+     *
+     * @custom:precision Uses rounding up to maintain precision in all calculations.
+     * @custom:safety FullMath handles potential overflow in the b^2 computation.
+     * @custom:requirement Input `y` must be strictly greater than `y0`; otherwise, the function will revert.
+     */
     function fInverse(
         uint256 y, 
         uint256 px, 
@@ -279,51 +275,38 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         uint256 y0, 
         uint256 c
     ) public pure returns (uint256) {
-        require(y > x0, "Invalid input coordinate");
-        
-        // a component of quadratic equation
-        uint256 a = 2 * c;
 
-        // b component of quadratic equation
-        int256 b = int256((px * (y - x0) + py - 1) / py) - int256((y0 * (2 * c - 1e18) + 1e18 - 1) / 1e18); 
+        // A component of the quadratic formula: a = 2 * c
+        uint256 A = 2 * c;
 
-        // b^2 component of quadratic equation
-        uint256 bAbs = abs(b); // next step FullMath needs a uint256 so first take absolute value
-        uint256 bSquared = FullMath.mulDiv(bAbs, bAbs, 1e18) + (bAbs * bAbs % 1e18 == 0 ? 0 : 1); // use Uniswap FullMath because it handles intermediate overflow if b^2 is too large
+        // B component of the quadratic formula
+        int256 B = int256((px * (y - y0) + py - 1) / py) 
+                 - int256((x0 * (2 * c - 1e18) + 1e18 - 1) / 1e18); 
 
-        // 4 * a * c component of quadratic equation
-        uint256 cPart = Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil);
-        uint256 y0Squared = Math.mulDiv(y0, y0, 1e18, Math.Rounding.Ceil);
-        uint256 ac4 = Math.mulDiv(cPart, y0Squared, 1e18, Math.Rounding.Ceil);
+        // B^2 component, using FullMath for overflow safety
+        uint256 absB = B < 0 ? uint256(-B) : uint256(B);
+        uint256 squaredB = FullMath.mulDiv(absB, absB, 1e18) 
+                         + (absB * absB % 1e18 == 0 ? 0 : 1); 
 
-        // discriminant component of quadratic formula
-        uint256 discriminant = bSquared + ac4;
+        // 4 * A * C component of the quadratic formula
+        uint256 AC4 = Math.mulDiv(
+            Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil), 
+            Math.mulDiv(x0, x0, 1e18, Math.Rounding.Ceil), 
+            1e18, 
+            Math.Rounding.Ceil
+        );
 
-        // square root of the discriminant (rounded up) component of quadratic formula
-        uint256 sqrt = sqrtRoundUpSafe(discriminant * 1e18);
+        // Discriminant: b^2 + 4ac, scaled up to maintain precision
+        uint256 discriminant = (squaredB + AC4) * 1e18;
 
-        // solve for x = fInverse(y)
-        return Math.mulDiv(uint256(int256(sqrt) - b), 1e18, a, Math.Rounding.Ceil);
+        // Square root of the discriminant (rounded up)
+        uint256 sqrt = Math.sqrt(discriminant);
+        sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
+
+        // Compute and return x = fInverse(y) using the quadratic formula
+        return Math.mulDiv(uint256(int256(sqrt) - B), 1e18, A, Math.Rounding.Ceil);
     }
 
-    /**
-    * @notice Computes the square root of a `uint256`, rounding up if necessary.
-    * @param x The input value
-    * @return The square root of `x`, rounded up.
-    */
-    function sqrtRoundUpSafe(uint256 x) internal pure returns (uint256) {
-        uint256 result = Math.sqrt(x);
-        return (result * result < x) ? result + 1 : result;
-    }
-
-    /**
-    * @notice Returns the absolute value of an `int256` as a `uint256`.
-    * @param x The signed integer input
-    * @return The absolute value as an unsigned integer.
-    */
-    function abs(int256 x) internal pure returns (uint256) {
-        return x < 0 ? uint256(-x) : uint256(x);
-    }
 
 }
 

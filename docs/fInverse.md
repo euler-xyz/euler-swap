@@ -2,7 +2,7 @@
 
 ## Pre-conditions
 
-- \(y > x_0\)
+- \(y > y_0\)
 - \(1e18 \leq p_x, p_y \leq 1e36\) (60 to 120 bits)
 - \(1 \leq x_0, y_0 \leq 2^{112} - 1 \approx 5.19e33\) (0 to 112 bits)
 - \(1 < c \leq 1e18\) (0 to 60 bits)
