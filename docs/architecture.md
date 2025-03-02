@@ -2,13 +2,11 @@
 
 ## Overview
 
-EulerSwap is an automated market maker (AMM) that integrates with Euler lending vaults to provide deeper liquidity for swaps.
-
-Unlike traditional AMMs that use shared liquidity pools, EulerSwap operates with independent swap accounts, where each account manages liquidity for a single user or entity.
+EulerSwap is an automated market maker (AMM) that integrates with Euler credit vaults to provide deeper liquidity for swaps.
 
 Each EulerSwap instance is a lightweight smart contract that functions as an [EVC operator](https://evc.wtf/docs/whitepaper/#operators) while implementing a highly customizable AMM curve to determine swap output amounts.
 
-When a user initiates a swap, the swap account borrows the required output token using the input token as collateral. The swap account’s AMM curve governs the exchange rate, ensuring deep liquidity over short timeframes while maintaining a balance between collateral and debt over the long term.
+When a user initiates a swap, the EulerSwap operator borrows the required output token using the input token as collateral. The operator’s internal AMM curve governs the exchange rate, ensuring deep liquidity over short timeframes while maintaining a balance between collateral and debt over the long term.
 
 ## Code structure
 
@@ -16,7 +14,7 @@ EulerSwap’s code is split into two main smart contracts:
 
 ### EulerSwap core (`EulerSwap.sol`)
 
-- Handles collateralization via EVC and Euler lending vaults.
+- Handles collateralization via EVC and Euler credit vaults.
 - Implements AMM curve invariant checks through the `verify()` function.
 
 ### EulerSwap periphery (`EulerSwapPeriphery.sol`)
@@ -26,10 +24,10 @@ EulerSwap’s code is split into two main smart contracts:
 
 ## Operational flow
 
-The following steps outline how a swap account is created and configured:
+The following steps outline how an EulerSwap operator is created and configured:
 
-1. Deposit initial liquidity into one or both of the vaults to enable swaps.
-2. Deploy the EulerSwap contract, specifying AMM curve parameters and the `fee`.
+1. Deposit initial liquidity into one or both of the underlying credit vaults to enable swaps.
+2. Deploy an instance of EulerSwap, specifying AMM curve parameters and the `fee`.
 3. Set the [virtual reserves](#virtual-reserves) by invoking `setVirtualReserves()`.
 4. Install the EulerSwap contract as an operator for the user's account.
 5. Invoke the `configure()` function on the EulerSwap contract.
