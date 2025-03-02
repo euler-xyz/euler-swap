@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
+import {console} from "forge-std/Test.sol";
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IERC20, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
 import {Errors as EVKErrors} from "evk/EVault/shared/Errors.sol";
@@ -84,6 +85,9 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         debtLimit1 = params.debtLimit1;
         initialReserve0 = reserve0 = offsetReserve(params.debtLimit0, params.vault0);
         initialReserve1 = reserve1 = offsetReserve(params.debtLimit1, params.vault1);
+        //initialReserve0 = initialReserve1 = 60e18;
+        console.log("reserves", reserve0, reserve1);
+        console.log("initresv", initialReserve0, initialReserve1);
         feeMultiplier = 1e18 - params.fee;
 
         // Curve params

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
+import {console} from "forge-std/Test.sol";
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
@@ -69,6 +70,8 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
+            console.log("Q",quote);
+            console.log("R",(asset0IsInput ? reserve1 : reserve0));
             require(quote <= (asset0IsInput ? reserve1 : reserve0), InsufficientReserves());
             require(quote <= IEVault(asset0IsInput ? vault1 : vault0).cash(), InsufficientCash());
         } else {

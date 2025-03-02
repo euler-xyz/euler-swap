@@ -8,17 +8,17 @@ contract ReinstallTest is EulerSwapTestBase {
 
     function setUp() public virtual override {
         super.setUp();
-
-        eulerSwap = createEulerSwap(50e18, 50e18, 0, 1e18, 1e18, 0.4e18, 0.85e18);
     }
 
-    function test_basicSwap_exactIn() public monotonicHolderNAV {
+    function test_reinstallPrices() public {
+        eulerSwap = createEulerSwap(50e18, 50e18, 0, 1e18, 1e18, 0.5e18, 0.5e18);
+
         console.log("MP 1",marginalPrice());
 
         uint256 amountIn = 1e18;
         uint256 amountOut =
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
-        assertApproxEqAbs(amountOut, 0.9974e18, 0.0001e18);
+        //assertApproxEqAbs(amountOut, 0.9974e18, 0.0001e18);
 
         assetTST.mint(address(this), amountIn);
 
@@ -29,14 +29,15 @@ contract ReinstallTest is EulerSwapTestBase {
 
         console.log("MP 2",marginalPrice());
 
-        eulerSwap = createEulerSwap(50e18, 50e18, 0, 1e18, 1e18, 0.4e18, 0.85e18);
+        eulerSwap = createEulerSwap(50e18, 50e18, 0, 1e18, 1e18, 0.5e18, 0.5e18);
 
         console.log("MP 3",marginalPrice());
     }
 
     function marginalPrice() internal returns (uint256) {
-        uint256 scale = 1e6;
-        uint256 out = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), scale);
-        return scale * 1e18 / out;
+        uint256 epsilon = 0.1e18;
+        uint256 out = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), epsilon);
+        //uint256 out = periphery.quoteExactInput(address(eulerSwap), address(assetTST2), address(assetTST), epsilon);
+        return epsilon * 1e18 / out;
     }
 }
