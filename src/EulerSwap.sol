@@ -34,6 +34,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
     uint112 public reserve0;
     uint112 public reserve1;
+
     uint32 public status; // 0 = unactivated, 1 = unlocked, 2 = locked
 
     event EulerSwapCreated(address indexed asset0, address indexed asset1);
@@ -251,12 +252,31 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         return uint112(offset);
     }
 
-    /// @dev EulerSwap curve definition
-    /// Pre-conditions: x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
+    /**
+     * @notice Computes the y-coordinate on the EulerSwap AMM curve given the x-coordinate.
+     * @dev Implements the EulerSwap AMM curve equation f().
+     * @param x The x-coordinate input value (must be less than or equal to `x0`).
+     * @param px Price factor for the x-axis (scaled by 1e18, between 1e18 and 1e36).
+     * @param py Price factor for the y-axis (scaled by 1e18, between 1e18 and 1e36).
+     * @param x0 Reference x-value on the AMM curve (≤ 2^112 - 1).
+     * @param y0 Reference y-value on the AMM curve (≤ 2^112 - 1).
+     * @param c Curve parameter shaping liquidity concentration (scaled by 1e18, between 0 and 1e18).
+     *
+     * @return y The computed y-coordinate on the AMM curve.
+     *
+     * @custom:precision Uses rounding up to maintain precision in all calculations.
+     * @custom:safety The `require` statement ensures `v` does not exceed the `uint248` limit.
+     * @custom:requirement Input `x` must be less than or equal to `x0`; otherwise, the function will revert.
+     */
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         unchecked {
+            // Intermediate value v using the AMM curve formula
             uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
+
+            // Overflow safety check, v must fit within 248 bits
             require(v <= type(uint248).max, Overflow());
+
+            // Calculate and return the final y-coordinate
             return y0 + (v + (py - 1)) / py;
         }
     }

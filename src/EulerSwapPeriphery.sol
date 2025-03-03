@@ -192,19 +192,16 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
     }
 
     /**
-     * @notice Computes the inverse of the `f()` function for the EulerSwap liquidity curve.
-     * @dev Solves for `x` given `y` using the quadratic formula derived from the liquidity curve:
-     *      x = (-b + sqrt(b^2 + 4ac)) / 2a
-     *      Utilises Uniswap's FullMath to avoid overflow and ensures precision with upward rounding.
-     *
+     * @notice Computes the x-coordinate on the EulerSwap AMM curve given the y-coordinate.
+     * @dev Implements the inverse EulerSwap AMM curve equation fInverse().
      * @param y The y-coordinate input value (must be greater than `y0`).
      * @param px Price factor for the x-axis (scaled by 1e18, between 1e18 and 1e36).
      * @param py Price factor for the y-axis (scaled by 1e18, between 1e18 and 1e36).
-     * @param x0 Reference x-value on the liquidity curve (≤ 2^112 - 1).
-     * @param y0 Reference y-value on the liquidity curve (≤ 2^112 - 1).
+     * @param x0 Reference x-value on the AMM curve (≤ 2^112 - 1).
+     * @param y0 Reference y-value on the AMM curve (≤ 2^112 - 1).
      * @param c Curve parameter shaping liquidity concentration (scaled by 1e18, between 0 and 1e18).
      *
-     * @return x The computed x-coordinate on the liquidity curve.
+     * @return x The computed x-coordinate on the AMM curve.
      *
      * @custom:precision Uses rounding up to maintain precision in all calculations.
      * @custom:safety FullMath handles potential overflow in the b^2 computation.
