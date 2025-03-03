@@ -3,6 +3,9 @@ pragma solidity >=0.4.0;
 
 /// @title Contains 512-bit math functions
 /// @notice Facilitates multiplication and division that can have overflow of an intermediate value without any loss of precision
+/// @dev This is a copy of the FullMath library from uniswap-v3 https://github.com/Uniswap/v3-core/blob/d8b1c635c275d2a9450bd6a78f3fa2484fef73eb/contracts/libraries/FullMath.sol:
+///      The only modification is in https://github.com/Uniswap/v3-core/blob/d8b1c635c275d2a9450bd6a78f3fa2484fef73eb/contracts/libraries/FullMath.sol#L64 
+///      To L67 "uint256 twos = (type(uint256).max - denominator + 1) & denominator;" to support solidity ^0.8.27.
 /// @dev Handles "phantom overflow" i.e., allows multiplication and division where an intermediate value overflows 256 bits
 library FullMath {
     /// @notice Calculates floor(a×b÷denominator) with full precision. Throws if result overflows a uint256 or denominator == 0
