@@ -3,6 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc = "0.8.27"
+auto_detect_solc = false
 optimizer = true
 optimizer_runs = 10000
 gas_reports = ["*"]
