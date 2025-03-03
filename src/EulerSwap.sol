@@ -10,7 +10,7 @@ import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol"
 import {EVCUtil} from "evc/utils/EVCUtil.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 import {Test, console} from "forge-std/Test.sol";
-import "uniswap-v3/FullMath.sol";
+import {FullMath} from "./FullMathCopy.sol";
 
 contract EulerSwap is IEulerSwap, EVCUtil {
     bytes32 public constant curve = keccak256("EulerSwap v1");
