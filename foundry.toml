@@ -3,9 +3,14 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc = "0.8.27"
+auto_detect_solc = false
 optimizer = true
 optimizer_runs = 10000
 gas_reports = ["*"]
+
+# Specific overrides for uniswap-v3 FullMath.sol library
+[profile.default.solc_version_overrides]
+"lib/v3-core/contracts/libraries/FullMath.sol" = "0.7.6"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
