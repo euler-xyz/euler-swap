@@ -19,8 +19,8 @@ contract EulerSwapTest is EulerSwapTestBase {
         uint256 outX = eulerSwap.fInverse(y, 1e18, 1e18, 50e18, 50e18, 0.85e18);
         console.log("x: ", x);
         console.log("y: ", y);
-        console.log("xOut: ", outX);  
-        assertEq(x, outX);  
+        console.log("xOut: ", outX);
+        assertEq(x, outX);
     }
 
     // function test_basicSwap_exactIn() public monotonicHolderNAV {
@@ -29,11 +29,11 @@ contract EulerSwapTest is EulerSwapTestBase {
     //     uint256 outX = eulerSwap.fInverse(y, 1e18, 1e18, 50e18, 50e18, 0.85e18);
     //     console.log("x: ", x);
     //     console.log("y: ", y);
-    //     console.log("xOut: ", outX);  
-    //     assertEq(x, outX);  
+    //     console.log("xOut: ", outX);
+    //     assertEq(x, outX);
     // }
 
-    function test_fInverseFuzz(uint x) public {
+    function test_fInverseFuzz(uint256 x) public {
         x = bound(x, 2, 50e18 - 1); // it fails if 1 us used, not an issue since only used in periphery
         uint256 y = eulerSwap.f(x, 1e18, 1e18, 50e18, 50e18, 0.85e18);
         uint256 outX = eulerSwap.fInverse(y, 1e18, 1e18, 50e18, 50e18, 0.85e18);
@@ -48,5 +48,4 @@ contract EulerSwapTest is EulerSwapTestBase {
         // Alternative using assertApproxEqAbs for absolute difference within 1
         assertApproxEqAbs(x, outX, 1);
     }
-
 }
