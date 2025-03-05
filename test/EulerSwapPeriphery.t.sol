@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
 import {EulerSwapHarness} from "./harness/EulerSwapHarness.sol";
 
+import "forge-std/console.sol";
+
 contract EulerSwapPeripheryTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
     EulerSwapHarness public eulerSwapHarness;
@@ -78,7 +80,7 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
         vm.stopPrank();
     }
 
-    function test_fInverseFuzz(uint256 x) public view {
+    function test_fInverseFuzz(uint256 x) public {
         x = bound(x, 2, 50e18 - 1); // note that it fails if 1 used as minimum, not an issue since only used in periphery
         uint256 y = eulerSwapHarness.exposedF(x, 1e18, 1e18, 50e18, 50e18, 0.85e18);
         uint256 outX = periphery.fInverse(y, 1e18, 1e18, 50e18, 50e18, 0.85e18);
@@ -89,5 +91,61 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
 
         // Alternative using assertApproxEqAbs for absolute difference within 1
         assertApproxEqAbs(x, outX, 1);
+    }
+
+    function test_quoteExactInput() public {
+        uint256 amountIn = 1e18;
+        uint256 amountOutBinary =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        console.log("amountOutBinary", amountOutBinary);
+        uint256 amountOutExplicit =
+            periphery.quoteExactInputExplicit(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        console.log("amountOutExplicit", amountOutExplicit);
+
+        assertEq(amountOutBinary, amountOutExplicit);
+    }
+
+    function test_quoteExactOutput() public {
+        uint256 amountOut = 1e18;
+        uint256 amountIn =
+            periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+
+        console.log("amountIn", amountIn);
+        uint256 amountInExplicit =
+            periphery.quoteExactOutputExplicit(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+
+        console.log("amountInExplicit", amountInExplicit);
+
+        assertEq(amountIn, amountInExplicit);
+    }
+
+    function test_fuzzQuoteExactInput(uint256 amountIn) public {
+        amountIn = bound(amountIn, 2, 50e18 - 1);
+        uint256 amountOutBinary =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        console.log("amountOutBinary", amountOutBinary);
+        uint256 amountOutExplicit =
+            periphery.quoteExactInputExplicit(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        console.log("amountOutExplicit", amountOutExplicit);
+
+        assertEq(amountOutBinary, amountOutExplicit);
+    }
+
+    function test_fuzzQuoteExactOutput(uint256 amountOut) public {
+        amountOut = bound(amountOut, 2, 50e18 - 1);
+        uint256 amountIn =
+            periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+
+        console.log("amountIn", amountIn);
+        uint256 amountInExplicit =
+            periphery.quoteExactOutputExplicit(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+
+        console.log("amountInExplicit", amountInExplicit);
+
+        assertEq(amountIn, amountInExplicit);
     }
 }
