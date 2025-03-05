@@ -67,7 +67,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         address tokenIn,
         address tokenOut,
         uint256 amountIn
-    ) external view returns (uint256) {
+    ) external returns (uint256) {
         return
             computeQuote(
                 IEulerSwap(eulerSwap),
@@ -84,7 +84,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         address tokenIn,
         address tokenOut,
         uint256 amountOut
-    ) external view returns (uint256) {
+    ) external returns (uint256) {
         return
             computeQuote(
                 IEulerSwap(eulerSwap),
@@ -100,7 +100,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         address tokenIn,
         address tokenOut,
         uint256 amountIn
-    ) external view returns (uint256) {
+    ) external returns (uint256) {
         return
             computeQuoteExplicit(
                 IEulerSwap(eulerSwap),
@@ -116,7 +116,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         address tokenIn,
         address tokenOut,
         uint256 amountOut
-    ) external view returns (uint256) {
+    ) external returns (uint256) {
         return
             computeQuoteExplicit(
                 IEulerSwap(eulerSwap),
@@ -166,7 +166,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         address tokenOut,
         uint256 amount,
         bool exactIn
-    ) internal view returns (uint256) {
+    ) internal returns (uint256) {
         require(
             IEVC(eulerSwap.EVC()).isAccountOperatorAuthorized(
                 eulerSwap.eulerAccount(),
@@ -250,7 +250,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         address tokenOut,
         uint256 amount,
         bool exactIn
-    ) internal view returns (uint256) {
+    ) internal returns (uint256) {
         require(
             IEVC(eulerSwap.EVC()).isAccountOperatorAuthorized(
                 eulerSwap.eulerAccount(),
@@ -394,7 +394,19 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 amount,
         bool exactIn,
         bool asset0IsInput
-    ) internal view returns (uint256 output) {
+    ) internal returns (uint256 output) {
+        console.log("px", eulerSwap.priceX());
+        console.log("py", eulerSwap.priceY());
+        console.log("cx", eulerSwap.concentrationX());
+        console.log("cy", eulerSwap.concentrationY());
+        console.log("x0", eulerSwap.initialReserve0());
+        console.log("y0", eulerSwap.initialReserve1());
+        console.log("reserve0", reserve0);
+        console.log("reserve1", reserve1);
+        console.log("amount", amount);
+        console.log("exactIn", exactIn);
+        console.log("asset0IsInput", asset0IsInput);
+
         uint256 px = asset0IsInput ? eulerSwap.priceX() : eulerSwap.priceY();
         uint256 py = asset0IsInput ? eulerSwap.priceY() : eulerSwap.priceX();
         uint256 x0 = asset0IsInput
@@ -417,26 +429,39 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             if (x < x0) {
                 // Left side, moving towards center
                 if (x + amount < x0) {
+                    console.log("1");
                     // Finish left of center
                     output =
                         y -
                         fInternal(x + amount, px, py, x0, y0, cx);
                 } else {
+                    console.log("2");
                     // Cross center to right side
                     output =
                         y -
                         fInverseInternal(x + amount, px, py, x0, y0, cy);
                 }
             } else {
+                console.log("3");
                 // Right side, moving away from center
+                uint256 inverse = fInverseInternal(x + amount, py, px, y0, x0, cy);
+                console.log("y", y);
+                console.log("inverse", inverse);
+                console.log("x + amount", x + amount);
+                console.log("x0", x0);
+                console.log("y0", y0);
+                console.log("px", px);
+                console.log("py", py);
+                console.log("cy", cy);
                 output =
                     y -
-                    fInverseInternal(x + amount, px, py, x0, y0, cy);
+                    fInverseInternal(x + amount, py, px, y0, x0, cy);
             }
         } else {
             if (x < x0) {
                 // Left side, moving towards center
                 if (y - amount > y0) {
+                    console.log("4");
                     // Finish left of center
                     output =
                         fInverseInternal(
@@ -449,19 +474,21 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                         ) -
                         x;
                 } else {
+                    console.log("5");
                     // Cross center to right side
                     output =
                         fInternal(y - amount, py, px, y0, x0, cy) -
                         x;
                 }
             } else {
-                // Right side, moving away from center  
+                console.log("6");
+                // Right side, moving away from center
                 output =
                     fInternal(y - amount, py, px, y0, x0, cy) -
                     x;
             }
         }
-
+        console.log("output", output);
         return output;
     }
 
@@ -494,21 +521,25 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 x0,
         uint256 y0,
         uint256 c
-    ) internal pure returns (uint256) {
+    ) internal returns (uint256) {
         unchecked {
             // A component of the quadratic formula: a = 2 * c
             uint256 A = 2 * c;
+            console.log("A", A);
             // B component of the quadratic formula
             int256 B = int256((px * (y - y0) + py - 1) / py) -
                 ((int256(x0) * (2 * int256(c) - 1e18) + 1e18 - 1) / 1e18);
+            console.logInt(B);
             // B^2 component, using FullMath for overflow safety
             uint256 absB = B < 0 ? uint256(-B) : uint256(B);
+            console.log("absB", absB);
             uint256 squaredB = Math.mulDiv(
                 absB,
                 absB,
                 1e18,
                 Math.Rounding.Ceil
             );
+            console.log("squaredB", squaredB);
             // 4 * A * C component of the quadratic formula
             uint256 AC4 = Math.mulDiv(
                 Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil),
@@ -516,13 +547,18 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                 1e18,
                 Math.Rounding.Ceil
             );
+            console.log("AC4", AC4);
             // Discriminant: b^2 + 4ac, scaled up to maintain precision
             uint256 discriminant = (squaredB + AC4) * 1e18;
-
+            console.log("discriminant", discriminant);
             // Square root of the discriminant (rounded up)
             uint256 sqrt = Math.sqrt(discriminant);
+            console.log("sqrt", sqrt);
             sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
+            console.log("sqrt", sqrt);
             // Compute and return x = fInverse(y) using the quadratic formula
+            uint256 input = uint256(int256(sqrt) - B);
+            console.log("input", input);
             return
                 Math.mulDiv(
                     uint256(int256(sqrt) - B),
