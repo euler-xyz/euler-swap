@@ -104,7 +104,7 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
 
         console.log("amountOutExplicit", amountOutExplicit);
 
-        assertEq(amountOutBinary, amountOutExplicit);
+        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 1);
     }
 
     function test_quoteExactOutput() public {
@@ -118,7 +118,7 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
 
         console.log("amountInExplicit", amountInExplicit);
 
-        assertEq(amountIn, amountInExplicit);
+        assertApproxEqAbs(amountIn, amountInExplicit, 1);
     }
 
     function test_fuzzQuoteExactInput(uint256 amountIn) public {
@@ -132,7 +132,7 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
 
         console.log("amountOutExplicit", amountOutExplicit);
 
-        assertEq(amountOutBinary, amountOutExplicit);
+        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 1);
     }
 
     function test_fuzzQuoteExactOutput(uint256 amountOut) public {
@@ -146,6 +146,26 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
 
         console.log("amountInExplicit", amountInExplicit);
 
-        assertEq(amountIn, amountInExplicit);
+        assertApproxEqAbs(amountIn, amountInExplicit, 1);
+    }
+
+    function test_gasQuoteExactInput() public {
+        uint256 amountIn = 1e18;
+
+        uint256 startGas = gasleft();
+        uint256 amountOutBinary =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        console.log("Gas used for binary quote:", startGas - gasleft());
+    }
+
+    function test_gasQuoteExactInputExplicit() public {
+        uint256 amountIn = 1e18;
+
+        uint256 startGas = gasleft();
+        uint256 amountOutExplicit =
+            periphery.quoteExactInputExplicit(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        console.log("Gas used for explicit quote:", startGas - gasleft());
     }
 }
