@@ -156,50 +156,6 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
         assertApproxEqAbs(x, outX, 1);
     }
 
-    function test_quoteExactInput() public {
-        uint256 amountIn = 1e18;
-        uint256 amountOutBinary = periphery.quoteExactInput(
-            address(eulerSwap),
-            address(assetTST),
-            address(assetTST2),
-            amountIn
-        );
-
-        console.log("amountOutBinary", amountOutBinary);
-        uint256 amountOutExplicit = periphery.quoteExactInputExplicit(
-            address(eulerSwap),
-            address(assetTST),
-            address(assetTST2),
-            amountIn
-        );
-
-        console.log("amountOutExplicit", amountOutExplicit);
-
-        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 1);
-    }
-
-    function test_quoteExactOutput() public {
-        uint256 amountOut = 1e18;
-        uint256 amountIn = periphery.quoteExactOutput(
-            address(eulerSwap),
-            address(assetTST),
-            address(assetTST2),
-            amountOut
-        );
-
-        console.log("amountIn", amountIn);
-        uint256 amountInExplicit = periphery.quoteExactOutputExplicit(
-            address(eulerSwap),
-            address(assetTST),
-            address(assetTST2),
-            amountOut
-        );
-
-        console.log("amountInExplicit", amountInExplicit);
-
-        assertApproxEqAbs(amountIn, amountInExplicit, 1);
-    }
-
     function test_fuzzQuoteExactInput(uint256 amountIn) public {
         amountIn = bound(amountIn, 2, 50e18 - 1);
         uint256 amountOutBinary = periphery.quoteExactInput(
@@ -270,5 +226,129 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
         );
 
         console.log("Gas used for explicit quote:", startGas - gasleft());
+    }
+
+    function test_FuzzQuoteAfterSwapExactIn(uint256 amountIn, uint256 amountInAfterSwap) public {
+        amountIn = bound(amountIn, 2, 50e18 - 1);
+        amountInAfterSwap = bound(amountInAfterSwap, 2, 50e18 - amountIn + 1);
+        uint256 amountOut = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountIn
+        );
+
+        assetTST.mint(anyone, amountIn);
+
+        vm.startPrank(anyone);
+        assetTST.approve(address(periphery), amountIn);
+        periphery.swapExactIn(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountIn,
+            amountOut
+        );
+        vm.stopPrank();
+
+        uint256 amountOutBinary = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountInAfterSwap
+        );
+
+        uint256 amountOutExplicit = periphery.quoteExactInputExplicit(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountInAfterSwap
+        );
+
+        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 1);
+    }
+
+    function test_QuoteAfterSwapExactInBothDirections() public {
+        uint256 amountInX = 1e18;
+        uint256 amountInY = 2e18;
+        uint256 amountOutY = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountInX
+        );
+
+        assetTST.mint(anyone, amountInX);
+
+        vm.startPrank(anyone);
+        assetTST.approve(address(periphery), amountInX);
+        periphery.swapExactIn(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountInX,
+            amountOutY
+        );
+        vm.stopPrank();
+
+        uint256 amountOutBinary = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST2),
+            address(assetTST),
+            amountInY
+        );
+
+        console.log("amountOutBinary", amountOutBinary);
+
+        uint256 amountOutExplicit = periphery.quoteExactInputExplicit(
+            address(eulerSwap),
+            address(assetTST2),
+            address(assetTST),
+            amountInY
+        );
+
+        console.log("amountOutExplicit", amountOutExplicit);
+
+        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 1);
+    }
+
+    function test_FuzzQuoteAfterSwapExactInBothDirections(uint256 amountInX, uint256 amountInY) public {
+        amountInX = bound(amountInX, 2, 50e18 - 1);
+        amountInY = bound(amountInY, 2, 50e18 - 1);
+        uint256 amountOutY = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountInX
+        );
+
+        assetTST.mint(anyone, amountInX);
+
+        vm.startPrank(anyone);
+        assetTST.approve(address(periphery), amountInX);
+        periphery.swapExactIn(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountInX,
+            amountOutY
+        );
+        vm.stopPrank();
+
+        uint256 amountOutBinary = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST2),
+            address(assetTST),
+            amountInY
+        );
+
+        uint256 amountOutExplicit = periphery.quoteExactInputExplicit(
+            address(eulerSwap),
+            address(assetTST2),
+            address(assetTST),
+            amountInY
+        );
+
+        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 2);
     }
 }

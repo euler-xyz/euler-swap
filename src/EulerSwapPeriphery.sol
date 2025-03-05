@@ -7,6 +7,8 @@ import {IEulerSwapPeriphery} from "./interfaces/IEulerSwapPeriphery.sol";
 import {IERC20, IEulerSwap, SafeERC20} from "./EulerSwap.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
+import "forge-std/console.sol";
+
 contract EulerSwapPeriphery is IEulerSwapPeriphery {
     using SafeERC20 for IERC20;
 
@@ -408,52 +410,55 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             ? eulerSwap.concentrationY()
             : eulerSwap.concentrationX();
 
+        uint256 x = asset0IsInput ? reserve0 : reserve1;
+        uint256 y = asset0IsInput ? reserve1 : reserve0;
+
         if (exactIn) {
-            if (reserve0 < x0) {
+            if (x < x0) {
                 // Left side, moving towards center
-                if (reserve0 + amount < x0) {
+                if (x + amount < x0) {
                     // Finish left of center
                     output =
-                        reserve1 -
-                        fInternal(reserve0 + amount, px, py, x0, y0, cx);
+                        y -
+                        fInternal(x + amount, px, py, x0, y0, cx);
                 } else {
                     // Cross center to right side
                     output =
-                        reserve1 -
-                        fInverseInternal(reserve0 + amount, px, py, x0, y0, cy);
+                        y -
+                        fInverseInternal(x + amount, px, py, x0, y0, cy);
                 }
             } else {
                 // Right side, moving away from center
                 output =
-                    reserve1 -
-                    fInverseInternal(reserve0 + amount, px, py, x0, y0, cy);
+                    y -
+                    fInverseInternal(x + amount, px, py, x0, y0, cy);
             }
         } else {
-            if (reserve0 < x0) {
+            if (x < x0) {
                 // Left side, moving towards center
-                if (reserve1 - amount > y0) {
+                if (y - amount > y0) {
                     // Finish left of center
                     output =
                         fInverseInternal(
-                            reserve1 - amount,
+                            y - amount,
                             px,
                             py,
                             x0,
                             y0,
                             cx
                         ) -
-                        reserve0;
+                        x;
                 } else {
                     // Cross center to right side
                     output =
-                        fInternal(reserve1 - amount, py, px, y0, x0, cy) -
-                        reserve0;
+                        fInternal(y - amount, py, px, y0, x0, cy) -
+                        x;
                 }
             } else {
-                // Right side, moving away from center
+                // Right side, moving away from center  
                 output =
-                    fInternal(reserve1 - amount, py, px, y0, x0, cy) -
-                    reserve0;
+                    fInternal(y - amount, py, px, y0, x0, cy) -
+                    x;
             }
         }
 
@@ -493,11 +498,9 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         unchecked {
             // A component of the quadratic formula: a = 2 * c
             uint256 A = 2 * c;
-
             // B component of the quadratic formula
             int256 B = int256((px * (y - y0) + py - 1) / py) -
-                int256((x0 * (2 * c - 1e18) + 1e18 - 1) / 1e18);
-
+                ((int256(x0) * (2 * int256(c) - 1e18) + 1e18 - 1) / 1e18);
             // B^2 component, using FullMath for overflow safety
             uint256 absB = B < 0 ? uint256(-B) : uint256(B);
             uint256 squaredB = Math.mulDiv(
@@ -506,7 +509,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                 1e18,
                 Math.Rounding.Ceil
             );
-
             // 4 * A * C component of the quadratic formula
             uint256 AC4 = Math.mulDiv(
                 Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil),
@@ -514,14 +516,12 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                 1e18,
                 Math.Rounding.Ceil
             );
-
             // Discriminant: b^2 + 4ac, scaled up to maintain precision
             uint256 discriminant = (squaredB + AC4) * 1e18;
 
             // Square root of the discriminant (rounded up)
             uint256 sqrt = Math.sqrt(discriminant);
             sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
-
             // Compute and return x = fInverse(y) using the quadratic formula
             return
                 Math.mulDiv(
