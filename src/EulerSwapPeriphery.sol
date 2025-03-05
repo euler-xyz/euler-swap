@@ -194,7 +194,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             else revert UnsupportedPair();
         }
 
-        uint256 quote = binarySearch(
+        uint256 quote = quoteExplicit(
             eulerSwap,
             reserve0,
             reserve1,
