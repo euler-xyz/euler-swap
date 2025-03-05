@@ -93,7 +93,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             );
     }
 
-    
     function quoteExactInputExplicit(
         address eulerSwap,
         address tokenIn,
@@ -110,7 +109,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             );
     }
 
-    
     function quoteExactOutputExplicit(
         address eulerSwap,
         address tokenIn,
@@ -397,38 +395,65 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
     ) internal view returns (uint256 output) {
         uint256 px = asset0IsInput ? eulerSwap.priceX() : eulerSwap.priceY();
         uint256 py = asset0IsInput ? eulerSwap.priceY() : eulerSwap.priceX();
-        uint256 x0 = asset0IsInput ? eulerSwap.initialReserve0() : eulerSwap.initialReserve1();
-        uint256 y0 = asset0IsInput ? eulerSwap.initialReserve1() : eulerSwap.initialReserve0();
-        uint256 cx = asset0IsInput ? eulerSwap.concentrationX() : eulerSwap.concentrationY();
-        uint256 cy = asset0IsInput ? eulerSwap.concentrationY() : eulerSwap.concentrationX();
+        uint256 x0 = asset0IsInput
+            ? eulerSwap.initialReserve0()
+            : eulerSwap.initialReserve1();
+        uint256 y0 = asset0IsInput
+            ? eulerSwap.initialReserve1()
+            : eulerSwap.initialReserve0();
+        uint256 cx = asset0IsInput
+            ? eulerSwap.concentrationX()
+            : eulerSwap.concentrationY();
+        uint256 cy = asset0IsInput
+            ? eulerSwap.concentrationY()
+            : eulerSwap.concentrationX();
 
         if (exactIn) {
             if (reserve0 < x0) {
                 // Left side, moving towards center
-                if (reserve0 + amount < x0){
+                if (reserve0 + amount < x0) {
                     // Finish left of center
-                    output = reserve1 - fInternal(reserve0 + amount, px, py, x0, y0, cx);
+                    output =
+                        reserve1 -
+                        fInternal(reserve0 + amount, px, py, x0, y0, cx);
                 } else {
                     // Cross center to right side
-                    output = reserve1 - fInverseInternal(reserve0 + amount, px, py, x0, y0, cy);
+                    output =
+                        reserve1 -
+                        fInverseInternal(reserve0 + amount, px, py, x0, y0, cy);
                 }
             } else {
                 // Right side, moving away from center
-                output = reserve1 - fInverseInternal(reserve0 + amount, px, py, x0, y0, cy);
+                output =
+                    reserve1 -
+                    fInverseInternal(reserve0 + amount, px, py, x0, y0, cy);
             }
         } else {
             if (reserve0 < x0) {
                 // Left side, moving towards center
-                if (reserve1 - amount > y0){
+                if (reserve1 - amount > y0) {
                     // Finish left of center
-                    output = fInverseInternal(reserve1 - amount, px, py, x0, y0, cx) - reserve0;
+                    output =
+                        fInverseInternal(
+                            reserve1 - amount,
+                            px,
+                            py,
+                            x0,
+                            y0,
+                            cx
+                        ) -
+                        reserve0;
                 } else {
                     // Cross center to right side
-                    output = fInternal(reserve1 - amount, py, px, y0, x0, cy) - reserve0;
+                    output =
+                        fInternal(reserve1 - amount, py, px, y0, x0, cy) -
+                        reserve0;
                 }
             } else {
                 // Right side, moving away from center
-                output = fInternal(reserve1 - amount, py, px, y0, x0, cy) - reserve0;
+                output =
+                    fInternal(reserve1 - amount, py, px, y0, x0, cy) -
+                    reserve0;
             }
         }
 
