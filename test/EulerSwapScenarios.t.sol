@@ -71,7 +71,7 @@ contract EulerSwapScenarioTest is Test {
         // 2. `yNew = f(xNew)`
         // **Invariant check:**
         // `yNew >= f(xNew) = f(x + xIn)`
-        xIn = bound(xIn, 0, x0 - x - 1); 
+        xIn = bound(xIn, 0, x0 - x - 1);
         uint256 x = 1;
         uint256 xNew = x + xIn;
         uint256 yNew = f(xNew, px, py, x0, y0, cx);
@@ -92,5 +92,20 @@ contract EulerSwapScenarioTest is Test {
         uint256 yNew = fInverse(xNew, px, py, x0, y0, cy);
         assertLe(yNew, y0);
         assertGe(xNew, g(yNew, px, py, x0, y0, cy));
+    }
+
+    function test_fuzzScenario2(uint256 yIn) public {
+        // ## 2. Swap `yIn` and remain in domain 1
+        // **Calculation steps:**
+        // 1. `yNew = y + yIn`
+        // 2. `xNew = fInverse(yNew)`
+        // **Invariant check:**
+        // `yNew >= f(xNew) = f(fInverse(yNew)) = f(fInverse(y + yIn))`
+        yIn = bound(yIn, 0, y0 * y0 / 1e18);
+        uint256 y = y0 + 1;
+        uint256 yNew = y + yIn;
+        uint256 xNew = fInverse(yNew, px, py, x0, y0, cx);
+        assertLe(xNew, x0);
+        assertGe(yNew, f(xNew, px, py, x0, y0, cx));
     }
 }
