@@ -18,3 +18,5 @@ lcov.info
 # MAC files
 .DS_Store
 __MACOSX
+
+/script/dev-ctx/
