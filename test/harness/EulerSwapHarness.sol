@@ -23,6 +23,6 @@ contract EulerSwapHarness is EulerSwap {
         pure
         returns (uint256)
     {
-        return f(y, py, px, y0, x0, c);
+        return f(x, py, px, y0, x0, c);
     }
 }
