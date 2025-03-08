@@ -69,7 +69,7 @@ contract EulerSwapScenarioTest is Test {
         return Math.mulDiv(uint256(int256(sqrt) - B), 1e18, A, Math.Rounding.Ceil);
     }
 
-    function test_Scenario() public {
+    function test_specificScenario() public {
         uint256 x = 139780697298741147996;
         uint256 y = fInverse(x, px, py, x0, y0, cy);
         console.log(x);
@@ -77,6 +77,7 @@ contract EulerSwapScenarioTest is Test {
         console.log(verify(x, y));
         uint256 xNew = g(y, px, py, x0, y0, cy);
         console.log(xNew);
+        assertGe(x, xNew);
     }
 
     function test_fuzzFInvariantDomain1(uint256 x) public {
