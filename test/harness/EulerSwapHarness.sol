@@ -16,4 +16,13 @@ contract EulerSwapHarness is EulerSwap {
     {
         return f(x, px, py, x0, y0, c);
     }
+
+    /// @notice Exposes the internal f() function as a public function for testing
+    function exposedG(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+        external
+        pure
+        returns (uint256)
+    {
+        return f(y, py, px, y0, x0, c);
+    }
 }
