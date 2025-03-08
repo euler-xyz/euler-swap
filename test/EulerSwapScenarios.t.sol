@@ -13,7 +13,18 @@ contract EulerSwapScenarioTest is Test {
     uint256 py = 1e18;
     uint256 cx = 0.5e18;
     uint256 cy = 0.5e18;
-    uint256 x = 25e18;
+
+    function verify(uint256 x, uint256 y) public view returns (bool) {
+        if (x > type(uint112).max || y > type(uint112).max) return false;
+
+        if (x >= x0) {
+            if (y >= y0) return true;
+            return x >= g(y, px, py, x0, y0, cy);
+        } else {
+            if (y < y0) return false;
+            return y >= f(x, px, px, x0, y0, cx);
+        }
+    }
 
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
@@ -59,9 +70,45 @@ contract EulerSwapScenarioTest is Test {
     }
 
     function test_Scenario() public {
-        uint256 x = 45e18;
+        uint256 x = 139780697298741147996;
+        uint256 y = fInverse(x, px, py, x0, y0, cy);
+        console.log(x);
+        console.log(y);
+        console.log(verify(x, y));
+        uint256 xNew = g(y, px, py, x0, y0, cy);
+        console.log(xNew);
+    }
+
+    function test_fuzzFInvariantDomain1(uint256 x) public {
+        x = bound(x, 1, x0 - 1);
         uint256 y = f(x, px, py, x0, y0, cx);
-        assertGe(y, y0);
+        if (y <= type(uint112).max) {
+            assert(verify(x, y));
+        } else {
+            console.log("y exceeded uint112 max:", y);
+        }
+    }
+
+    function test_fuzzFInverseInvariantDomain1(uint256 y) public {
+        y = bound(y, y0 + 1, type(uint112).max);
+        uint256 x = fInverse(y, px, py, x0, y0, cx);
+        assert(verify(x, y));
+    }
+
+    function test_fuzzFInvariantDomain2(uint256 x) public {
+        x = bound(x, x0 + 1, type(uint112).max);
+        uint256 y = fInverse(x, px, py, x0, y0, cy);
+        assert(verify(x, y));
+    }
+
+    function test_fuzzFInverseInvariantDomain2(uint256 y) public {
+        y = bound(y, 1, y0 - 1);
+        uint256 x = g(y, px, py, x0, y0, cy);
+        if (x <= type(uint112).max) {
+            assert(verify(x, y));
+        } else {
+            console.log("x exceeded uint112 max:", x);
+        }
     }
 
     function test_fuzzScenario1A(uint256 xIn) public {
@@ -71,7 +118,7 @@ contract EulerSwapScenarioTest is Test {
         // 2. `yNew = f(xNew)`
         // **Invariant check:**
         // `yNew >= f(xNew) = f(x + xIn)`
-        xIn = bound(xIn, 0, x0 - x - 1);
+        xIn = bound(xIn, 0, x0 - 2);
         uint256 x = 1;
         uint256 xNew = x + xIn;
         uint256 yNew = f(xNew, px, py, x0, y0, cx);
@@ -86,7 +133,7 @@ contract EulerSwapScenarioTest is Test {
         // 2. `yNew = fInverse(xNew)`
         // **Invariant check:**
         // `xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x + xIn))`
-        xIn = bound(xIn, x0, x0 * x0 / 1e18);
+        xIn = bound(xIn, x0, type(uint112).max);
         uint256 x = 1;
         uint256 xNew = x + xIn;
         uint256 yNew = fInverse(xNew, px, py, x0, y0, cy);
@@ -101,7 +148,7 @@ contract EulerSwapScenarioTest is Test {
         // 2. `xNew = fInverse(yNew)`
         // **Invariant check:**
         // `yNew >= f(xNew) = f(fInverse(yNew)) = f(fInverse(y + yIn))`
-        yIn = bound(yIn, 0, y0 * y0 / 1e18);
+        yIn = bound(yIn, 0, type(uint112).max);
         uint256 y = y0 + 1;
         uint256 yNew = y + yIn;
         uint256 xNew = fInverse(yNew, px, py, x0, y0, cx);
@@ -116,11 +163,41 @@ contract EulerSwapScenarioTest is Test {
         // 2. `yNew = f(xNew)`
         // **Invariant check:**
         // `yNew >= f(xNew) = f(x - xOut)`
-        xOut = bound(xOut, 0, x0 - 1 - 1);
+        xOut = bound(xOut, 0, x0 - 2);
         uint256 x = x0 - 1;
         uint256 xNew = x - xOut;
         uint256 yNew = f(xNew, px, py, x0, y0, cy);
         assertGe(yNew, y0);
         assertGe(yNew, f(xNew, px, py, x0, y0, cy));
+    }
+
+    function test_fuzzScenario4A(uint256 yOut) public {
+        // ## 4a. Swap `yOut` and remain in domain 1
+        // **Calculation steps:**
+        // 1. `yNew = y - yOut`
+        // 2. `xNew = fInverse(yNew)`
+        // **Invariant check:**
+        // `yNew >= f(xNew) = f(fInverse(yNew)) = f(fInverse(y - yOut))`
+        yOut = bound(yOut, 0, type(uint112).max - (y0 + 1));
+        uint256 y = type(uint112).max;
+        uint256 yNew = y - yOut;
+        uint256 xNew = fInverse(yNew, px, py, x0, y0, cx);
+        assertGe(yNew, y0);
+        assertGe(yNew, f(xNew, px, py, x0, y0, cx));
+    }
+
+    function test_fuzzScenario4B(uint256 yOut) public {
+        // ## 4b. Swap `yOut` and move to domain 2
+        // **Calculation steps:**
+        // 1. `yNew = y - yOut`
+        // 2. `xNew = g(yNew)`
+        // **Invariant check:**
+        // `xNew >= g(yNew) = g(y - yOut)`
+        yOut = bound(yOut, 1, y0 - 1);
+        uint256 y = y0;
+        uint256 yNew = y - yOut;
+        uint256 xNew = g(yNew, px, py, x0, y0, cy);
+        assertGe(xNew, x0);
+        assertGe(xNew, g(yNew, px, py, x0, y0, cy));
     }
 }
