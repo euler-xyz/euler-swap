@@ -142,7 +142,7 @@ We always check the invariant using the cheapest function to compute. This means
 
 **Invariant check:**
 
-`xNew >= g(xNew) = g(x - xOut)`
+`xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x - xOut))`
 
 ### 7b. Swap `xOut` and move to domain 1
 
