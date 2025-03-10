@@ -194,7 +194,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         return quote;
     }
 
-    
     function quoteExplicit(
         IEulerSwap eulerSwap,
         uint112 reserve0,
@@ -223,7 +222,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     yNew = f(xNew, px, py, x0, y0, cx);
                 } else {
                     // Scenario 1b: Swap xIn and move to domain 2
-                    yNew = fInverse(xNew, px, py, x0, y0, cy);
+                    yNew = gInverse(xNew, px, py, x0, y0, cy);
                 }
                 output = reserve1 - yNew;
             } else if (exactIn && !asset0IsInput){
@@ -253,7 +252,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             if (exactIn && asset0IsInput){
                 // Scenario 5: Swap xIn and remain in domain 2
                 xNew = reserve0 + amount;
-                yNew = fInverse(xNew, px, py, x0, y0, cy);
+                yNew = gInverse(xNew, px, py, x0, y0, cy);
 
                 output = reserve1 - yNew;
             } else if (exactIn && !asset0IsInput){
@@ -273,7 +272,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                 xNew = reserve0 - amount;
                 if (xNew > eulerSwap.equilibriumReserve0()){
                     // Scenario 7a: Swap xOut and remain in domain 2
-                    yNew = fInverse(xNew, px, py, x0, y0, cy);
+                    yNew = gInverse(xNew, px, py, x0, y0, cy);
                 } else {
                     // Scenario 7b: Swap xOut and move to domain 1
                     yNew = f(xNew, px, py, x0, y0, cx);
@@ -331,6 +330,10 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
 
         // Compute and return x = fInverse(y) using the quadratic formula
         return Math.mulDiv(uint256(int256(sqrt) - int256(B)), 1e18, A, Math.Rounding.Ceil);
+    }
+
+    function gInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+        return fInverse(x, py, px, y0, x0, c);
     }
 
     /// @notice Binary searches for the output amount along a swap curve given input parameters
