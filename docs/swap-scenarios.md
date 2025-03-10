@@ -12,6 +12,7 @@ We allow swaps in or out of both the `X` and `Y` assets. Depending on the swap, 
 - `y = f(x)`: Function that maps `x` to `y` in domain 1.
 - `x = fInverse(y)`: Inverse function that maps `y` to `x` in domain 1.
 - `x = g(y)`: Function that maps `y` to `x` in domain 2.
+- `y = gInverse(x)`: Function that maps `x` to `y` in domain 2.
 
 ## Invariant checks
 
@@ -40,11 +41,11 @@ We always check the invariant using the cheapest function to compute. This means
 
 1. `xNew = x + xIn`
 
-2. `yNew = fInverse(xNew)`
+2. `yNew = gInverse(xNew)`
 
 **Invariant check:**
 
-`xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x + xIn))`
+`xNew >= g(yNew) = g(gInverse(xNew)) = g(gInverse(x + xIn))`
 
 ### 2. Swap `yIn` and remain in domain 1
 
@@ -102,11 +103,11 @@ We always check the invariant using the cheapest function to compute. This means
 
 1. `xNew = x + xIn`
 
-2. `yNew = fInverse(xNew)`
+2. `yNew = gInverse(xNew)`
 
 **Invariant check:**
 
-`xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x + xIn))`
+`xNew >= g(yNew) = g(gInverse(xNew)) = g(gInverse(x + xIn))`
 
 ### 6a. Swap `yIn` and remain in domain 2
 
@@ -138,11 +139,11 @@ We always check the invariant using the cheapest function to compute. This means
 
 1. `xNew = x - xOut`
 
-2. `yNew = fInverse(xNew)`
+2. `yNew = gInverse(xNew)`
 
 **Invariant check:**
 
-`xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x - xOut))`
+`xNew >= g(yNew) = g(gInverse(xNew)) = g(gInverse(x - xOut))`
 
 ### 7b. Swap `xOut` and move to domain 1
 

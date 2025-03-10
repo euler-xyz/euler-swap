@@ -35,8 +35,12 @@ contract EulerSwapScenarioTest is Test {
         return f(y, py, px, y0, x0, c);
     }
 
+    function gInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+        return fInverse(x, py, px, y0, x0, c);
+    }
+
     function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
-        public
+        internal
         pure
         returns (uint256)
     {
@@ -141,13 +145,13 @@ contract EulerSwapScenarioTest is Test {
         // ### 1b. Swap `xIn` and move to domain 2
         // **Calculation steps:**
         // 1. `xNew = x + xIn`
-        // 2. `yNew = fInverse(xNew)`
+        // 2. `yNew = gInverse(xNew)`
         // **Invariant check:**
-        // `xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x + xIn))`
+        // `xNew >= g(yNew) = g(gInverse(xNew)) = g(gInverse(x + xIn))`
         xIn = bound(xIn, x0, type(uint112).max);
         uint256 x = 1;
         uint256 xNew = x + xIn;
-        uint256 yNew = fInverse(xNew, px, py, x0, y0, cy);
+        uint256 yNew = gInverse(xNew, px, py, x0, y0, cy);
         // domain check
         assertGe(xNew, x0);
         assertLe(yNew, y0);
@@ -251,13 +255,13 @@ contract EulerSwapScenarioTest is Test {
         // ### 5. Swap `xIn` and remain in domain 2
         // **Calculation steps:**
         // 1. `xNew = x + xIn`
-        // 2. `yNew = fInverse(xNew)`
+        // 2. `yNew = gInverse(xNew)`
         // **Invariant check:**
-        // `xNew >= g(yNew) = g(fInverse(xNew)) = g(fInverse(x + xIn))`
+        // `xNew >= g(yNew) = g(gInverse(xNew)) = g(gInverse(x + xIn))`
         xIn = bound(xIn, 0, type(uint112).max - 1);
         uint256 x = x0 + 1;
         uint256 xNew = x + xIn;
-        uint256 yNew = fInverse(xNew, px, py, x0, y0, cy);
+        uint256 yNew = gInverse(xNew, px, py, x0, y0, cy);
         // domain check
         assertGe(xNew, x0);
         assertLe(yNew, y0);
@@ -317,13 +321,13 @@ contract EulerSwapScenarioTest is Test {
         // ### 7a. Swap `xOut` and remain in domain 2
         // **Calculation steps:**
         // 1. `xNew = x - xOut`
-        // 2. `yNew = fInverse(xNew)`
+        // 2. `yNew = gInverse(xNew)`
         // **Invariant check:**
         // `xNew >= g(xNew) = g(x - xOut)`
         xOut = bound(xOut, 0, type(uint112).max - x0 - 1);
         uint256 x = type(uint112).max;
         uint256 xNew = x - xOut;
-        uint256 yNew = fInverse(xNew, px, py, x0, y0, cy);
+        uint256 yNew = gInverse(xNew, px, py, x0, y0, cy);
         // domain check
         assertGe(xNew, x0);
         assertLe(yNew, y0);
