@@ -47,6 +47,14 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         return computeQuote(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountIn, true);
     }
 
+    function quoteExactInputExplicit(address eulerSwap, address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256)
+    {
+        return computeQuoteExplicit(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountIn, true);
+    }
+
     /// @inheritdoc IEulerSwapPeriphery
     function quoteExactOutput(address eulerSwap, address tokenIn, address tokenOut, uint256 amountOut)
         external
@@ -54,6 +62,14 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         returns (uint256)
     {
         return computeQuote(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountOut, false);
+    }
+
+    function quoteExactOutputExplicit(address eulerSwap, address tokenIn, address tokenOut, uint256 amountOut)
+        external
+        view
+        returns (uint256)
+    {
+        return computeQuoteExplicit(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountOut, false);
     }
 
     /// @inheritdoc IEulerSwapPeriphery
@@ -114,7 +130,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
 
-        uint256 quote = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        uint256 quote = quoteExplicit(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
@@ -128,6 +144,193 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         if (!exactIn) quote = (quote * 1e18 + (feeMultiplier - 1)) / feeMultiplier;
 
         return quote;
+    }
+
+    /// @dev Computes the quote for a swap by applying fees and validating state conditions
+    /// @param eulerSwap The EulerSwap contract to quote from
+    /// @param tokenIn The input token address
+    /// @param tokenOut The output token address
+    /// @param amount The amount to quote (input amount if exactIn=true, output amount if exactIn=false)
+    /// @param exactIn True if quoting for exact input amount, false if quoting for exact output amount
+    /// @return The quoted amount (output amount if exactIn=true, input amount if exactIn=false)
+    /// @dev Validates:
+    ///      - EulerSwap operator is installed
+    ///      - Token pair is supported
+    ///      - Sufficient reserves exist
+    ///      - Sufficient cash is available
+    function computeQuoteExplicit(IEulerSwap eulerSwap, address tokenIn, address tokenOut, uint256 amount, bool exactIn)
+        internal
+        view
+        returns (uint256)
+    {
+        require(
+            IEVC(eulerSwap.EVC()).isAccountOperatorAuthorized(eulerSwap.eulerAccount(), address(eulerSwap)),
+            OperatorNotInstalled()
+        );
+        require(amount <= type(uint112).max, SwapLimitExceeded());
+
+        uint256 feeMultiplier = eulerSwap.feeMultiplier();
+        (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
+
+        // exactIn: decrease received amountIn, rounding down
+        if (exactIn) amount = amount * feeMultiplier / 1e18;
+
+        bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
+        (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
+
+        uint256 quote = quoteExplicit(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+
+        if (exactIn) {
+            // if `exactIn`, `quote` is the amount of assets to buy from the AMM
+            require(amount <= inLimit && quote <= outLimit, SwapLimitExceeded());
+        } else {
+            // if `!exactIn`, `amount` is the amount of assets to buy from the AMM
+            require(amount <= outLimit && quote <= inLimit, SwapLimitExceeded());
+        }
+
+        // exactOut: increase required quote(amountIn), rounding up
+        if (!exactIn) quote = (quote * 1e18 + (feeMultiplier - 1)) / feeMultiplier;
+
+        return quote;
+    }
+
+    
+    function quoteExplicit(
+        IEulerSwap eulerSwap,
+        uint112 reserve0,
+        uint112 reserve1,
+        uint256 amount,
+        bool exactIn,
+        bool asset0IsInput
+    ) internal view returns (uint256 output) {
+        uint256 xNew;
+        uint256 yNew;
+
+        uint256 x0 = eulerSwap.equilibriumReserve0();
+        uint256 y0 = eulerSwap.equilibriumReserve1();
+        uint256 cx = eulerSwap.concentrationX();
+        uint256 cy = eulerSwap.concentrationY();
+        uint256 px = eulerSwap.priceX();
+        uint256 py = eulerSwap.priceY();
+
+        if(reserve0 < eulerSwap.equilibriumReserve0()){
+            // Start in Domain 1
+            if (exactIn && asset0IsInput){
+                // Scenario 1: Swap xIn
+                xNew = reserve0 + amount;
+                if (xNew < eulerSwap.equilibriumReserve0()){
+                    // Scenario 1a: Swap xIn and remain in domain 1
+                    yNew = f(xNew, px, py, x0, y0, cx);
+                } else {
+                    // Scenario 1b: Swap xIn and move to domain 2
+                    yNew = fInverse(xNew, px, py, x0, y0, cy);
+                }
+                output = reserve1 - yNew;
+            } else if (exactIn && !asset0IsInput){
+                // Scenario 2: Swap yIn and remain in domain 1
+                yNew = reserve1 + amount;
+                xNew = fInverse(yNew, px, py, x0, y0, cx);
+                output = reserve0 - xNew;
+            } else if (!exactIn && !asset0IsInput){
+                // Scenario 3: Swap xOut and remain in domain 1
+                xNew = reserve0 - amount;
+                yNew = f(xNew, px, py, x0, y0, cx);
+                output = yNew - reserve1;
+            } else if (!exactIn && asset0IsInput){
+                // Scenario 4: swap yOut
+                yNew = reserve1 - amount;
+                if (yNew > eulerSwap.equilibriumReserve1()){
+                    // Scenario 4a: Swap yOut and remain in domain 1
+                    xNew = fInverse(yNew, px, py, x0, y0, cx);
+                } else {
+                    // Scenario 4b: Swap yOut and move to domain 2
+                    xNew = g(yNew, px, py, x0, y0, cy);
+                }
+                output = xNew - reserve0;
+            }
+        } else {
+            // Start in Domain 2
+            if (exactIn && asset0IsInput){
+                // Scenario 5: Swap xIn and remain in domain 2
+                xNew = reserve0 + amount;
+                yNew = fInverse(xNew, px, py, x0, y0, cy);
+
+                output = reserve1 - yNew;
+            } else if (exactIn && !asset0IsInput){
+                // Scenario 6: swap yIn
+                yNew = reserve1 + amount;
+                if (yNew < eulerSwap.equilibriumReserve1()){
+                    // Scenario 6a: Swap yIn and remain in domain 2
+                    xNew = g(yNew, px, py, x0, y0, cy);
+                } else {
+                    // Scenario 6b: Swap yIn and move to domain 1
+                    xNew = fInverse(yNew, px, py, x0, y0, cx);
+                }
+
+                output = reserve0 - xNew;
+            } else if (!exactIn && !asset0IsInput){
+                // Scenario 7: swap xOut
+                xNew = reserve0 - amount;
+                if (xNew > eulerSwap.equilibriumReserve0()){
+                    // Scenario 7a: Swap xOut and remain in domain 2
+                    yNew = fInverse(xNew, px, py, x0, y0, cy);
+                } else {
+                    // Scenario 7b: Swap xOut and move to domain 1
+                    yNew = f(xNew, px, py, x0, y0, cx);
+                }
+
+                output = yNew - reserve1;
+            } else if (!exactIn && asset0IsInput){
+                // Scenario 8: Swap yOut and remain in domain 2
+                yNew = reserve1 - amount;
+                xNew = g(yNew, px, py, x0, y0, cy);
+
+                output = xNew - reserve0;
+            }
+        }
+    }
+
+    function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
+        return y0 + (v + (py - 1)) / py;
+    }
+
+    function g(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) public pure returns (uint256) {
+        return f(y, py, px, y0, x0, c);
+    }
+
+    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+        public
+        pure
+        returns (uint256)
+    {
+        // A component of the quadratic formula: a = 2 * c
+        uint256 A = 2 * c;
+
+        // B component of the quadratic formula
+        int256 B = ((int256(px) * (int256(y) - int256(y0)) + int256(py) - 1) / int256(py)) - ((int256(x0) * (2 * int256(c) - 1e18) + 1e18 - 1) / 1e18);
+
+        // B^2 component, using FullMath for overflow safety
+        uint256 absB = B < 0 ? uint256(-B) : uint256(B);
+        uint256 squaredB = Math.mulDiv(absB, absB, 1e18) + (absB * absB % 1e18 == 0 ? 0 : 1);
+
+        // 4 * A * C component of the quadratic formula
+        uint256 AC4 = Math.mulDiv(
+            Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil),
+            Math.mulDiv(x0, x0, 1e18, Math.Rounding.Ceil),
+            1e18,
+            Math.Rounding.Ceil
+        );
+
+        // Discriminant: b^2 + 4ac, scaled up to maintain precision
+        uint256 discriminant = (squaredB + AC4) * 1e18;
+
+        // Square root of the discriminant (rounded up)
+        uint256 sqrt = Math.sqrt(discriminant);
+        sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
+
+        // Compute and return x = fInverse(y) using the quadratic formula
+        return Math.mulDiv(uint256(int256(sqrt) - int256(B)), 1e18, A, Math.Rounding.Ceil);
     }
 
     /// @notice Binary searches for the output amount along a swap curve given input parameters

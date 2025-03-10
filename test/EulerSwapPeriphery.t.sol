@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
 import {EulerSwapHarness} from "./harness/EulerSwapHarness.sol";
+import "forge-std/console.sol";
 
 contract EulerSwapPeripheryTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -77,4 +78,116 @@ contract EulerSwapPeripheryTest is EulerSwapTestBase {
         periphery.swapExactOut(address(eulerSwap), address(assetTST), address(assetTST2), amountOut * 2, amountIn);
         vm.stopPrank();
     }
+
+    function test_compareQuoteExactInput() public {
+        uint256 amountIn = 1e18;
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        uint256 amountOutExplicit =
+            periphery.quoteExactInputExplicit(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        assertEq(amountOut, amountOutExplicit);
+    }
+
+    function test_compareQuoteExactOutput() public {
+        uint256 amountOut = 1e18;
+        uint256 amountInBinary = periphery.quoteExactOutput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountOut
+        );
+
+        console.log("amountInBinary", amountInBinary);
+        uint256 amountInExplicit = periphery.quoteExactOutputExplicit(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountOut
+        );
+
+        console.log("amountInExplicit", amountInExplicit);
+
+        assertLe(amountInBinary, amountInExplicit);
+        assertApproxEqAbs(amountInBinary, amountInExplicit, 1);
+    }
+    
+    function test_fuzzQuoteExactInput(uint256 amountIn) public {
+        amountIn = bound(amountIn, 2, 50e18 - 1);
+        uint256 amountOutBinary = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountIn
+        );
+
+        console.log("amountOutBinary", amountOutBinary);
+        uint256 amountOutExplicit = periphery.quoteExactInputExplicit(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountIn
+        );
+
+        console.log("amountOutExplicit", amountOutExplicit);
+
+        assertGe(amountOutBinary, amountOutExplicit);
+        assertApproxEqAbs(amountOutBinary, amountOutExplicit, 1);
+    }
+
+    function test_fuzzQuoteExactOutput(uint256 amountOut) public {
+        amountOut = bound(amountOut, 2, 50e18 - 1);
+        uint256 amountInBinary = periphery.quoteExactOutput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountOut
+        );
+
+        console.log("amountInBinary", amountInBinary);
+        uint256 amountInExplicit = periphery.quoteExactOutputExplicit(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountOut
+        );
+
+        console.log("amountInExplicit", amountInExplicit);
+
+        assertLe(amountInBinary, amountInExplicit);
+        assertApproxEqAbs(amountInBinary, amountInExplicit, 1);
+    }
+
+
+    function test_gasQuoteExactInput() public {
+        uint256 amountIn = 1e18;
+
+        uint256 startGas = gasleft();
+        uint256 amountOutBinary = periphery.quoteExactInput(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountIn
+        );
+
+        console.log("Gas used for binary quote:", startGas - gasleft());
+    }
+
+    function test_gasQuoteExactInputExplicit() public {
+        uint256 amountIn = 1e18;
+
+        uint256 startGas = gasleft();
+        uint256 amountOutExplicit = periphery.quoteExactInputExplicit(
+            address(eulerSwap),
+            address(assetTST),
+            address(assetTST2),
+            amountIn
+        );
+
+        console.log("Gas used for explicit quote:", startGas - gasleft());
+    }
+
+
+
 }
