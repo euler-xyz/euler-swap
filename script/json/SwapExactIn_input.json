@@ -1,0 +1,8 @@
+{
+    "periphery": "0x813D74E832b3d9E9451d8f0E871E877edf2a5A5f",
+    "pool": "0x2bFED8dBEb8e6226a15300AC77eE9130E52410fE",
+    "tokenIn": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "tokenOut": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "amountIn": 4e6,
+    "amountOutMin": 3.9e6
+}

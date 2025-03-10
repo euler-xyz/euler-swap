@@ -21,6 +21,8 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
         address vault1,
         uint256 indexed feeMultiplier,
         address eulerAccount,
+        uint256 reserve0,
+        uint256 reserve1,
         uint256 priceX,
         uint256 priceY,
         uint256 concentrationX,
@@ -35,14 +37,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
 
     constructor(address evc) EVCUtil(evc) {}
 
-    /// @notice Deploy a new EulerSwap pool with the given parameters
-    /// @dev The pool address is deterministically generated using CREATE2 with a salt derived from
-    ///      the euler account address and provided salt parameter. This allows the pool address to be
-    ///      predicted before deployment.
-    /// @param params Core pool parameters including vaults, account, and fee settings
-    /// @param curveParams Parameters defining the curve shape including prices and concentrations
-    /// @param salt Unique value to generate deterministic pool address
-    /// @return Address of the newly deployed pool
+    /// @inheritdoc IEulerSwapFactory
     function deployPool(IEulerSwap.Params memory params, IEulerSwap.CurveParams memory curveParams, bytes32 salt)
         external
         returns (address)
@@ -64,6 +59,8 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
             params.vault1,
             pool.feeMultiplier(),
             params.eulerAccount,
+            params.currReserve0,
+            params.currReserve1,
             curveParams.priceX,
             curveParams.priceY,
             curveParams.concentrationX,
@@ -74,16 +71,40 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
         return address(pool);
     }
 
-    /// @notice Get the length of `allPools` array.
-    /// @return `allPools` length.
+    /// @inheritdoc IEulerSwapFactory
+    function computePoolAddress(
+        IEulerSwap.Params memory poolParams,
+        IEulerSwap.CurveParams memory curveParams,
+        bytes32 salt
+    ) external view returns (address) {
+        return address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xff),
+                            address(this),
+                            keccak256(abi.encode(address(poolParams.eulerAccount), salt)),
+                            keccak256(
+                                abi.encodePacked(type(EulerSwap).creationCode, abi.encode(poolParams, curveParams))
+                            )
+                        )
+                    )
+                )
+            )
+        );
+    }
+
+    function EVC() external view override(EVCUtil, IEulerSwapFactory) returns (address) {
+        return address(evc);
+    }
+
+    /// @inheritdoc IEulerSwapFactory
     function allPoolsLength() external view returns (uint256) {
         return allPools.length;
     }
 
-    /// @notice Get a slice of the deployed pools array.
-    /// @param _start Start index of the slice.
-    /// @param _end End index of the slice.
-    /// @return An array containing the slice of the deployed pools.
+    /// @inheritdoc IEulerSwapFactory
     function getAllPoolsListSlice(uint256 _start, uint256 _end) external view returns (address[] memory) {
         uint256 length = allPools.length;
         if (_end == type(uint256).max) _end = length;
