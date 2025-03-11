@@ -7,12 +7,12 @@ import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
 contract EulerSwapScenarioTest is Test {
     // Global params
-    uint256 x0 = 50e18;
-    uint256 y0 = 50e18;
+    uint256 x0 = 200.323e18;
+    uint256 y0 = 100e18;
     uint256 px = 1e18;
-    uint256 py = 1e18;
-    uint256 cx = 0.5e18;
-    uint256 cy = 0.5e18;
+    uint256 py = 1.3432e18;
+    uint256 cx = 0.91243e18;
+    uint256 cy = 0.1e18;
 
     function verify(uint256 x, uint256 y) public view returns (bool) {
         if (x > type(uint112).max || y > type(uint112).max) return false;
@@ -26,6 +26,62 @@ contract EulerSwapScenarioTest is Test {
         }
     }
 
+    function getB(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+        internal
+        pure
+        returns (int256)
+    {
+        uint256 term1 = py * (y - y0) / px;
+        int256 term2 = (2 * int256(c) - 1e18) * int256(x0) / 1e18;
+        console.log("t1", term1);
+        console.log("t2", term2);
+        return int256(term1) - term2;
+    }
+
+    function quadratic(uint256 x, uint256 c, int256 B, int256 C) internal pure returns (int256) {
+        uint256 xSquared = Math.mulDiv(x, x, 1e18, Math.Rounding.Ceil); // Ensure rounding up
+        int256 term1 = int256(Math.mulDiv(c, xSquared, 1e18, Math.Rounding.Ceil)); // c * x^2 / 1e18 (rounded up)
+        int256 term2 = (B * int256(x) + (1e18 - 1)) / 1e18; // Equivalent to (B * x / 1e18) rounding up
+        return term1 + term2 + C;
+    }
+
+    function quadraticDerivative(uint256 x, uint256 c, int256 B) internal pure returns (int256) {
+        return int256(Math.mulDiv(2 * c, x, 1e18)) + B;
+    }
+
+    function quadraticInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+        public
+        pure
+        returns (uint256)
+    {
+        uint256 linearApprox = py * (y - y0) / px;
+        uint256 xN;
+        if(linearApprox > x0) {
+            xN = x0 * 1e18 / 2e18;
+        } else {
+            xN = x0 - linearApprox;            
+        }
+        
+        uint256 A = c;
+        int256 B = getB(y, px, py, x0, y0, c);
+        int256 C = -((int256(1e18) - int256(c)) * int256(Math.mulDiv(x0, x0, 1e18, Math.Rounding.Ceil))) / 1e18;
+
+        for (uint256 i = 0; i < 10; i++) {
+            console.log("xN:", xN);
+            int256 xNPlus1 = int256(xN) - (quadratic(xN, A, B, C) * 1e18) / quadraticDerivative(xN, A, B); // Scaled division for precision
+            if (abs(int256(xN) - xNPlus1) < 1) break; // Stop if change is too small
+            if (xNPlus1 < 0) {
+                xNPlus1 = 1;
+            }
+            xN = uint256(xNPlus1);
+        }
+        return xN;
+    }
+
+    function abs(int256 x) internal pure returns (int256) {
+        return x >= 0 ? x : -x;
+    }
+
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
         return y0 + (v + (py - 1)) / py;
@@ -35,7 +91,11 @@ contract EulerSwapScenarioTest is Test {
         return f(y, py, px, y0, x0, c);
     }
 
-    function gInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    function gInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+        internal
+        pure
+        returns (uint256)
+    {
         return fInverse(x, py, px, y0, x0, c);
     }
 
@@ -73,19 +133,48 @@ contract EulerSwapScenarioTest is Test {
         return Math.mulDiv(uint256(int256(sqrt) - B), 1e18, A, Math.Rounding.Ceil);
     }
 
-    function test_specificScenario() public view {
-        uint256 y = y0 - 1 - 39780697298741147998;
-        console.log(y);
-        uint256 x = g(y, px, py, x0, y0, cy);
-        console.log(x);
-        // console.log(verify(x, y));
-        // uint256 yNew = f(y, px, py, x0, y0, cy);
-        // console.log(xNew);
-        // assertApproxEqAbs(x, xNew, 1000);
+    function test_numericInverseDomain1() public view {
+        uint256 xInit = 20e18;
+        uint256 y = f(xInit, px, py, x0, y0, cx);
+        // console.log("xInit:", xInit);
+        // console.log("y:", y);
+        // uint256 gasStart = gasleft();
+        // uint256 x = quadraticInverse(y, px, py, x0, y0, cx);
+        // uint256 gasUsed = gasStart - gasleft();
+        // console.log("Gas used Newton:", gasUsed);
+        // console.log("x:", x);
+
+        // gasStart = gasleft();
+        // uint256 xExact = fInverse(y, px, py, x0, y0, cx);
+        // gasUsed = gasStart - gasleft();
+        // console.log("Gas used exact:", gasUsed);
+        // console.log("xExact:", xExact);
+
         if (x <= type(uint112).max && y <= type(uint112).max) {
-            assert(verify(x, y));
+            console.log("In range (x, y), so running verify");
+            assert(verify(xInit, y));
         }
     }
+
+    // function test_numericInverseDomain2() public view {
+    //     uint256 yInit = 1e18;
+    //     uint256 x = g(yInit, px, py, x0, y0, cy);
+    //     console.log("yInit:", yInit);
+    //     console.log("x:", x);
+    //     uint256 gasStart = gasleft();
+    //     uint256 y = quadraticInverse(x, y0, A, B, Cy);
+    //     uint256 gasUsed = gasStart - gasleft();
+    //     console.log("Gas used:", gasUsed);
+    //     console.log("y:", y);
+
+    //     // uint256 yExact = gInverse(x, px, py, x0, y0, cy);
+    //     // console.log("yExact:", yExact);
+
+    //     if (x <= type(uint112).max && y <= type(uint112).max) {
+    //         console.log("Running verify()");
+    //         assert(verify(x, y));
+    //     }
+    // }
 
     function test_fuzzFInvariantDomain1(uint256 x) public view {
         x = bound(x, 1, x0 - 1);
