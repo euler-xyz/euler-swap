@@ -7,12 +7,12 @@ import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
 contract EulerSwapScenarioTest is Test {
     // Global params
-    uint256 x0 = 200.323e18;
-    uint256 y0 = 100e18;
+    uint256 x0 = 100e18;
+    uint256 y0 = 50e18;
     uint256 px = 1e18;
-    uint256 py = 1.3432e18;
-    uint256 cx = 0.91243e18;
-    uint256 cy = 0.1e18;
+    uint256 py = 2e18;
+    uint256 cx = 0.9e18;
+    uint256 cy = 0.5e18;
 
     function verify(uint256 x, uint256 y) public view returns (bool) {
         if (x > type(uint112).max || y > type(uint112).max) return false;
@@ -83,8 +83,11 @@ contract EulerSwapScenarioTest is Test {
     }
 
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
-        uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
-        return y0 + (v + (py - 1)) / py;
+        unchecked {
+            uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
+            require(v <= type(uint248).max, "Help!");
+            return y0 + (v + (py - 1)) / py;
+        }
     }
 
     function g(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
@@ -96,7 +99,8 @@ contract EulerSwapScenarioTest is Test {
         pure
         returns (uint256)
     {
-        return fInverse(x, py, px, y0, x0, c);
+        // return fInverse(x, py, px, y0, x0, c);
+        return quadraticInverse(x, py, px, y0, x0, c);
     }
 
     function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
@@ -136,19 +140,19 @@ contract EulerSwapScenarioTest is Test {
     function test_numericInverseDomain1() public view {
         uint256 xInit = 20e18;
         uint256 y = f(xInit, px, py, x0, y0, cx);
-        // console.log("xInit:", xInit);
-        // console.log("y:", y);
-        // uint256 gasStart = gasleft();
-        // uint256 x = quadraticInverse(y, px, py, x0, y0, cx);
-        // uint256 gasUsed = gasStart - gasleft();
-        // console.log("Gas used Newton:", gasUsed);
-        // console.log("x:", x);
+        console.log("xInit:", xInit);
+        console.log("y:", y);
+        uint256 gasStart = gasleft();
+        uint256 x = quadraticInverse(y, px, py, x0, y0, cx);
+        uint256 gasUsed = gasStart - gasleft();
+        console.log("Gas used Newton:", gasUsed);
+        console.log("x:", x);
 
-        // gasStart = gasleft();
-        // uint256 xExact = fInverse(y, px, py, x0, y0, cx);
-        // gasUsed = gasStart - gasleft();
-        // console.log("Gas used exact:", gasUsed);
-        // console.log("xExact:", xExact);
+        gasStart = gasleft();
+        uint256 xExact = fInverse(y, px, py, x0, y0, cx);
+        gasUsed = gasStart - gasleft();
+        console.log("Gas used exact:", gasUsed);
+        console.log("xExact:", xExact);
 
         if (x <= type(uint112).max && y <= type(uint112).max) {
             console.log("In range (x, y), so running verify");
