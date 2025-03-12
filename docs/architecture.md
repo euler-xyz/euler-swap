@@ -43,7 +43,7 @@ Virtual reserves control the maximum debt that the EulerSwap contract will attem
 
 ### Reserve synchronisation
 
-The EulerSwap contract tracks what it believes the reserves to be by caching their values in storage. These reserves are updated on each swap. However, since the balance is not actually held by the EulerSwap contract (it is simply an operator), the actual underlying balances may get out of sync. This can happen gradually as interest is accrued, or suddenly if the holder moves funds or the position is liquidated. When this occurs, the `syncVirtualReserves()` should be invoked. This determines the actual balances (and debts) of the holder and adjusts them by the configured virtual reserve levels.
+The EulerSwap contract tracks what it believes the reserves to be by caching their values in storage. These reserves are updated on each swap. However, since the balance is not actually held by the EulerSwap contract (it is simply an operator), the actual underlying balances may get out of sync. This can happen gradually as interest is accrued, or suddenly if the holder moves funds or the position is liquidated. When this occurs, the EulerSwap operator should be uninstalled and a new, updated one installed instead.
 
 ## Components
 

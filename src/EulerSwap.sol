@@ -128,7 +128,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         uint256 amount1In = IERC20(asset1).balanceOf(address(this));
         if (amount1In > 0) amount1In = depositAssets(vault1, amount1In) * feeMultiplier / 1e18;
 
-        // Verify curve invariant is satisified
+        // Verify curve invariant is satisfied
 
         {
             uint256 newReserve0 = reserve0 + amount0In - amount0Out;
