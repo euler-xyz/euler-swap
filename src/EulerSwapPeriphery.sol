@@ -24,7 +24,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
 
         require(amountOut >= amountOutMin, AmountOutLessThanMin());
 
-        swap(eulerSwap, tokenIn, tokenOut, amountIn, amountOut);
+        swap(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountIn, amountOut);
     }
 
     /// @inheritdoc IEulerSwapPeriphery
@@ -35,7 +35,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
 
         require(amountIn <= amountInMax, AmountInMoreThanMax());
 
-        swap(eulerSwap, tokenIn, tokenOut, amountIn, amountOut);
+        swap(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountIn, amountOut);
     }
 
     /// @inheritdoc IEulerSwapPeriphery
@@ -73,13 +73,13 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
     /// @param tokenOut The address of the output token being received
     /// @param amountIn The amount of input tokens to swap
     /// @param amountOut The amount of output tokens to receive
-    function swap(address eulerSwap, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) internal {
-        IERC20(tokenIn).safeTransferFrom(msg.sender, eulerSwap, amountIn);
+    function swap(IEulerSwap eulerSwap, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut)
+        internal
+    {
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(eulerSwap), amountIn);
 
         bool isAsset0In = tokenIn < tokenOut;
-        (isAsset0In)
-            ? IEulerSwap(eulerSwap).swap(0, amountOut, msg.sender, "")
-            : IEulerSwap(eulerSwap).swap(amountOut, 0, msg.sender, "");
+        (isAsset0In) ? eulerSwap.swap(0, amountOut, msg.sender, "") : eulerSwap.swap(amountOut, 0, msg.sender, "");
     }
 
     /// @dev Computes the quote for a swap by applying fees and validating state conditions
