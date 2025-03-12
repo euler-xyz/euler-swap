@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {IEulerSwapFactory, IEulerSwap} from "./interfaces/IEulerSwapFactory.sol";
 import {EulerSwap} from "./EulerSwap.sol";
 import {EVCUtil} from "ethereum-vault-connector/utils/EVCUtil.sol";
+import {GenericFactory} from "evk/GenericFactory/GenericFactory.sol";
 
 /// @title EulerSwapFactory contract
 /// @custom:security-contact security@euler.xyz
@@ -13,6 +14,8 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
     address[] public allPools;
     /// @dev Mapping between euler account and deployed pool that is currently set as operator
     mapping(address eulerAccount => address operator) public eulerAccountToPool;
+    /// @dev Vaults must be deployed by this factory
+    address public immutable evkFactory;
 
     event PoolDeployed(
         address indexed asset0,
@@ -34,8 +37,11 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
     error Unauthorized();
     error OldOperatorStillInstalled();
     error OperatorNotInstalled();
+    error InvalidVaultImplementation();
 
-    constructor(address evc) EVCUtil(evc) {}
+    constructor(address evc, address evkFactory_) EVCUtil(evc) {
+        evkFactory = evkFactory_;
+    }
 
     /// @inheritdoc IEulerSwapFactory
     function deployPool(IEulerSwap.Params memory params, IEulerSwap.CurveParams memory curveParams, bytes32 salt)
@@ -43,6 +49,10 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
         returns (address)
     {
         require(_msgSender() == params.eulerAccount, Unauthorized());
+        require(
+            GenericFactory(evkFactory).isProxy(params.vault0) && GenericFactory(evkFactory).isProxy(params.vault1),
+            InvalidVaultImplementation()
+        );
 
         EulerSwap pool = new EulerSwap{salt: keccak256(abi.encode(params.eulerAccount, salt))}(params, curveParams);
 
