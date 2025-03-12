@@ -17,7 +17,7 @@ jobs:
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Forge build
         run: |
-          forge build --sizes
+          forge build --force --skip test --sizes
         id: build
 
       - name: Run Forge tests

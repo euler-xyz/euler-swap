@@ -6,6 +6,8 @@ out/
 !/broadcast
 /broadcast/*/31337/
 /broadcast/**/dry-run/
+broadcast/
+script/json/out/
 
 # Dotenv file
 .env
@@ -17,5 +19,9 @@ lcov.info
 _corpus/
 crytic-export/
 
+# VSCode files
+.vscode/
+
+# MAC files
 .DS_Store
-.vscode
+__MACOSX
