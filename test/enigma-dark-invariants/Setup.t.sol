@@ -15,6 +15,9 @@ import {SequenceRegistry} from "evk/SequenceRegistry/SequenceRegistry.sol";
 import {Base} from "evk/EVault/shared/Base.sol";
 import {Dispatch} from "evk/EVault/Dispatch.sol";
 import {EVault} from "evk/EVault/EVault.sol";
+import {EulerSwap} from "src/EulerSwap.sol";
+import {EulerSwapPeriphery} from "src/EulerSwapPeriphery.sol";
+import {EulerSwapFactory} from "src/EulerSwapFactory.sol";
 
 // Modules
 import {Initialize} from "evk/EVault/modules/Initialize.sol";
@@ -39,24 +42,34 @@ import {Actor} from "./utils/Actor.sol";
 
 /// @notice Setup contract for the invariant test Suite, inherited by Tester
 contract Setup is BaseTest {
-    function _setUp(Curve _curveType) internal {
-        // Deploy protocol contracts and protocol actors
-        _deployEulerEnvContracts();
+    function _setUp() internal {
+        // Deploy protocol contracts
+        _deployEulerEVCContracts();
+
+        // Deploy suite assets
+        _deployAssets();
 
         // Deploy vaults
-        _deployVaults();
+        _deployEVaults();
 
         // Deploy actors
         _setUpActors();
 
-        // Deploy and setup maglev
-        _setUpMaglev(_curveType);
+        // Setup eulerswap holder and periphery
+        _setUpEulerSwap();
     }
 
-    /// @notice Deploy euler env contracts
-    function _deployEulerEnvContracts() internal {
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                           EVC                                             //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /// @notice Deploy euler EVC & Environment contracts
+    function _deployEulerEVCContracts() internal {
         // Deploy the EVC
         evc = new EthereumVaultConnector();
+
+        // Deploy the factory
+        factory = new GenericFactory(address(this));
 
         // Deploy permit2 contract
         permit2 = DeployPermit2.deployPermit2();
@@ -75,7 +88,7 @@ contract Setup is BaseTest {
     //                                           VAULTS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function _deployVaults() internal {
+    function _deployEVaults() internal {
         // Deploy the modules
         Base.Integrations memory integrations =
             Base.Integrations(address(evc), address(protocolConfig), sequenceRegistry, balanceTracker, permit2);
@@ -95,17 +108,7 @@ contract Setup is BaseTest {
         address evaultImpl = address(new EVault(integrations, modules));
 
         // Deploy the vault factory and set the implementation
-        factory = new GenericFactory(address(this));
         factory.setImplementation(evaultImpl);
-
-        // Deploy base assets
-        assetTST = new TestERC20("Test Token", "TST", 18);
-        baseAssets.push(address(assetTST));
-        oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
-
-        assetTST2 = new TestERC20("Test Token 2", "TST2", 18); // TODO change decimals
-        baseAssets.push(address(assetTST2));
-        oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
 
         // Deploy the vaults
         eTST = _deployEVault(address(assetTST));
@@ -126,12 +129,29 @@ contract Setup is BaseTest {
         eVault.setFeeReceiver(feeRecipient);
     }
 
+    function _deployAssets() internal {
+        // Deploy base assets
+        assetTST = new TestERC20("Test Token", "TST", 18);
+        baseAssets.push(address(assetTST));
+        oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
+
+        assetTST2 = new TestERC20("Test Token 2", "TST2", 18); // TODO change decimals
+        baseAssets.push(address(assetTST2));
+        oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    //                                           MAGLEV                                          //
+    //                                         EULER SWAP                                        //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function _setUpMaglev(Curve _curveType) internal {
-        // Setup maglev lp as the first actor
+    function _setUpEulerSwap() internal {
+        // Deploy the periphery
+        periphery = new EulerSwapPeriphery();
+
+        // Deploy the euler swap factory
+        eulerSwapfactory = new EulerSwapFactory(address(evc));
+
+        // Setup eulerswap lp as the first actor
         holder = address(actors[USER1]);
     }
 
@@ -152,9 +172,10 @@ contract Setup is BaseTest {
         tokens[0] = address(assetTST);
         tokens[1] = address(assetTST2);
 
-        address[] memory contracts_ = new address[](2);
+        address[] memory contracts_ = new address[](3);
         contracts_[0] = address(eTST);
         contracts_[1] = address(eTST2);
+        contracts_[2] = address(periphery);
 
         for (uint256 i; i < NUMBER_OF_ACTORS; i++) {
             // Deploy actor proxies and approve system contracts_

@@ -7,10 +7,12 @@ pragma solidity ^0.8.19;
 import {EthereumVaultConnector} from "ethereum-vault-connector/EthereumVaultConnector.sol";
 import {GenericFactory} from "evk/GenericFactory/GenericFactory.sol";
 import {ProtocolConfig} from "evk/ProtocolConfig/ProtocolConfig.sol";
+import {EulerSwap} from "src/EulerSwap.sol";
+import {EulerSwapPeriphery} from "src/EulerSwapPeriphery.sol";
+import {EulerSwapFactory} from "src/EulerSwapFactory.sol";
 
 // Interfaces
 import {IEVault} from "evk/EVault/IEVault.sol";
-import {IMaglevBase} from "src/interfaces/IMaglevBase.sol";
 
 // Mock Contracts
 import {TestERC20} from "test/enigma-dark-invariants/utils/mocks/TestERC20.sol";
@@ -73,24 +75,16 @@ abstract contract BaseStorage {
     TestERC20 assetTST;
     TestERC20 assetTST2;
 
-    /// @notice Maglev contract
-    /* ___________________________________________
-       ________   ______________________>__
-       []_[]||[| |]||[]_[]_[]|||[]_[]_[]||[|
-       ===~-~==/_\==~-~======~-~======~-~==/______
-       :::::::::::::::::::::::::::::::::::::::::::
-    */
-    IMaglevBase maglev;
+    /// @notice EulerSwap contracts
+    EulerSwap eulerSwap;
+    EulerSwapPeriphery periphery;
+    EulerSwapFactory eulerSwapfactory;
 
     /// @notice Extra contracts
     MockPriceOracle oracle;
     ProtocolConfig protocolConfig;
     address balanceTracker;
     address sequenceRegistry;
-
-    /// @notice curve selector
-
-    Curve curve;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                       EXTRA VARIABLES                                     //
@@ -111,10 +105,4 @@ abstract contract BaseStorage {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                          STRUCTS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
-
-    enum Curve {
-        EULER_SWAP,
-        PRODUCT,
-        SUM
-    }
 }

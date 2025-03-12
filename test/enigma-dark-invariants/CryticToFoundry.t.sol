@@ -6,7 +6,6 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 // Contracts
-import {MaglevEulerSwap} from "src/MaglevEulerSwap.sol";
 import {Invariants} from "./Invariants.t.sol";
 import {Setup} from "./Setup.t.sol";
 
@@ -23,7 +22,7 @@ contract CryticToFoundry is Invariants, Setup {
 
     function setUp() public {
         // Deploy protocol contracts
-        _setUp(Curve.EULER_SWAP);
+        _setUp();
 
         // Initialize handler contracts
         _setUpHandlers();
@@ -41,7 +40,7 @@ contract CryticToFoundry is Invariants, Setup {
     //                                  POSTCONDITIONS REPLAY                                    //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function test_replay_swap() public {
+/*     function test_replay_swap() public {
         //@audit-issue is possible to extract value from the protocol 1 wei of value
         Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
         Tester.mint(2000000, 0, 0);
@@ -67,7 +66,7 @@ contract CryticToFoundry is Invariants, Setup {
         Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
         Tester.swap(1516752036338334875613876384, 1645511910635276617001867226888, 2, 0, 0);
         Tester.roundtripSwap(200000000, 0);
-    }
+    } */
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                     INVARIANTS REPLAY                                     //

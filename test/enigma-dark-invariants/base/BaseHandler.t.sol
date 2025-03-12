@@ -22,13 +22,13 @@ contract BaseHandler is HookAggregator {
     //                                         MODIFIERS                                         //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    modifier maglevNotDeployed() {
-        if (address(maglev) != address(0)) revert("BaseHandler: Maglev already deployed on this trace");
+    modifier eulerSwapNotDeployed() {
+        if (address(eulerSwap) != address(0)) revert("BaseHandler: EulerSwap already deployed on this trace");
         _;
     }
 
-    modifier maglevDeployed() {
-        if (address(maglev) == address(0)) revert("BaseHandler: Maglev has not been deployed on this trace");
+    modifier eulerSwapDeployed() {
+        if (address(eulerSwap) == address(0)) revert("BaseHandler: EulerSwap has not been deployed on this trace");
         _;
     }
 

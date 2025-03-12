@@ -8,7 +8,7 @@ Developed by [vnmrtz.eth](https://x.com/vn_martinez_) from [Enigma Dark](https:/
 
 <br/>
 
-The Actor Based Invariant Testing Suite is a framework for performing comprehensive invariant testing of the Euler Maglev protocol. Using an actor-based model, it simulates realistic scenarios with various entities interacting with the system, ensuring that protocol invariants and postconditions hold under an extensive range of conditions.
+The Actor Based Invariant Testing Suite is a framework for performing comprehensive invariant testing of the EulerSwap protocol. Using an actor-based model, it simulates realistic scenarios with various entities interacting with the system, ensuring that protocol invariants and postconditions hold under an extensive range of conditions.
 
 The suite is designed to support multi-actor tooling, randomizing actions, parameters, actor roles, and asset selection to explore edge cases and ensure the robustness of a protocol.
 

@@ -18,7 +18,7 @@ contract Tester is Invariants, Setup {
     /// @dev Foundry compatibility faster setup debugging
     function setUp() internal {
         // Deploy protocol contracts and protocol actors
-        _setUp(Curve.EULER_SWAP);
+        _setUp();
 
         // Initialize handler contracts
         _setUpHandlers();

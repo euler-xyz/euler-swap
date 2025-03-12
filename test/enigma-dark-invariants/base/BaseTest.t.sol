@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 // Interfaces
 import {IERC20} from "openzeppelin-contracts/interfaces/IERC20.sol";
-import {IMaglevBase} from "src/interfaces/IMaglevBase.sol";
+import {IEulerSwap} from "src/interfaces/IEulerSwap.sol";
 
 // Libraries
 import {Vm} from "forge-std/Base.sol";
@@ -16,10 +16,7 @@ import {StdAsserts} from "../utils/StdAsserts.sol";
 import {CoverageChecker} from "../utils/CoverageChecker.sol";
 
 // Contracts
-import {MaglevBase} from "src/MaglevBase.sol";
-import {MaglevConstantSum} from "src/MaglevConstantSum.sol";
-import {MaglevConstantProduct} from "src/MaglevConstantProduct.sol";
-import {MaglevEulerSwap} from "src/MaglevEulerSwap.sol";
+import {EulerSwap} from "src/EulerSwap.sol";
 
 // Base
 import {BaseStorage} from "./BaseStorage.t.sol";
@@ -128,7 +125,7 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    //                                   MAGLEV SPECIFIC HELPERS                                 //
+    //                                EULER-SWAP SPECIFIC HELPERS                                //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     function _getHolderNAV() internal view returns (int256) {
@@ -145,22 +142,33 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
         return int256(balValue) - int256(debtValue);
     }
 
-    function _deployMaglevEulerSwap(
-        MaglevBase.BaseParams memory _baseParams,
-        MaglevEulerSwap.EulerSwapParams memory _eulerSwapParams
-    ) internal {
-        maglev = IMaglevBase(address(new MaglevEulerSwap(_baseParams, _eulerSwapParams)));
-    }
-
-    function _deployMaglevConstantProduct(MaglevBase.BaseParams memory _baseParams) internal {
-        maglev = IMaglevBase(address(new MaglevConstantProduct(_baseParams)));
-    }
-
-    function _deployMaglevConstantSum(MaglevBase.BaseParams memory _baseParams) internal {
-        maglev = IMaglevBase(
-            address(
-                new MaglevConstantSum(_baseParams, MaglevConstantSum.ConstantSumParams({priceX: 1e18, priceY: 1e18}))
-            )
+    function _createEulerSwap( // TODO should we deploy from the factory instead?
+    uint112 debtLimitA, uint112 debtLimitB, uint256 fee, uint256 px, uint256 py, uint256 cx, uint256 cy)
+        internal
+    {
+        eulerSwap = new EulerSwap(
+            _getEulerSwapParams(debtLimitA, debtLimitB, fee),
+            IEulerSwap.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy})
         );
+
+        vm.prank(holder);
+        evc.setAccountOperator(holder, address(eulerSwap), true);
+    }
+
+    function _getEulerSwapParams(uint112 reserve0, uint112 reserve1, uint256 fee)
+        internal
+        view
+        returns (EulerSwap.Params memory)
+    {
+        return IEulerSwap.Params({
+            vault0: address(eTST),
+            vault1: address(eTST2),
+            eulerAccount: holder,
+            equilibriumReserve0: reserve0,
+            equilibriumReserve1: reserve1,
+            currReserve0: reserve0,
+            currReserve1: reserve1,
+            fee: fee
+        });
     }
 }

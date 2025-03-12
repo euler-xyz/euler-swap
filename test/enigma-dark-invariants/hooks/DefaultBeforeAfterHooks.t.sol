@@ -77,10 +77,10 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
         // Holder
         _defaultVars.holderNAV = _getHolderNAV();
         _defaultVars.holderETSTAssets =
-            eTST.convertToAssets(eTST.balanceOf(holder)) + assetTST.balanceOf(address(maglev));
-        /// @dev adding maglev balance to take donations into account
+            eTST.convertToAssets(eTST.balanceOf(holder)) + assetTST.balanceOf(address(eulerSwap));
+        /// @dev adding eulerSwap balance to take donations into account
         _defaultVars.holderETST2Assets =
-            eTST2.convertToAssets(eTST2.balanceOf(holder)) + assetTST2.balanceOf(address(maglev));
+            eTST2.convertToAssets(eTST2.balanceOf(holder)) + assetTST2.balanceOf(address(eulerSwap));
         _defaultVars.holderETSTDebt = eTST.debtOf(holder);
         _defaultVars.holderETST2Debt = eTST2.debtOf(holder);
     }
