@@ -328,12 +328,8 @@ contract EulerSwapScenarioTest is Test {
 
         y = bound(y, y0 + 1, yMax2);
         console.log("y", y);
-        uint256 x = fInverse(y, px, py, x0, y0, cx, xMin) ;
+        uint256 x = fInverse(y, px, py, x0, y0, cx, xMin);
         console.log("x", x);
-
-        uint256 yCalc = f(x+ 15, px, py, x0, y0, cx);
-        uint256 yMax2 = f(x0 / 2, px, py, x0, y0, cx)
-        console.log("yCalc", yCalc, y, yCalc - y);        
 
         // console.log("x - 1", x + 1);
         // uint256 yCalc2 = f(x + 1, px, py, x0, y0, cx);
