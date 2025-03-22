@@ -90,9 +90,9 @@ contract EulerSwapScenarioTest is Test {
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         unchecked {
             uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
-            console.log("v", v);
+            // console.log("v", v);
             require(v <= type(uint248).max, "Help!");
-            console.log("y0 + (v + (py - 1)) / py", y0 + (v + (py - 1)) / py);
+            // console.log("y0 + (v + (py - 1)) / py", y0 + (v + (py - 1)) / py);
             return y0 + (v + (py - 1)) / py;
         }
     }
@@ -180,48 +180,48 @@ contract EulerSwapScenarioTest is Test {
         return Math.mulDiv(uint256(int256(sqrt) - B), 1e18, 2 * c, Math.Rounding.Ceil);
     }
 
-    function test_F() public view {
-        // Params
-        uint256 x0 = 40506059417043057209;
-        uint256 y0 = 50000000000000000000;
-        uint256 px = 1000000000000000000;
-        uint256 py = 43067456379334984;
-        uint256 cx = 800290974685695047;
-        uint256 cy = 911725765025283277;
+    // function test_F() public view {
+    //     // Params
+    //     uint256 x0 = 40506059417043057209;
+    //     uint256 y0 = 50000000000000000000;
+    //     uint256 px = 1000000000000000000;
+    //     uint256 py = 43067456379334984;
+    //     uint256 cx = 800290974685695047;
+    //     uint256 cy = 911725765025283277;
 
-        console.log("x0", x0);
-        console.log("y0", y0);
-        console.log("px", px);
-        console.log("py", py);
-        console.log("cx", cx);
-        console.log("cy", cy);
+    //     console.log("x0", x0);
+    //     console.log("y0", y0);
+    //     console.log("px", px);
+    //     console.log("py", py);
+    //     console.log("cx", cx);
+    //     console.log("cy", cy);
 
-        (uint256 xMin, uint256 yMax) = getMinXMaxY(px, py, x0, y0, cx);
+    //     (uint256 xMin, uint256 yMax) = getMinXMaxY(px, py, x0, y0, cx);
 
-        console.log("xMin", xMin);
-        console.log("yMax", yMax);
+    //     console.log("xMin", xMin);
+    //     console.log("yMax", yMax);
 
-        uint256 x = 36717501059877983599 + 1;
-        console.log("x", x);
-        uint256 y = f(x, px, py, x0, y0, cx);
-        console.log("y", y);
-        // uint256 x = fInverse(y, px, py, x0, y0, cx);
-        // console.log("x", x);
-        // uint256 yCalc = f(x, px, py, x0, y0, cx);
-        // console.log("yCalc", yCalc, y);
+    //     uint256 x = 36717501059877983599 + 1;
+    //     console.log("x", x);
+    //     uint256 y = f(x, px, py, x0, y0, cx);
+    //     console.log("y", y);
+    //     // uint256 x = fInverse(y, px, py, x0, y0, cx);
+    //     // console.log("x", x);
+    //     // uint256 yCalc = f(x, px, py, x0, y0, cx);
+    //     // console.log("yCalc", yCalc, y);
 
-        // Check the calculated variables pass the invariant
-        if (x <= type(uint112).max && y <= type(uint112).max) {
-            console.log("In range (x, y)");
-            assert(verify(x, y, px, py, x0, y0, cx, cy));
-        }
+    //     // Check the calculated variables pass the invariant
+    //     if (x <= type(uint112).max && y <= type(uint112).max) {
+    //         console.log("In range (x, y)");
+    //         assert(verify(x, y, px, py, x0, y0, cx, cy));
+    //     }
 
-        // // Check the re-calculated variables pass the invariant
-        // if (x <= type(uint112).max && yCalc <= type(uint112).max) {
-        //     console.log("In range (x, yCalc)");
-        //     assert(verify(x, yCalc, px, py, x0, y0, cx, cy));
-        // }
-    }
+    //     // // Check the re-calculated variables pass the invariant
+    //     // if (x <= type(uint112).max && yCalc <= type(uint112).max) {
+    //     //     console.log("In range (x, yCalc)");
+    //     //     assert(verify(x, yCalc, px, py, x0, y0, cx, cy));
+    //     // }
+    // }
 
     // function test_FInverse() public view {
     //     // Params
@@ -305,10 +305,10 @@ contract EulerSwapScenarioTest is Test {
         view
     {
         // Params
-        x0 = bound(x0, 1e3, 1e28);
-        y0 = bound(x0, 0, 1e28);
+        x0 = bound(x0, 1e3, 1e27);
+        y0 = bound(x0, 0, 1e27);
         px = 1e18;
-        py = bound(py, 1, 1e28);
+        py = bound(py, 1, 1e18);
         cx = bound(cx, 1, 1e18);
         cy = bound(cy, 1, 1e18);
 
@@ -320,17 +320,20 @@ contract EulerSwapScenarioTest is Test {
         console.log("cy", cy);
 
         (uint256 xMin, uint256 yMax) = getMinXMaxY(px, py, x0, y0, cx);
+        uint256 yMax2 = f(x0 / 2, px, py, x0, y0, cx);
 
         console.log("xMin", xMin);
         console.log("yMax", yMax);
+        console.log("yMax2", yMax2);
 
-        y = bound(y, y0 + 1, y0 + 1 + 4 * y0);
+        y = bound(y, y0 + 1, yMax2);
         console.log("y", y);
-        uint256 x = fInverse2(y, px, py, x0, y0, cx, xMin);
+        uint256 x = fInverse(y, px, py, x0, y0, cx, xMin) ;
         console.log("x", x);
 
-        // uint256 yCalc = f(x, px, py, x0, y0, cx);
-        // console.log("yCalc", yCalc, y, yCalc - y);        
+        uint256 yCalc = f(x+ 15, px, py, x0, y0, cx);
+        uint256 yMax2 = f(x0 / 2, px, py, x0, y0, cx)
+        console.log("yCalc", yCalc, y, yCalc - y);        
 
         // console.log("x - 1", x + 1);
         // uint256 yCalc2 = f(x + 1, px, py, x0, y0, cx);
