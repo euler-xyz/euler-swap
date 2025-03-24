@@ -126,4 +126,81 @@ contract EulerSwapHookTest is EulerSwapTestBase {
         });
         swapRouter.swap(key, swapParams, settings, "");
     }
+
+
+    // Gas tests
+
+    function test_gas_smallSwap() public {
+        {
+            uint256 amountIn = 1e18;
+
+            assetTST.mint(anyone, amountIn);
+
+            vm.startPrank(anyone);
+            assetTST.approve(address(minimalRouter), amountIn);
+
+            bool zeroForOne = address(assetTST) < address(assetTST2);
+            minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, 0, "");
+            vm.snapshotGasLastCall("hook: small swap, fresh");
+            vm.stopPrank();
+        }
+
+        {
+            uint256 amountIn = 1e18;
+
+            assetTST.mint(anyone, amountIn);
+
+            vm.startPrank(anyone);
+            assetTST.approve(address(minimalRouter), amountIn);
+
+            bool zeroForOne = address(assetTST) < address(assetTST2);
+            minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, 0, "");
+            vm.snapshotGasLastCall("hook: small swap, existing");
+            vm.stopPrank();
+        }
+
+        {
+            uint256 amountIn = 5e18;
+
+            assetTST2.mint(anyone, amountIn);
+
+            vm.startPrank(anyone);
+            assetTST2.approve(address(minimalRouter), amountIn);
+
+            bool zeroForOne = !(address(assetTST) < address(assetTST2));
+            minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, 0, "");
+            vm.snapshotGasLastCall("hook: small swap, cross 0 point");
+            vm.stopPrank();
+        }
+    }
+
+    function test_gas_bigSwap() public {
+        {
+            uint256 amountIn = 30e18;
+
+            assetTST.mint(anyone, amountIn);
+
+            vm.startPrank(anyone);
+            assetTST.approve(address(minimalRouter), amountIn);
+
+            bool zeroForOne = address(assetTST) < address(assetTST2);
+            minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, 0, "");
+            vm.snapshotGasLastCall("hook: big swap, fresh");
+            vm.stopPrank();
+        }
+
+        {
+            uint256 amountIn = 60e18;
+
+            assetTST2.mint(anyone, amountIn);
+
+            vm.startPrank(anyone);
+            assetTST2.approve(address(minimalRouter), amountIn);
+
+            bool zeroForOne = !(address(assetTST) < address(assetTST2));
+            minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, 0, "");
+            vm.snapshotGasLastCall("hook: big swap, cross 0 point");
+            vm.stopPrank();
+        }
+    }
 }
