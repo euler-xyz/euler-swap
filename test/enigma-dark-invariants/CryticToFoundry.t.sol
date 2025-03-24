@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// Interfaces
+import {IEulerSwap} from "src/interfaces/IEulerSwap.sol";
+
 // Libraries
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -40,7 +43,7 @@ contract CryticToFoundry is Invariants, Setup {
     //                                  POSTCONDITIONS REPLAY                                    //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-/*     function test_replay_swap() public {
+    /*     function test_replay_swap() public {
         //@audit-issue is possible to extract value from the protocol 1 wei of value
         Tester.setupMaglev(10, 50e18, 50e18, 0, Curve(0), MaglevEulerSwap.EulerSwapParams(1e18, 1e18, 0.4e18, 0.85e18));
         Tester.mint(2000000, 0, 0);

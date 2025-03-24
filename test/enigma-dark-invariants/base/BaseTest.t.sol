@@ -8,6 +8,7 @@ import {IEulerSwap} from "src/interfaces/IEulerSwap.sol";
 // Libraries
 import {Vm} from "forge-std/Base.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
+import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
 // Utils
 import {Actor} from "../utils/Actor.sol";
@@ -142,17 +143,28 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
         return int256(balValue) - int256(debtValue);
     }
 
-    function _createEulerSwap( // TODO should we deploy from the factory instead?
-    uint112 debtLimitA, uint112 debtLimitB, uint256 fee, uint256 px, uint256 py, uint256 cx, uint256 cy)
-        internal
-    {
-        eulerSwap = new EulerSwap(
-            _getEulerSwapParams(debtLimitA, debtLimitB, fee),
-            IEulerSwap.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy})
-        );
+    function _createEulerSwap(
+        uint112 debtLimitA,
+        uint112 debtLimitB,
+        uint256 fee,
+        uint256 px,
+        uint256 py,
+        uint256 cx,
+        uint256 cy
+    ) internal returns (bool) {
+        EulerSwap.Params memory params = _getEulerSwapParams(debtLimitA, debtLimitB, fee);
+        IEulerSwap.CurveParams memory curveParams =
+            IEulerSwap.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy});
 
-        vm.prank(holder);
-        evc.setAccountOperator(holder, address(eulerSwap), true);
+        try new EulerSwap(params, curveParams) returns (EulerSwap _eulerSwap) {
+            eulerSwap = _eulerSwap;
+            vm.prank(holder);
+            evc.setAccountOperator(holder, address(eulerSwap), true);
+            return true;
+        } catch (bytes memory reason) {
+            console.logBytes(reason);
+            return false;
+        }
     }
 
     function _getEulerSwapParams(uint112 reserve0, uint112 reserve1, uint256 fee)
@@ -160,9 +172,11 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
         view
         returns (EulerSwap.Params memory)
     {
+        (address vault0, address vault1) =
+            eTST.asset() < eTST2.asset() ? (address(eTST), address(eTST2)) : (address(eTST2), address(eTST));
         return IEulerSwap.Params({
-            vault0: address(eTST),
-            vault1: address(eTST2),
+            vault0: vault0,
+            vault1: vault1,
             eulerAccount: holder,
             equilibriumReserve0: reserve0,
             equilibriumReserve1: reserve1,
@@ -170,5 +184,55 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
             currReserve1: reserve1,
             fee: fee
         });
+    }
+
+    /// @notice Helper function to generate points that lie on the Euler curve
+    /// @param x The x coordinate to generate a corresponding y value for
+    /// @param priceX Price ratio for asset X
+    /// @param priceY Price ratio for asset Y
+    /// @param x0 Equilibrium reserve for x
+    /// @param y0 Equilibrium reserve for y
+    /// @param c Concentration parameter
+    /// @return y The corresponding y coordinate that lies on the curve
+    function _generatePointOnCurve(uint256 x, uint256 priceX, uint256 priceY, uint256 x0, uint256 y0, uint256 c)
+        internal
+        pure
+        returns (uint256 y)
+    {
+        // If x is above equilibrium, we're in the upper region
+        if (x >= x0) {
+            return y0; // In upper region, any y >= y0 is valid
+        }
+        // If x is below equilibrium, calculate required y using curve function
+        unchecked {
+            uint256 v = Math.mulDiv(priceX * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
+            require(v <= type(uint248).max, "Overflow");
+            y = y0 + (v + (priceY - 1)) / priceY;
+        }
+    }
+
+    /// @notice Helper function to generate balanced initial reserves that satisfy the curve
+    /// @param targetReserve0 Approximate target for reserve0
+    /// @param targetReserve1 Approximate target for reserve1
+    /// @param curveParams Curve parameters to use
+    /// @return reserve0 Valid reserve0 that lies on curve
+    /// @return reserve1 Valid reserve1 that lies on curve
+    function _generateBalancedReserves(
+        uint112 targetReserve0,
+        uint112 targetReserve1,
+        IEulerSwap.CurveParams memory curveParams
+    ) internal pure returns (uint112 reserve0, uint112 reserve1) {
+        // Start with target values as equilibrium points
+        uint256 x0 = targetReserve0;
+        uint256 y0 = targetReserve1;
+
+        // Generate a point slightly below equilibrium
+        uint256 x = (x0 * 95) / 100; // 95% of equilibrium
+        uint256 y = _generatePointOnCurve(x, curveParams.priceX, curveParams.priceY, x0, y0, curveParams.concentrationX);
+
+        // Ensure values fit within uint112
+        require(x <= type(uint112).max && y <= type(uint112).max, "Reserves too large");
+
+        return (uint112(x), uint112(y));
     }
 }

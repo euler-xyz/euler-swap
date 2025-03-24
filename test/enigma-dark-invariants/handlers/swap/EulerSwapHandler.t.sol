@@ -26,7 +26,9 @@ abstract contract EulerSwapHandler is BaseHandler {
     //                                          ACTIONS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    // TODO activate() function
+    function activate() public setup eulerSwapDeployed {
+        eulerSwap.activate();
+    }
 
     function swap(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In, uint8 i)
         public

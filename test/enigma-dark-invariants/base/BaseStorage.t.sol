@@ -55,7 +55,7 @@ abstract contract BaseStorage {
     /// @notice The address that is targeted when executing an action
     address internal targetActor;
 
-    /// @notice The account that owns the maglev liqudity
+    /// @notice The account that owns the euler-swap liqudity
     address internal holder;
 
     address internal feeRecipient;

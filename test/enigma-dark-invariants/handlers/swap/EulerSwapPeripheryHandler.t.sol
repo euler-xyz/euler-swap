@@ -42,7 +42,7 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
         if (success) {
             _after();
 
-            // _eulerSwapPostconditions(amount0Out, amount1Out, amount0In, amount1In); // TODO check postconditions
+            //_eulerSwapPostconditions(amount0Out, amount1Out, amount0In, amount1In); // TODO Adapt these postconditions to periphery
         } else {
             revert("EulerSwapPeripheryHandler: swapExactIn failed");
         }
@@ -67,7 +67,7 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
         if (success) {
             _after();
 
-            // _eulerSwapPostconditions(amount0Out, amount1Out, amount0In, amount1In); // TODO check postconditions
+            //_eulerSwapPostconditions(amount0Out, amount1Out, amount0In, amount1In); // TODO Adapt these postconditions to periphery
         } else {
             revert("EulerSwapPeripheryHandler: swapExactOut failed");
         }
@@ -92,6 +92,4 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
             assertTrue(false, NR_QUOTE_B);
         }
     }
-
-    // getLimits //TODO
 }

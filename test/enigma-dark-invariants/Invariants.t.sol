@@ -16,8 +16,29 @@ abstract contract Invariants is BaseInvariants {
     //                                     BASE INVARIANTS                                       //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function echidna_BASE_ASSETS_INVARIANTS() public returns (bool) {
-        assert_INV_BASE_A();
+    function echidna_CORE_INVARIANTS() public returns (bool) {
+        if (address(eulerSwap) != address(0)) {
+            assert_INV_CORE_A();
+            assert_INV_CORE_C();
+        }
+
+        return true;
+    }
+
+    function echidna_STATE_INVARIANTS() public returns (bool) {
+        if (address(eulerSwap) != address(0)) {
+            assert_INV_STATE_A();
+            assert_INV_STATE_B();
+            assert_INV_STATE_C();
+        }
+
+        return true;
+    }
+
+    function echidna_DEBT_LIMIT_INVARIANTS() public returns (bool) {
+        if (address(eulerSwap) != address(0)) {
+            assert_INV_DL_A();
+        }
 
         return true;
     }

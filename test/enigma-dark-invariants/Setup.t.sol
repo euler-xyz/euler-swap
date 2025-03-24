@@ -135,7 +135,7 @@ contract Setup is BaseTest {
         baseAssets.push(address(assetTST));
         oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
 
-        assetTST2 = new TestERC20("Test Token 2", "TST2", 18); // TODO change decimals
+        assetTST2 = new TestERC20("Test Token 2", "TST2", 6);
         baseAssets.push(address(assetTST2));
         oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
     }

@@ -215,6 +215,27 @@ abstract contract PropertiesAsserts {
         return value;
     }
 
+    /// @notice Clamps value to be between low and high, exclusively (not including boundary points)
+    function clampBetweenExclusive(uint256 value, uint256 low, uint256 high) internal pure returns (uint256) {/// @dev
+        require(high > low + 1, "Invalid range: must have at least one value between low and high");
+        if (value <= low || value >= high) {
+            return low + 1 + (value % (high - low - 1));
+        }
+        return value;
+    }
+
+    /// @notice int256 version of clampBetweenExclusive
+    function clampBetweenExclusive(int256 value, int256 low, int256 high) internal pure returns (int256) {
+        require(high > low + 1, "Invalid range: must have at least one value between low and high");
+        if (value <= low || value >= high) {
+            int256 range = high - low - 1;
+            int256 clamped = (value - (low + 1)) % range;
+            if (clamped < 0) clamped += range;
+            return low + 1 + clamped;
+        }
+        return value;
+    }
+
     /// @notice clamps a to be less than b
     function clampLt(uint256 a, uint256 b) internal returns (uint256) {
         if (!(a < b)) {
