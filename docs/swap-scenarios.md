@@ -35,6 +35,8 @@ We always check the invariant using the cheapest function to compute. This means
 
 `yNew >= f(xNew) = f(x + xIn)`
 
+**Note:** We know the new x-coordinate is fixed, because the user has swapped that much X in. If we overestimate the y-coordinate, we simply give the user a worse swap -- less Y out -- than if we had used a more precise method.
+
 ### 1b. Swap `xIn` and move to domain 2
 
 **Calculation steps:**
@@ -46,6 +48,8 @@ We always check the invariant using the cheapest function to compute. This means
 **Invariant check:**
 
 `xNew >= g(yNew) = g(gInverse(xNew)) = g(gInverse(x + xIn))`
+
+**Note:** We know the new x-coordinate is fixed, because the user has swapped that much X in. If we overestimate the y-coordinate, we simply give the user a worse swap -- less Y out -- than if we had used a more precise method.
 
 ### 2. Swap `yIn` and remain in domain 1
 
@@ -59,6 +63,10 @@ We always check the invariant using the cheapest function to compute. This means
 
 `yNew >= f(xNew) = f(fInverse(yNew)) = f(fInverse(y + yIn))`
 
+**Note:** We know the new y-coordinate is real, because the user has swapped that much Y in. If we overestimate the x-coordinate, we simply give them a worse quote -- less X out -- than if we had a more precise method.
+
+When we do y --> x = fInverse(y) --> yCalc = f(x), that means our new y-coordinate may be slightly smaller the the original.
+
 ### 3. Swap `xOut` and remain in domain 1
 
 **Calculation steps:**
@@ -70,6 +78,8 @@ We always check the invariant using the cheapest function to compute. This means
 **Invariant check:**
 
 `yNew >= f(xNew) = f(x - xOut)`
+
+**Note:** We know the new x-coordinate is real, because the user has swapped that much X out. If we overestimate the y-coordinate, we simply give them a worse quote -- require more Y in than is really needed -- than if we had a more precise method. Once the trade happens, we will be on or above the curve due to an excess of Y.
 
 ### 4a. Swap `yOut` and remain in domain 1
 
@@ -83,6 +93,8 @@ We always check the invariant using the cheapest function to compute. This means
 
 `yNew >= f(xNew) = f(fInverse(yNew)) = f(fInverse(y - yOut))`
 
+**Note:** We know the new y-coordinate is real, because the user has swapped that much Y out. If we overestimate the x-coordinate, we simply give them a worse quote -- require more X in than is really needed -- than if we had a more precise method.
+
 ### 4b. Swap `yOut` and move to domain 2
 
 **Calculation steps:**
@@ -94,6 +106,8 @@ We always check the invariant using the cheapest function to compute. This means
 **Invariant check:**
 
 `xNew >= g(yNew) = g(y - yOut)`
+
+**Note:** We know the new y-coordinate is real, because the user has swapped that much Y out. If we overestimate the x-coordinate, we simply give them a worse quote -- require more X in than is really needed -- than if we had a more precise method.
 
 ## Starting in domain 2
 
