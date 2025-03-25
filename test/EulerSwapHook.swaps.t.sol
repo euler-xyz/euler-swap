@@ -203,4 +203,16 @@ contract EulerSwapHookTest is EulerSwapTestBase {
             vm.stopPrank();
         }
     }
+
+    function test_gas_smallSwapInlined() public {
+        {
+            uint256 amountIn = 1e18;
+
+            assetTST.mint(address(this), amountIn);
+            assetTST.approve(address(eulerSwap), amountIn);
+
+            eulerSwap.swapExactIn(address(assetTST), address(assetTST2), amountIn, 0);
+            vm.snapshotGasLastCall("inlined: small swap, fresh");
+        }
+    }
 }

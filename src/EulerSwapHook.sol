@@ -11,7 +11,7 @@ import {SafeCast} from "@uniswap/v4-core/src/libraries/SafeCast.sol";
 import {
     BeforeSwapDelta, toBeforeSwapDelta, BeforeSwapDeltaLibrary
 } from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
-import {EulerSwap, IEulerSwap, IEVault} from "./EulerSwap.sol";
+import {IERC20, EulerSwap, IEulerSwap, IEVault} from "./EulerSwap.sol";
 
 contract EulerSwapHook is EulerSwap, BaseHook {
     using SafeCast for uint256;
@@ -105,6 +105,26 @@ contract EulerSwapHook is EulerSwap, BaseHook {
     // TODO: fix salt mining & verification for the hook
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {}
     function validateHookAddress(BaseHook) internal pure override {}
+
+
+    error AmountOutLessThanMin();
+    function swapExactIn(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMin) external {
+        bool asset0IsInput = tokenIn == asset0;
+
+        uint256 amountOut = computeQuote(asset0IsInput, amountIn, true);
+        require(amountOut >= amountOutMin, AmountOutLessThanMin());
+
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+
+        bool isAsset0In = tokenIn < tokenOut;
+
+        if (isAsset0In) {
+            evc.call(address(this), address(this), 0, abi.encodeCall(IEulerSwap.swap, (0, amountOut, msg.sender, "")));
+        } else {
+            evc.call(address(this), address(this), 0, abi.encodeCall(IEulerSwap.swap, (amountOut, 0, msg.sender, "")));
+        }
+    }
+
 
     error SwapLimitExceeded();
     error OperatorNotInstalled();
