@@ -70,7 +70,7 @@ contract EulerSwapHook is EulerSwap, BaseHook {
         // the debt will be paid by the swapper via the swap router
         // TODO: can we optimize the transfer by pulling from PoolManager directly to Euler?
         poolManager.take(inputCurrency, address(this), amountIn);
-        depositAssets(inputCurrency == key.currency0 ? vault0 : vault1, amountIn);
+        amountIn = _depositWithoutFee(inputCurrency == key.currency0 ? vault0 : vault1, amountIn);
 
         // pay the output token, to the PoolManager from an Euler vault
         // the credit will be forwarded to the swap router, which then forwards it to the swapper

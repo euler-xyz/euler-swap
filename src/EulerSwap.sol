@@ -30,6 +30,8 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     uint256 public immutable concentrationX;
     uint256 public immutable concentrationY;
 
+    // TODO: settable by permissioned actor
+    uint256 public protocolFeeMultiplier = 0e18;
     uint112 public reserve0;
     uint112 public reserve1;
     uint32 public status; // 0 = unactivated, 1 = unlocked, 2 = locked
@@ -121,10 +123,10 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         // Deposit all available funds, adjust received amounts downward to collect fees
 
         uint256 amount0In = IERC20(asset0).balanceOf(address(this));
-        if (amount0In > 0) amount0In = depositAssets(vault0, amount0In) * feeMultiplier / 1e18;
+        if (amount0In > 0) amount0In = _depositWithoutFee(vault0, amount0In);
 
         uint256 amount1In = IERC20(asset1).balanceOf(address(this));
-        if (amount1In > 0) amount1In = depositAssets(vault1, amount1In) * feeMultiplier / 1e18;
+        if (amount1In > 0) amount1In = _depositWithoutFee(vault1, amount1In);
 
         // Verify curve invariant is satisfied
 
@@ -148,6 +150,17 @@ contract EulerSwap is IEulerSwap, EVCUtil {
                 to
             );
         }
+    }
+
+    function _depositWithoutFee(address vault, uint256 amountIn) internal returns (uint256 amountInDeposited) {
+        (, uint256 protocolFeeAmount) = _feeAmounts(amountIn);
+        amountInDeposited = depositAssets(vault, amountIn - protocolFeeAmount) * feeMultiplier / 1e18;
+    }
+
+    function _feeAmounts(uint256 amountIn) private view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount) {
+        lpFeeAmount = (amountIn * (1e18 - feeMultiplier)) / 1e18;
+        protocolFeeAmount = lpFeeAmount * protocolFeeMultiplier;
+        lpFeeAmount -= protocolFeeAmount;
     }
 
     /// @inheritdoc IEulerSwap
