@@ -32,7 +32,8 @@ contract EulerSwapHookTest is EulerSwapTestBase {
         swapRouter = new PoolSwapTest(poolManager);
         minimalRouter = new MinimalRouter(poolManager);
 
-        eulerSwap = createEulerSwapHook(poolManager, 60e18, 60e18, 0, 1e18, 1e18, 0.4e18, 0.85e18);
+        // set swap fee to 10 bips
+        eulerSwap = createEulerSwapHook(poolManager, 60e18, 60e18, 0.001e18, 1e18, 1e18, 0.4e18, 0.85e18);
         eulerSwap.activate();
 
         // confirm pool was created

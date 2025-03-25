@@ -11,7 +11,9 @@ import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol"
 import {EVCUtil} from "evc/utils/EVCUtil.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
-contract EulerSwap is IEulerSwap, EVCUtil {
+import {ProtocolFee} from "./utils/ProtocolFee.sol";
+
+contract EulerSwap is IEulerSwap, EVCUtil, ProtocolFee {
     using SafeERC20 for IERC20;
 
     bytes32 public constant curve = bytes32("EulerSwap v1");
@@ -30,8 +32,6 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     uint256 public immutable concentrationX;
     uint256 public immutable concentrationY;
 
-    // TODO: settable by permissioned actor
-    uint256 public protocolFeeMultiplier = 0e18;
     uint112 public reserve0;
     uint112 public reserve1;
     uint32 public status; // 0 = unactivated, 1 = unlocked, 2 = locked
@@ -159,7 +159,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
     function _feeAmounts(uint256 amountIn) private view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount) {
         lpFeeAmount = (amountIn * (1e18 - feeMultiplier)) / 1e18;
-        protocolFeeAmount = lpFeeAmount * protocolFeeMultiplier;
+        protocolFeeAmount = lpFeeAmount * protocolFee;
         lpFeeAmount -= protocolFeeAmount;
     }
 
@@ -296,5 +296,13 @@ contract EulerSwap is IEulerSwap, EVCUtil {
             require(v <= type(uint248).max, Overflow());
             return y0 + (v + (py - 1)) / py;
         }
+    }
+
+    function _asset0() internal view override returns (address) {
+        return asset0;
+    }
+
+    function _asset1() internal view override returns (address) {
+        return asset1;
     }
 }
