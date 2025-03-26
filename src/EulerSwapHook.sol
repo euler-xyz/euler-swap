@@ -66,6 +66,17 @@ contract EulerSwapHook is EulerSwap, BaseHook {
             amountOut = uint256(params.amountSpecified);
         }
 
+        // return the delta to the PoolManager, so it can process the accounting
+        // exact input:
+        //   specifiedDelta = positive, to offset the input token taken by the hook (negative delta)
+        //   unspecifiedDelta = negative, to offset the credit of the output token paid by the hook (positive delta)
+        // exact output:
+        //   specifiedDelta = negative, to offset the output token paid by the hook (positive delta)
+        //   unspecifiedDelta = positive, to offset the input token taken by the hook (negative delta)
+        BeforeSwapDelta returnDelta = isExactInput
+            ? toBeforeSwapDelta(amountIn.toInt128(), -(amountOut.toInt128()))
+            : toBeforeSwapDelta(-(amountOut.toInt128()), amountIn.toInt128());
+
         // take the input token, from the PoolManager to the Euler vault
         // the debt will be paid by the swapper via the swap router
         // TODO: can we optimize the transfer by pulling from PoolManager directly to Euler?
@@ -89,16 +100,6 @@ contract EulerSwapHook is EulerSwap, BaseHook {
             reserve1 = uint112(newReserve1);
         }
 
-        // return the delta to the PoolManager, so it can process the accounting
-        // exact input:
-        //   specifiedDelta = positive, to offset the input token taken by the hook (negative delta)
-        //   unspecifiedDelta = negative, to offset the credit of the output token paid by the hook (positive delta)
-        // exact output:
-        //   specifiedDelta = negative, to offset the output token paid by the hook (positive delta)
-        //   unspecifiedDelta = positive, to offset the input token taken by the hook (negative delta)
-        BeforeSwapDelta returnDelta = isExactInput
-            ? toBeforeSwapDelta(amountIn.toInt128(), -(amountOut.toInt128()))
-            : toBeforeSwapDelta(-(amountOut.toInt128()), amountIn.toInt128());
         return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }
 
