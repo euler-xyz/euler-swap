@@ -247,6 +247,26 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         return deposited;
     }
 
+    function depositAssetsSkim(address vault, uint256 amount) internal returns (uint256) {
+        try IEVault(vault).skim(amount, eulerAccount) {}
+        catch (bytes memory reason) {
+            require(bytes4(reason) == EVKErrors.E_ZeroShares.selector, DepositFailure(reason));
+            return 0;
+        }
+
+        if (IEVC(evc).isControllerEnabled(eulerAccount, vault)) {
+            IEVC(evc).call(
+                vault, eulerAccount, 0, abi.encodeCall(IBorrowing.repayWithShares, (type(uint256).max, eulerAccount))
+            );
+
+            if (myDebt(vault) == 0) {
+                IEVC(evc).call(vault, eulerAccount, 0, abi.encodeCall(IRiskManager.disableController, ()));
+            }
+        }
+
+        return amount;
+    }
+
     /// @notice Approves tokens for a given vault, supporting both standard approvals and permit2
     /// @param asset The address of the token to approve
     /// @param vault The address of the vault to approve the token for
