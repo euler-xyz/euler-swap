@@ -43,4 +43,10 @@ abstract contract PostconditionsSpec {
 
     string constant HSPOST_RESERVES_C =
         "HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed";
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                          DEBT                                             //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    string constant HSPOST_DEBT_A = "HSPOST_DEBT_A: Debt on an asset should never exceed the debt limit";
 }

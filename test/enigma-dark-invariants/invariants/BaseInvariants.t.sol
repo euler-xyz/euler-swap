@@ -5,6 +5,7 @@ pragma solidity ^0.8.19;
 
 // Interfaces
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IEVault} from "evk/EVault/IEVault.sol";
 
 // Contracts
 import {HandlerAggregator} from "../HandlerAggregator.t.sol";
@@ -24,14 +25,14 @@ abstract contract BaseInvariants is HandlerAggregator {
     }
 
     function assert_INV_CORE_B() internal {
-        address[] memory controllers = evc.getControllers();
+        address[] memory controllers = evc.getControllers(holder);
 
         address controller = controllers[0];
 
         (uint256 collateralValue, uint256 liabilityValue) =
             IEVault(controller).accountLiquidity(eulerSwap.eulerAccount(), false);
 
-        assertTrue(collateralValue >= liabilityValue, INV_CORE_B);
+        assertTrue(collateralValue > liabilityValue, INV_CORE_B);
     }
 
     function assert_INV_CORE_C() internal {

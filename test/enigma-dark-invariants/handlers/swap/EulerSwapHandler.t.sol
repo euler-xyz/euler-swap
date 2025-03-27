@@ -20,7 +20,6 @@ abstract contract EulerSwapHandler is BaseHandler {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     address roundtripSwapActor;
-    address receiver;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                          ACTIONS                                          //
@@ -34,6 +33,7 @@ abstract contract EulerSwapHandler is BaseHandler {
         public
         setup
         eulerSwapDeployed
+        skimAll
     {
         bool success;
         bytes memory returnData;
@@ -116,74 +116,7 @@ abstract contract EulerSwapHandler is BaseHandler {
 
         uint256 actorInBalanceAfter = assetTSTIn.balanceOf(roundtripSwapActor);
 
-        // HSPOST
+        /// @dev HSPOST_SWAP_B
         assertLe(actorInBalanceAfter, actorInBalanceBefore, HSPOST_SWAP_B);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    //                                          HSPOST: SWAP                                     //
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-
-    /// @notice Postconditions common to all three curves
-    function _eulerSwapPostconditions(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In)
-        internal
-    {
-        /// @dev HSPOST_SWAP_C
-
-        if (amount0Out > 0) {
-            assertEq(
-                defaultVarsAfter.users[receiver].assetTSTBalance,
-                defaultVarsBefore.users[receiver].assetTSTBalance + amount0Out,
-                HSPOST_SWAP_C
-            );
-        }
-
-        if (amount1Out > 0) {
-            assertEq(
-                defaultVarsAfter.users[receiver].assetTST2Balance,
-                defaultVarsBefore.users[receiver].assetTST2Balance + amount1Out,
-                HSPOST_SWAP_C
-            );
-        }
-
-        //assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
-
-        /// @dev HSPOST_RESERVES_A
-
-        if (amount0In < defaultVarsBefore.holderETSTDebt) {
-            assertEq(defaultVarsAfter.holderETSTDebt, defaultVarsBefore.holderETSTDebt - amount0In, HSPOST_SWAP_B);
-        } else {
-            assertEq(defaultVarsAfter.holderETSTDebt, 0, HSPOST_RESERVES_A);
-        }
-
-        if (amount1In < defaultVarsBefore.holderETST2Debt) {
-            assertEq(defaultVarsAfter.holderETST2Debt, defaultVarsBefore.holderETST2Debt - amount1In, HSPOST_SWAP_B);
-        } else {
-            assertEq(defaultVarsAfter.holderETST2Debt, 0, HSPOST_RESERVES_A);
-        }
-
-        /// @dev HSPOST_RESERVES_B
-
-        if (amount0Out < defaultVarsBefore.holderETSTAssets) {
-            assertEq(
-                defaultVarsAfter.holderETSTAssets, defaultVarsBefore.holderETSTAssets - amount0Out, HSPOST_RESERVES_B
-            );
-        } else {
-            assertEq(defaultVarsAfter.holderETSTAssets, 0, HSPOST_RESERVES_B);
-            assertEq(
-                defaultVarsAfter.holderETSTDebt, amount0Out - defaultVarsBefore.holderETSTAssets, HSPOST_RESERVES_C
-            );
-        }
-
-        if (amount1Out < defaultVarsBefore.holderETST2Assets) {
-            assertEq(
-                defaultVarsAfter.holderETST2Assets, defaultVarsBefore.holderETST2Assets - amount1Out, HSPOST_RESERVES_B
-            );
-        } else {
-            assertEq(defaultVarsAfter.holderETST2Assets, 0, HSPOST_RESERVES_B);
-            assertEq(
-                defaultVarsAfter.holderETST2Debt, amount1Out - defaultVarsBefore.holderETST2Assets, HSPOST_RESERVES_C
-            );
-        }
     }
 }

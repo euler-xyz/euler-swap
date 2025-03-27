@@ -33,6 +33,9 @@ abstract contract EulerSwapSetupHandler is BaseHandler {
     ) public eulerSwapNotDeployed {
         /// --- CLAMPING PARAMETERS ---
 
+        // Clamp fee to a maximum of 1e18
+        fee = clampBetween(fee, 0, 1e18);
+
         // Restrict leverage to a maximum of x10
         leverage = uint8(clampBetween(leverage, MIN_LEVERAGE, MAX_LEVERAGE));
 
@@ -47,11 +50,11 @@ abstract contract EulerSwapSetupHandler is BaseHandler {
         uint112 debtLimit1 = initialAmount1 * leverage;
 
         // Clamp price values within a reasonable range (0.1 to 10)
-        curveParams.priceX = clampBetween(curveParams.priceX, 0.1e16, 1e36); // TODO Integrate oracle price
+        curveParams.priceX = clampBetween(curveParams.priceX, 0.1e16, 1e36);
         curveParams.priceY = clampBetween(curveParams.priceY, 0.1e16, 1e36);
 
         // Clamp concentration between 0.1e18 and 1e18
-        curveParams.concentrationX = clampBetween(curveParams.concentrationX, 0.1e18, 1e18); // TODO Implement test variants with imbalanced initial pools where concentrationX != concentrationY and reserves don't match equilibrium values - this should verify curve behavior under asymmetric conditions
+        curveParams.concentrationX = clampBetween(curveParams.concentrationX, 0.1e18, 1e18); // TODO Implement test variants with imbalanced initial pools, reserves don't match equilibrium values - this should verify curve behavior under asymmetric conditions
         curveParams.concentrationY = clampBetween(curveParams.concentrationY, 0.1e18, 1e18);
 
         // Check equilibriumReserves are on the curve
@@ -80,6 +83,8 @@ abstract contract EulerSwapSetupHandler is BaseHandler {
             "EulerSwapSetupHandler: failed to create EulerSwap"
         );
 
+        assertTrue(eulerSwap.asset0() == address(assetTST), "EulerSwapSetupHandler: asset0 is not assetTST");
+        assertTrue(eulerSwap.asset1() == address(assetTST2), "EulerSwapSetupHandler: asset1 is not assetTST2");
         /// --- SETUP ACTORS' TOKEN APPROVALS ---
 
         // Configure actors' token approvals for the eulerSwap contract

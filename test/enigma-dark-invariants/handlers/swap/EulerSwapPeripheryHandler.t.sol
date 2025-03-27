@@ -23,9 +23,11 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
     //                                          ACTIONS                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function swapExactIn(uint256 amountIn, uint256 amountOutMin, bool dir) public setup eulerSwapDeployed {
+    function swapExactIn(uint256 amountIn, uint256 amountOutMin, bool dir) public setup eulerSwapDeployed skimAll {
         bool success;
         bytes memory returnData;
+
+        receiver = address(actor);
 
         address target = address(periphery);
 
@@ -42,15 +44,23 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
         if (success) {
             _after();
 
-            //_eulerSwapPostconditions(amount0Out, amount1Out, amount0In, amount1In); // TODO Adapt these postconditions to periphery
+            if (dir) {
+                _eulerSwapPostconditions(0, amountOutMin, amountIn, 0);
+            } else {
+                _eulerSwapPostconditions(amountOutMin, 0, 0, amountIn);
+            }
         } else {
             revert("EulerSwapPeripheryHandler: swapExactIn failed");
         }
+
+        delete receiver;
     }
 
-    function swapExactOut(uint256 amountOut, uint256 amountInMax, bool dir) public setup eulerSwapDeployed {
+    function swapExactOut(uint256 amountOut, uint256 amountInMax, bool dir) public setup eulerSwapDeployed skimAll {
         bool success;
         bytes memory returnData;
+
+        receiver = address(actor);
 
         address target = address(periphery);
 
@@ -67,10 +77,16 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
         if (success) {
             _after();
 
-            //_eulerSwapPostconditions(amount0Out, amount1Out, amount0In, amount1In); // TODO Adapt these postconditions to periphery
+            if (dir) {
+                _eulerSwapPostconditions(0, amountOut, amountInMax, 0);
+            } else {
+                _eulerSwapPostconditions(amountOut, 0, 0, amountInMax);
+            }
         } else {
             revert("EulerSwapPeripheryHandler: swapExactOut failed");
         }
+
+        delete receiver;
     }
 
     function quoteExactInput(uint256 amountIn, bool dir) external eulerSwapDeployed {

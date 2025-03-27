@@ -44,13 +44,14 @@ abstract contract InvariantsSpec {
     string constant INV_DL_B = "INV_DL_B: Total borrowed amount should never exceed leverage * initial reserves"; // TODO
 
     // TODO: Implement invariants based on ChainSecurity report formulas
-    // TODO: Implement invariants for LTV checks from ChainSecurity report
-    // TODO: Implement invariants for liquidation checks from ChainSecurity report
-    // TODO: Implement invariants for reserve desynchronization from ChainSecurity report
-    // TODO: Implement invariant to ensure debt never exceeds the debt limit
-    // TODO: Implement invariants from the team call notes
-    // TODO: Review the trust model of the protocol as outlined in the ChainSecurity report
-    // TODO: Review the binary search implementation
-    // TODO: Implement check for rounding error amplification (5.5)
-    // TODO: Implement check to prevent Donation Attack resulting in DoS (5.1), ensuring the "quote" rule makes swap always succeed
+    // TODO: Implement invariants for LTV checks from ChainSecurity report -> no implemented, checked with liquidation invariant
+    // TODO: Implement invariants for liquidation checks from ChainSecurity report -> X
+    // TODO: Implement invariants for reserve desynchronization from ChainSecurity report -> NO
+    // TODO: Implement invariant to ensure debt never exceeds the debt limit -> X 
+    // TODO: Implement invariants from the team call notes -> TODO
+    // TODO: Review the trust model of the protocol as outlined in the ChainSecurity report -> TODO
+    // TODO: Review the binary search implementation -> TODO
+    // TODO: Implement check for rounding error amplification (5.5) -> TODO
+    // TODO: Implement check to prevent Donation Attack resulting in DoS (5.1), ensuring the "quote" rule makes swap always succeed -> TODO
+    // TODO: Implement invariant for relation between f and f inverse -> TODO
 }

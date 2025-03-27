@@ -116,6 +116,20 @@ contract Setup is BaseTest {
 
         eTST2 = _deployEVault(address(assetTST2));
         vaults.push(address(eTST2));
+
+        // Set LTVs
+        eTST.setLTV(address(eTST2), BORROW_LTV, LIQUIDATION_LTV, 0);
+        eTST2.setLTV(address(eTST), BORROW_LTV, LIQUIDATION_LTV, 0);
+
+        // Set pricing
+        oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
+        oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
+
+        oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
+        oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
+
+        oracle.setPrice(address(assetTST), address(assetTST2), 1e18);
+        oracle.setPrice(address(assetTST2), address(assetTST), 1e18);
     }
 
     function _deployEVault(address asset) internal returns (IEVault eVault) {
@@ -125,19 +139,18 @@ contract Setup is BaseTest {
         // Configure the vault
         eVault.setHookConfig(address(0), 0);
         eVault.setInterestRateModel(address(new IRMTestDefault()));
-        eVault.setMaxLiquidationDiscount(0.2e4);
+        eVault.setMaxLiquidationDiscount(MAX_LIQUIDATION_DISCOUNT);
         eVault.setFeeReceiver(feeRecipient);
     }
 
     function _deployAssets() internal {
         // Deploy base assets
-        assetTST = new TestERC20("Test Token", "TST", 18);
-        baseAssets.push(address(assetTST));
-        oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
+        TestERC20 asset0 = new TestERC20("Test Token", "TST", 18);
+        TestERC20 asset1 = new TestERC20("Test Token 2", "TST2", 6);
+        (assetTST, assetTST2) = (address(asset0) < address(asset1) ? (asset0, asset1) : (asset1, asset0));
 
-        assetTST2 = new TestERC20("Test Token 2", "TST2", 6);
+        baseAssets.push(address(assetTST));
         baseAssets.push(address(assetTST2));
-        oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

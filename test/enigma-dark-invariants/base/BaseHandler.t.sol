@@ -19,6 +19,12 @@ contract BaseHandler is HookAggregator {
     using EnumerableSet for EnumerableSet.UintSet;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                      STATE VARIABLES                                      //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    address receiver;
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                         MODIFIERS                                         //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,8 +75,10 @@ contract BaseHandler is HookAggregator {
         return vaults[_vaultIndex];
     }
 
-    function _getAssetsByDir(bool dir) internal view returns (address assetIn, address assetOut) {
-        return dir ? (address(assetTST), address(assetTST2)) : (address(assetTST2), address(assetTST));
+    function _getAssetsByDir(bool dir) internal view returns (address asset0, address asset1) {
+        asset0 = eulerSwap.asset0();
+        asset1 = eulerSwap.asset1();
+        return dir ? (asset0, asset1) : (asset1, asset0);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,8 +97,8 @@ contract BaseHandler is HookAggregator {
     }
 
     /// @notice Helper function to mint an amount of tokens to an address
-    function _mint(address token, address receiver, uint256 amount) internal {
-        TestERC20(token).mint(receiver, amount);
+    function _mint(address token, address receiver_, uint256 amount) internal {
+        TestERC20(token).mint(receiver_, amount);
     }
 
     /// @notice Helper function to mint an amount of tokens to an address and approve them to a spender
@@ -101,5 +109,83 @@ contract BaseHandler is HookAggregator {
     function _mintAndApprove(address token, address owner, address spender, uint256 amount) internal {
         _mint(token, owner, amount);
         _approve(token, owner, spender, amount);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                                          HSPOST: SWAP                                     //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    /// @notice Postconditions common to all three curves
+    function _eulerSwapPostconditions(
+        uint256 amount0Out,
+        uint256 amount1Out,
+        uint256 amount0In,
+        uint256 amount1In
+    ) internal {
+        /// @dev HSPOST_SWAP_C
+
+        if (amount0Out > 0) {
+            assertEq(
+                defaultVarsAfter.users[receiver].assetTSTBalance,
+                defaultVarsBefore.users[receiver].assetTSTBalance + amount0Out,
+                HSPOST_SWAP_C
+            );
+        }
+
+        if (amount1Out > 0) {
+            assertEq(
+                defaultVarsAfter.users[receiver].assetTST2Balance,
+                defaultVarsBefore.users[receiver].assetTST2Balance + amount1Out,
+                HSPOST_SWAP_C
+            );
+        }
+
+        /// @dev HSPOST_SWAP_A
+
+        assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
+
+        /// @dev HSPOST_RESERVES_A
+
+        if (amount0In < defaultVarsBefore.holderETSTDebt) {
+            assertEq(defaultVarsAfter.holderETSTDebt, defaultVarsBefore.holderETSTDebt - amount0In, HSPOST_SWAP_B);
+        } else {
+            assertEq(defaultVarsAfter.holderETSTDebt, 0, HSPOST_RESERVES_A);
+        }
+
+        if (amount1In < defaultVarsBefore.holderETST2Debt) {
+            assertEq(defaultVarsAfter.holderETST2Debt, defaultVarsBefore.holderETST2Debt - amount1In, HSPOST_SWAP_B);
+        } else {
+            assertEq(defaultVarsAfter.holderETST2Debt, 0, HSPOST_RESERVES_A);
+        }
+
+        /// @dev HSPOST_RESERVES_B
+
+        if (amount0Out < defaultVarsBefore.holderETSTAssets) {
+            assertEq(
+                defaultVarsAfter.holderETSTAssets, defaultVarsBefore.holderETSTAssets - amount0Out, HSPOST_RESERVES_B
+            );
+        } else {
+            assertEq(defaultVarsAfter.holderETSTAssets, 0, HSPOST_RESERVES_B);
+            assertEq(
+                defaultVarsAfter.holderETSTDebt, amount0Out - defaultVarsBefore.holderETSTAssets, HSPOST_RESERVES_C
+            );
+        }
+
+        if (amount1Out < defaultVarsBefore.holderETST2Assets) {
+            assertEq(
+                defaultVarsAfter.holderETST2Assets, defaultVarsBefore.holderETST2Assets - amount1Out, HSPOST_RESERVES_B
+            );
+        } else {
+            assertEq(defaultVarsAfter.holderETST2Assets, 0, HSPOST_RESERVES_B);
+            assertEq(
+                defaultVarsAfter.holderETST2Debt, amount1Out - defaultVarsBefore.holderETST2Assets, HSPOST_RESERVES_C
+            );
+        }
+
+        /// @dev HSPOST_DEBT_A
+        assertLe(defaultVarsAfter.holderETSTDebt, eulerSwap.reserve0(), HSPOST_DEBT_A);
+        assertLe(defaultVarsAfter.holderETST2Debt, eulerSwap.reserve1(), HSPOST_DEBT_A);
+        assertLe(defaultVarsAfter.holderETSTDebt, eulerSwap.reserve1(), HSPOST_DEBT_A);
+        assertLe(defaultVarsAfter.holderETST2Debt, eulerSwap.reserve0(), HSPOST_DEBT_A);
     }
 }

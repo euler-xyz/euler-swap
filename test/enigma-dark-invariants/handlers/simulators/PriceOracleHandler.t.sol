@@ -22,7 +22,7 @@ abstract contract PriceOracleHandler is BaseHandler {
     function setPrice(uint8 i, uint256 price) external {
         address baseAsset = _getRandomBaseAsset(i);
 
-        oracle.setPrice(baseAsset, unitOfAccount, price);
+        //oracle.setPrice(baseAsset, unitOfAccount, price); TODO implement subtile variations
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

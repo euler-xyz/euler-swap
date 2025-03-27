@@ -41,9 +41,9 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
         targetActor = address(0);
     }
 
-    /// @dev Solves medusa backward time warp issue
-    modifier monotonicTimestamp() virtual {
-        // Implement monotonic timestamp if needed
+    /// @dev Skim euler swap assets
+    modifier skimAll() virtual {
+        _skimAll(eulerSwap, true);
         _;
     }
 
@@ -129,6 +129,50 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
     //                                EULER-SWAP SPECIFIC HELPERS                                //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
+    function _skimAll(EulerSwap ml, bool order) internal {
+        if (order) {
+            _runSkimAll(ml, true);
+            _runSkimAll(ml, false);
+        } else {
+            _runSkimAll(ml, false);
+            _runSkimAll(ml, true);
+        }
+    }
+
+    function _runSkimAll(EulerSwap ml, bool dir) internal returns (uint256) {
+        uint256 skimmed = 0;
+        uint256 val = 1;
+
+        // Phase 1: Keep doubling skim amount until it fails
+
+        while (true) {
+            (uint256 amount0, uint256 amount1) = dir ? (val, uint256(0)) : (uint256(0), val);
+
+            try ml.swap(amount0, amount1, address(0xDEAD), "") {
+                skimmed += val;
+                val *= 2;
+            } catch {
+                break;
+            }
+        }
+
+        // Phase 2: Keep halving skim amount until 1 wei skim fails
+
+        while (true) {
+            if (val > 1) val /= 2;
+
+            (uint256 amount0, uint256 amount1) = dir ? (val, uint256(0)) : (uint256(0), val);
+
+            try ml.swap(amount0, amount1, address(0xDEAD), "") {
+                skimmed += val;
+            } catch {
+                if (val == 1) break;
+            }
+        }
+
+        return skimmed;
+    }
+
     function _getHolderNAV() internal view returns (int256) {
         uint256 balance0 = eTST.convertToAssets(eTST.balanceOf(holder));
         uint256 debt0 = eTST.debtOf(holder);
@@ -153,6 +197,7 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
         uint256 cy
     ) internal returns (bool) {
         EulerSwap.Params memory params = _getEulerSwapParams(debtLimitA, debtLimitB, fee);
+
         IEulerSwap.CurveParams memory curveParams =
             IEulerSwap.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy});
 
@@ -172,8 +217,8 @@ abstract contract BaseTest is BaseStorage, PropertiesConstants, StdAsserts, StdU
         view
         returns (EulerSwap.Params memory)
     {
-        (address vault0, address vault1) =
-            eTST.asset() < eTST2.asset() ? (address(eTST), address(eTST2)) : (address(eTST2), address(eTST));
+        (address vault0, address vault1) = (address(eTST), address(eTST2));
+
         return IEulerSwap.Params({
             vault0: vault0,
             vault1: vault1,
