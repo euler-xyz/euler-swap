@@ -104,7 +104,6 @@ contract EulerSwapScenarioTest is Test {
         y = bound(y, 1e18 + 1, yMax);
         uint256 startGas = gasleft();
         uint256 x = quadratic(y, cx);
-        x = binary(y, cx, x - 2, x);
         uint256 endGas = gasleft();
         uint256 gasUsed = startGas - endGas;
         uint256 yCalc = f(x, cx);
