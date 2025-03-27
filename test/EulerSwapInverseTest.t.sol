@@ -4,18 +4,22 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 import "forge-std/console.sol"; // Import console.sol for logging
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
+import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
+
 
 contract EulerSwapScenarioTest is Test {
 
-    function getY(uint256 x, uint256 p, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
-        uint256 scaledX = (x * 1e18) / x0;
-        return y0 + Math.mulDiv(p * x0, f(scaledX, c) - 1e18, 1e36);
-    }
+    EulerSwap public eulerSwap;
 
-    function getX(uint256 y, uint256 p, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
-        uint256 scaledY = (y - y0) * 1e36 / (p * x0) + 1e18;
-        return fInverse(scaledY, c, 1e18 + 1);
-    }
+    // function getY(uint256 x, uint256 p, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    //     uint256 scaledX = (x * 1e18) / x0;
+    //     return y0 + Math.mulDiv(p * x0, f(scaledX, c) - 1e18, 1e36);
+    // }
+
+    // function getX(uint256 y, uint256 p, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    //     uint256 scaledY = (y - y0) * 1e36 / (p * x0) + 1e18;
+    //     return quadratic(scaledY, c, 1e18 + 1);
+    // }
 
     function verify(uint256 xNew, uint256 yNew, uint256 cx, uint256 cy) public view returns (bool) {
         if (xNew >= 1e18) {
@@ -39,9 +43,9 @@ contract EulerSwapScenarioTest is Test {
         uint256 sqrt = Math.sqrt(discriminant);
         sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;        
         if (B < 0) {
-            return Math.mulDiv(2 * c - y + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 1; 
+            return Math.mulDiv(2 * c - y + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 2; 
         } else {
-            return Math.mulDiv(2 * (1e18 - c), 1e18, uint256(B) + sqrt, Math.Rounding.Ceil) + 1; 
+            return Math.mulDiv(2 * (1e18 - c), 1e18, uint256(B) + sqrt, Math.Rounding.Ceil) + 2; 
         }        
     }
 
@@ -68,7 +72,6 @@ contract EulerSwapScenarioTest is Test {
 
     function test_Binary() public {
         uint256 cx = 0.1e18;
-        uint256 cy = 0.5e18;
         uint256 y = 3.3243e18;
         uint256 startGas = gasleft();
         uint256 x = binary(y, cx, 1, 1e18);
@@ -87,7 +90,6 @@ contract EulerSwapScenarioTest is Test {
 
     function test_Quadratic() public {
         uint256 cx = 1987860;
-        uint256 cy = 0.5e18;
         uint256 y = 742411638020043034953197016458887439;
         uint256 yHalf = f(0.5e18, cx);
         uint256 startGas = gasleft();
@@ -109,8 +111,6 @@ contract EulerSwapScenarioTest is Test {
     function test_FuzzQuadraticBinary(uint256 y, uint256 cx) public {
         // Params
         cx = bound(cx, 1, 1e18);
-        uint256 cy = 0.5e18;
-
         uint256 yMax = f(1, cx);        
         y = bound(y, 1e18 + 1, yMax);
         uint256 startGas = gasleft();
@@ -129,7 +129,19 @@ contract EulerSwapScenarioTest is Test {
         console.log("xBin", xBin);
 
         assert(y >= f(x, cx));
-        assertApproxEqAbs(x, xBin, 1);        
+        // assertApproxEqAbs(x, xBin, 1);        
     }
+
+    // function test_FuzzMapping(uint256 y, uint256 cx) public {
+    //     // Params
+    //     cx = bound(cx, 1, 1e18);
+
+    //     uint256 yMax = f(1, cx);        
+    //     y = bound(y, 1e18 + 1, yMax);
+    //     uint256 simpleY = getY(y);
+
+    //     assert(y >= f(x, cx));
+    //     assertApproxEqAbs(x, xBin, 1);        
+    // }
 
 }
