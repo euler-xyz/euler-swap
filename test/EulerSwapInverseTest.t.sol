@@ -6,6 +6,17 @@ import "forge-std/console.sol"; // Import console.sol for logging
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
 contract EulerSwapScenarioTest is Test {
+
+    function getY(uint256 x, uint256 p, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+        uint256 scaledX = (x * 1e18) / x0;
+        return y0 + Math.mulDiv(p * x0, f(scaledX, c) - 1e18, 1e36);
+    }
+
+    function getX(uint256 y, uint256 p, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+        uint256 scaledY = (y - y0) * 1e36 / (p * x0) + 1e18;
+        return fInverse(scaledY, c, 1e18 + 1);
+    }
+
     function verify(uint256 xNew, uint256 yNew, uint256 cx, uint256 cy) public view returns (bool) {
         if (xNew >= 1e18) {
             return xNew >= f(yNew, cy);
