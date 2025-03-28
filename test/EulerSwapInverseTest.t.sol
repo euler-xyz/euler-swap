@@ -227,7 +227,7 @@ contract EulerSwapScenarioTest is Test {
 
     function test_fuzzfInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy) public {
         // Params
-        x = bound(x, 0.05e18, 1e26 - 2);
+        x = bound(x, 0.05e18, 1e26 - 2); // TODO: note that the -2 here is the tolerance in the fInverse function. Without this, f() fails when x gets too close to centre.
         console.log("x", x);
         
         px = bound(px, 1e18, 1e32);
