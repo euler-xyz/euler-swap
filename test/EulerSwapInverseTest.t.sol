@@ -208,21 +208,16 @@ contract EulerSwapScenarioTest is Test {
 
         uint256 x = 30.214324e18;
         uint256 y = fEulerSwap(x, px, py, x0, y0, cx);
+        uint256 startGas = gasleft();
         uint256 xCalc = fInverseEulerSwap(y, px, py, x0, y0, cx);
+        uint256 endGas = gasleft();
+        uint256 gasUsed = startGas - endGas;        
+        uint256 yCalc = fEulerSwap(xCalc, px, py, x0, y0, cx);
         console.log("x", x);
         console.log("y", y);
-
-        // uint256 yScaledDown = Math.mulDiv(y - y0, 1e36, Math.mulDiv(px, 1e18, py, Math.Rounding.Ceil) * x0, Math.Rounding.Floor) + 1e18;
-        // console.log("yScaledDown", yScaledDown);
-
-        // uint256 xScaledDownCalc = quadratic(yScaledDown, cx);
-        // console.log("xScaledDownCalc", xScaledDownCalc);
-
-        // uint256 xScaledUp = Math.mulDiv(xScaledDownCalc, x0, 1e18, Math.Rounding.Ceil);
-        // console.log("xScaledUp", xScaledUp);
-
-        // assert(verifyEulerSwap(xScaledUp, y, x0, y0, px, py, cx, cy));
-        // assertApproxEqAbs(x, xScaledUp, 200);
+        console.log("yCalc", yCalc);
+        console.log("x", x);
+        console.log("Gas used:", gasUsed);
     }
 
     function test_fuzzfInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy) public {
@@ -252,20 +247,5 @@ contract EulerSwapScenarioTest is Test {
             assert(verifyEulerSwap(xCalc, y, x0, y0, px, py, cx, cy));
             assert(abs(int(y) - int(yCalc)) < 4 || abs(int(x) - int(xCalc)) < 4);
         }
-
-        
-        
-
-        // uint256 yScaledDown = Math.mulDiv(y - y0, 1e36, Math.mulDiv(px, 1e18, py, Math.Rounding.Ceil) * x0, Math.Rounding.Floor) + 1e18;
-        // console.log("yScaledDown", yScaledDown);
-
-        // uint256 xScaledDownCalc = quadratic(yScaledDown, cx);
-        // console.log("xScaledDownCalc", xScaledDownCalc);
-
-        // uint256 xScaledUp = Math.mulDiv(xScaledDownCalc, x0, 1e18, Math.Rounding.Ceil);
-        // console.log("xScaledUp", xScaledUp);
-
-        // assert(verifyEulerSwap(xScaledUp, y, x0, y0, px, py, cx, cy));
-        // assertApproxEqAbs(x, xScaledUp, 200);
     }    
 }
