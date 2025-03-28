@@ -228,7 +228,7 @@ contract EulerSwapScenarioTest is Test {
         px = bound(px, 1e18, 1e32);
         py = bound(py, 1e18, 1e32);
         x0 = 1e26;
-        y0 = 1e26;
+        y0 = bound(y0, 0, 1e26);
         cx = bound(cx, 1, 1e18);
         cy = bound(cy, 1, 1e18);
 
