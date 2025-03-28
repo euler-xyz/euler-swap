@@ -88,7 +88,7 @@ contract EulerSwapScenarioTest is Test {
         console.log("B", B);
         uint256 absB = abs(B);
         console.log("absB", absB);
-        uint256 squaredB = Math.mulDiv(absB, absB, 1);        
+        uint256 squaredB = PRBMath.mulDiv(absB, absB, 1);        
         console.log("squaredB", squaredB);        
         uint256 discriminant = squaredB + Math.mulDiv(4 * c, (1e18 - c) * 1e18, 1e18);
         console.log("discriminant", discriminant);
