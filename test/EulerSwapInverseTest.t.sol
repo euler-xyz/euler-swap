@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 import "forge-std/console.sol"; // Import console.sol for logging
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
+import { PRBMathUD60x18 } from "prb-math/PRBMathUD60x18.sol";
 
 contract EulerSwapScenarioTest is Test {
     
@@ -20,9 +21,9 @@ contract EulerSwapScenarioTest is Test {
     function fInverseEulerSwap(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         int256 B = int256(Math.mulDiv(py, y - y0, px, Math.Rounding.Ceil)) - (2 * int256(c) - int256(1e18)) * int256(x0) / 1e18;
         uint256 absB = abs(B);
-        uint256 squaredB = Math.mulDiv(absB, absB, 1, Math.Rounding.Ceil);
-        uint256 squaredX0 = Math.mulDiv(x0, x0, 1e18, Math.Rounding.Ceil);        
-        uint256 C = Math.mulDiv(uint256(int256(1e18) - int256(c)), squaredX0, 1e18, Math.Rounding.Ceil);
+        uint256 squaredB = Math.mulDiv(absB, absB * 1e18, 1e18);
+        uint256 squaredX0 = Math.mulDiv(x0, x0, 1e18);        
+        uint256 C = Math.mulDiv(uint256(int256(1e18) - int256(c)), squaredX0, 1e18);
         uint256 discriminant = uint256(int256(squaredB) + 4 * int256(c) * int256(C));
         uint256 sqrt = Math.sqrt(discriminant);
         sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
@@ -46,17 +47,25 @@ contract EulerSwapScenarioTest is Test {
         }
     }
 
-    function getScaledY(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
-        uint256 p = px * 1e18 / py;
-        uint256 scaledX = (x * 1e18) / x0;        
-        return y0 + Math.mulDiv(p * x0, f(scaledX, c) - 1e18, 1e36);
+    function scaleUpX(uint256 x, uint256 x0) internal pure returns (uint256) {        
+        return Math.mulDiv(x, x0, 1e18);
     }
 
-    function getScaledX(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
-        uint256 p = px * 1e18 / py;
-        uint256 scaledY = (y - y0) * 1e36 / (p * x0) + 1e18;        
-        return quadratic(scaledY, c);
+    function scaleDownY(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {        
+        return Math.mulDiv(py * 1e18, y - y0, x0 * px) + 1e18;
     }
+
+    // function getScaledY(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    //     uint256 p = px * 1e18 / py;
+    //     uint256 scaledX = (x * 1e18) / x0;        
+    //     return y0 + Math.mulDiv(p * x0, f(scaledX, c) - 1e18, 1e36);
+    // }
+
+    // function getScaledX(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+    //     uint256 p = px * 1e18 / py;
+    //     uint256 scaledY = (y - y0) * 1e36 / (p * x0) + 1e18;        
+    //     return quadratic(scaledY, c);
+    // }
 
     function verify(uint256 xNew, uint256 yNew, uint256 cx, uint256 cy) public view returns (bool) {
         if (xNew >= 1e18) {
@@ -76,7 +85,13 @@ contract EulerSwapScenarioTest is Test {
 
     function quadratic(uint256 y, uint256 c) internal pure returns (uint256) {
         int256 B = int256(y) - 2 * int256(c);
-        uint256 discriminant = uint256(B * B) + 4 * (1e18 - c) * c;
+        console.log("B", B);
+        uint256 absB = abs(B);
+        console.log("absB", absB);
+        uint256 squaredB = Math.mulDiv(absB, absB, 1);        
+        console.log("squaredB", squaredB);        
+        uint256 discriminant = squaredB + Math.mulDiv(4 * c, (1e18 - c) * 1e18, 1e18);
+        console.log("discriminant", discriminant);
         uint256 sqrt = Math.sqrt(discriminant);
         sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
         if (B < 0) {
@@ -238,10 +253,36 @@ contract EulerSwapScenarioTest is Test {
         console.log("xCalc", xCalc);        
         uint256 yCalc = fEulerSwap(xCalc, px, py, x0, y0, cx);        
         console.log("yCalc", yCalc);
-        bool test = verifyEulerSwap(xCalc, y, x0, y0, px, py, cx, cy);
-        console.log("Test", test);
-        console.log("Test2", y >= yCalc);
-        console.log("y < y0", y >= y0);
+
+        if (x < type(uint112).max && y < type(uint112).max){
+            assert(verifyEulerSwap(xCalc, y, x0, y0, px, py, cx, cy));
+            assert(abs(int(y) - int(yCalc)) < 4 || abs(int(x) - int(xCalc)) < 4);
+        }
+    }    
+
+    function test_fuzzfInverseScalingMethod(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy) public {
+        // Params
+        x = bound(x, 0.05e18, 1e26 - 2); // TODO: note that the -2 here is the tolerance in the fInverse function. Without this, f() fails when x gets too close to centre.
+        console.log("x", x);
+        
+        px = bound(px, 1e18, 1e32);
+        py = bound(py, 1e18, 1e32);
+        x0 = 1e26;
+        y0 = bound(y0, 0, 1e26);
+        cx = bound(cx, 1, 1e18);
+        cy = bound(cy, 1, 1e18);
+
+        uint256 y = fEulerSwap(x, px, py, x0, y0, cx);
+        console.log("y", y);
+        uint256 yDown = scaleDownY(y, px, py, x0, y0, cx);
+        console.log("yDown", yDown);
+        uint256 xDownCalc = quadratic(y, cx);
+        console.log("xDownCalc", xDownCalc);
+        uint256 xCalc = scaleUpX(x, x0) / 1e8;
+        console.log("xCalc", xCalc);
+        console.log("xCheck", x == xCalc);
+        uint256 yCalc = fEulerSwap(xCalc, px, py, x0, y0, cx);        
+        console.log("yCalc", yCalc);
 
         if (x < type(uint112).max && y < type(uint112).max){
             assert(verifyEulerSwap(xCalc, y, x0, y0, px, py, cx, cy));
