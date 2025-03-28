@@ -116,12 +116,9 @@ contract BaseHandler is HookAggregator {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /// @notice Postconditions common to all three curves
-    function _eulerSwapPostconditions(
-        uint256 amount0Out,
-        uint256 amount1Out,
-        uint256 amount0In,
-        uint256 amount1In
-    ) internal {
+    function _eulerSwapPostconditions(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In)
+        internal
+    {
         /// @dev HSPOST_SWAP_C
 
         if (amount0Out > 0) {

@@ -49,7 +49,7 @@ abstract contract EulerSwapSetupHandler is BaseHandler {
         uint112 debtLimit0 = initialAmount0 * leverage;
         uint112 debtLimit1 = initialAmount1 * leverage;
 
-        // Clamp price values within a reasonable range (0.1 to 10)
+        // Clamp price values within a reasonable range
         curveParams.priceX = clampBetween(curveParams.priceX, 0.1e16, 1e36);
         curveParams.priceY = clampBetween(curveParams.priceY, 0.1e16, 1e36);
 

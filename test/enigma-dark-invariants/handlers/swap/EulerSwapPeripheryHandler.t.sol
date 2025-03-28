@@ -25,16 +25,15 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
 
     function swapExactIn(uint256 amountIn, uint256 amountOutMin, bool dir) public setup eulerSwapDeployed skimAll {
         bool success;
-        bytes memory returnData;
-
         receiver = address(actor);
+
+        (address tokenIn, address tokenOut) = _getAssetsByDir(dir);
+        (uint256 tokenInLimit, uint256 tokenOutLimit) = periphery.getLimits(address(eulerSwap), tokenIn, tokenOut);
 
         address target = address(periphery);
 
-        (address tokenIn, address tokenOut) = _getAssetsByDir(dir);
-
         _before();
-        (success, returnData) = actor.proxy(
+        (success,) = actor.proxy(
             target,
             abi.encodeWithSelector(
                 IEulerSwapPeriphery.swapExactIn.selector, address(eulerSwap), tokenIn, tokenOut, amountIn, amountOutMin
@@ -49,6 +48,10 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
             } else {
                 _eulerSwapPostconditions(amountOutMin, 0, 0, amountIn);
             }
+
+            // HSPOST
+            assertGt(amountIn, tokenInLimit, HSPOST_SWAP_D);
+            assertLt(amountOutMin, tokenOutLimit, HSPOST_SWAP_D);
         } else {
             revert("EulerSwapPeripheryHandler: swapExactIn failed");
         }
@@ -58,16 +61,15 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
 
     function swapExactOut(uint256 amountOut, uint256 amountInMax, bool dir) public setup eulerSwapDeployed skimAll {
         bool success;
-        bytes memory returnData;
-
         receiver = address(actor);
+
+        (address tokenIn, address tokenOut) = _getAssetsByDir(dir);
+        (uint256 tokenInLimit, uint256 tokenOutLimit) = periphery.getLimits(address(eulerSwap), tokenIn, tokenOut);
 
         address target = address(periphery);
 
-        (address tokenIn, address tokenOut) = _getAssetsByDir(dir);
-
         _before();
-        (success, returnData) = actor.proxy(
+        (success,) = actor.proxy(
             target,
             abi.encodeWithSelector(
                 IEulerSwapPeriphery.swapExactOut.selector, address(eulerSwap), tokenIn, tokenOut, amountOut, amountInMax
@@ -82,6 +84,10 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
             } else {
                 _eulerSwapPostconditions(amountOut, 0, 0, amountInMax);
             }
+
+            // HSPOST
+            assertGt(amountOut, tokenOutLimit, HSPOST_SWAP_D);
+            assertLt(amountInMax, tokenInLimit, HSPOST_SWAP_D);
         } else {
             revert("EulerSwapPeripheryHandler: swapExactOut failed");
         }
@@ -89,23 +95,70 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
         delete receiver;
     }
 
-    function quoteExactInput(uint256 amountIn, bool dir) external eulerSwapDeployed {
+    function quoteExactInput(uint256 amountIn, bool dir) external setup eulerSwapDeployed {
+        bool success;
+
         (address tokenIn, address tokenOut) = _getAssetsByDir(dir);
 
-        try periphery.quoteExactInput(address(eulerSwap), tokenIn, tokenOut, amountIn) returns (uint256 tokenIn_) {}
-        catch Error(string memory) {
+        uint256 amountOutMin;
+
+        try periphery.quoteExactInput(address(eulerSwap), tokenIn, tokenOut, amountIn) returns (uint256 amountOutMin_) {
+            amountOutMin = amountOutMin_;
+
+            if (amountIn > IERC20(tokenIn).balanceOf(address(actor))) {
+                _mint(tokenIn, address(actor), amountIn);
+            }
+        } catch Error(string memory) {
             // HSPOST
             assertTrue(false, NR_QUOTE_A);
         }
+
+        address target = address(periphery);
+
+        _before();
+        (success,) = actor.proxy(
+            target,
+            abi.encodeWithSelector(
+                IEulerSwapPeriphery.swapExactIn.selector, address(eulerSwap), tokenIn, tokenOut, amountIn, amountOutMin
+            )
+        );
+        _after();
+
+        // HSPOST
+        assertTrue(success, HSPOST_SWAP_E);
     }
 
-    function quoteExactOutput(uint256 amountOut, bool dir) external eulerSwapDeployed {
+    function quoteExactOutput(uint256 amountOut, bool dir) external setup eulerSwapDeployed {
+        bool success;
+
         (address tokenIn, address tokenOut) = _getAssetsByDir(dir);
 
-        try periphery.quoteExactOutput(address(eulerSwap), tokenIn, tokenOut, amountOut) returns (uint256 tokenOut_) {}
-        catch Error(string memory) {
+        uint256 amountInMax;
+
+        try periphery.quoteExactOutput(address(eulerSwap), tokenIn, tokenOut, amountOut) returns (uint256 amountInMax_)
+        {
+            amountInMax = amountInMax_;
+
+            if (amountInMax > IERC20(tokenIn).balanceOf(address(actor))) {
+                _mint(tokenIn, address(actor), amountInMax);
+            }
+        } catch Error(string memory) {
             // HSPOST
             assertTrue(false, NR_QUOTE_B);
         }
+
+        address target = address(periphery);
+
+        _before();
+        (success,) = actor.proxy(
+            target,
+            abi.encodeWithSelector(
+                IEulerSwapPeriphery.swapExactOut.selector, address(eulerSwap), tokenIn, tokenOut, amountOut, amountInMax
+            )
+        );
+        _after();
+
+        // HSPOST
+        assertTrue(success, HSPOST_SWAP_E);
     }
 }

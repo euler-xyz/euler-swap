@@ -47,7 +47,7 @@ abstract contract InvariantsSpec {
     // TODO: Implement invariants for LTV checks from ChainSecurity report -> no implemented, checked with liquidation invariant
     // TODO: Implement invariants for liquidation checks from ChainSecurity report -> X
     // TODO: Implement invariants for reserve desynchronization from ChainSecurity report -> NO
-    // TODO: Implement invariant to ensure debt never exceeds the debt limit -> X 
+    // TODO: Implement invariant to ensure debt never exceeds the debt limit -> X
     // TODO: Implement invariants from the team call notes -> TODO
     // TODO: Review the trust model of the protocol as outlined in the ChainSecurity report -> TODO
     // TODO: Review the binary search implementation -> TODO

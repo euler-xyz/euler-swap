@@ -32,6 +32,10 @@ abstract contract PostconditionsSpec {
 
     string constant HSPOST_SWAP_C = "HSPOST_SWAP_C: User should receive the amount out specified after a swap";
 
+    string constant HSPOST_SWAP_D = "HSPOST_SWAP_D: Successful swaps are always inside the swap limits";
+
+    string constant HSPOST_SWAP_E = "HSPOST_SWAP_E: Swaps with quoted amounts should always be successful";
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                         RESERVES                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
