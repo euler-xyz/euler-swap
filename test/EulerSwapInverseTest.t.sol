@@ -41,30 +41,6 @@ contract EulerSwapScenarioTest is Test {
         }
     }
 
-     function fInverseAlternative(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
-        internal
-        pure
-        returns (uint256)
-    {
-        // components of quadratic equation
-        int256 B = int256((py * (y - y0)  * 1e18) / (px * x0)) - (2 * int256(c) - int256(1e18));
-        uint256 C = ((1e18 - c) * x0 + (1e18 - 1)) / 1e18; // upper bound of 1e28 for x0 means this is safe
-        uint256 fourAC = Math.mulDiv(4 * c * 1e18 / x0, C, 1, Math.Rounding.Ceil);
-
-        // solve for the square root
-        uint256 absB = abs(B);
-        uint256 squaredB = Math.mulDiv(absB, absB, 1, Math.Rounding.Ceil);
-        uint256 discriminant = squaredB + fourAC; // keep in 1e36 scale for increased precision ahead of sqrt
-        uint256 sqrt = Math.sqrt(discriminant); // drop back to 1e18 scale
-        sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
-
-        if (B <= 0) {
-            return Math.mulDiv(absB + sqrt, 1e18, 2 * c * 1e18 / x0, Math.Rounding.Ceil);
-        } else {
-            return Math.mulDiv(2 * C, 1e18, absB + sqrt, Math.Rounding.Ceil);
-        }
-    }
-
     function verify(uint256 x, uint256 y, uint256 x0, uint256 y0, uint256 px, uint256 py, uint256 cx, uint256 cy)
         internal
         pure
