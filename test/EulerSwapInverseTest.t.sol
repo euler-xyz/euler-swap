@@ -10,7 +10,7 @@ contract EulerSwapScenarioTest is Test {
     
     /// @dev EulerSwap curve definition
     /// Pre-conditions: x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
-    function fEulerSwap(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+    function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
         internal
         pure
         returns (uint256)
@@ -22,7 +22,7 @@ contract EulerSwapScenarioTest is Test {
         }
     }
 
-    function fInverseEulerSwap(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
         internal
         pure
         returns (uint256)
@@ -48,7 +48,7 @@ contract EulerSwapScenarioTest is Test {
         }
     }
 
-    function verifyEulerSwap(
+    function verify(
         uint256 x,
         uint256 y,
         uint256 x0,
@@ -57,88 +57,22 @@ contract EulerSwapScenarioTest is Test {
         uint256 py,
         uint256 cx,
         uint256 cy
-    ) public view returns (bool) {
+    ) internal pure returns (bool) {
         if (x > type(uint112).max || y > type(uint112).max) return false;
         if (x >= x0) {
             if (y >= y0) return true;
-            return x >= fEulerSwap(y, py, px, y0, x0, cy);
+            return x >= f(y, py, px, y0, x0, cy);
         } else {
             if (y < y0) return false;
-            return y >= fEulerSwap(x, px, py, x0, y0, cx);
+            return y >= f(x, px, py, x0, y0, cx);
         }
-    }
-
-    function scaleUpX(uint256 x, uint256 x0) internal pure returns (uint256) {
-        return Math.mulDiv(x, x0, 1e18);
-    }
-
-    function scaleDownY(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
-        internal
-        pure
-        returns (uint256)
-    {
-        return Math.mulDiv(py * 1e18, y - y0, x0 * px) + 1e18;
-    }
-
-    function verify(uint256 xNew, uint256 yNew, uint256 cx, uint256 cy) public view returns (bool) {
-        if (xNew >= 1e18) {
-            return xNew >= f(yNew, cy);
-        } else {
-            return yNew >= f(xNew, cx);
-        }
-    }
-
-    function f(uint256 x, uint256 c) internal pure returns (uint256) {
-        return Math.mulDiv(1e18 - c, 1e18, x, Math.Rounding.Ceil) + Math.mulDiv(c, 2e18 - x, 1e18, Math.Rounding.Ceil);
     }
 
     function abs(int256 x) internal pure returns (uint256) {
         return uint256(x >= 0 ? x : -x);
     }
 
-    function quadratic(uint256 y, uint256 c) internal pure returns (uint256) {
-        int256 B = int256(y) - 2 * int256(c);
-        int256 maxAC = 2 * int256(Math.sqrt(Math.mulDiv(c * 1e18, 1e18 - c, 1)));
-        uint256 sqrt;
-        if (B > maxAC) {
-            sqrt = uint256(B);
-        } else {
-            uint256 absB = abs(B);
-            uint256 squaredB = absB * absB;
-            uint256 discriminant = squaredB + Math.mulDiv(4 * c, (1e18 - c) * 1e18, 1e18);
-            sqrt = Math.sqrt(discriminant);
-            sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
-        }
-
-        if (B < 0) {
-            return Math.mulDiv(2 * c - y + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 2;
-        } else {
-            return Math.mulDiv(2 * (1e18 - c), 1e18, uint256(B) + sqrt, Math.Rounding.Ceil) + 2;
-        }
-    }
-
-    // Note: second if statement fixes off-by-one error
-    // if xMin == xMax - 1 and and y >= f(xMin, c) is true, then xMid = (xMin + xMax) / 2 = xMin and xMax = xMid = xMin, but we never tested xMax
-    function binary(uint256 y, uint256 c, uint256 xMin, uint256 xMax) internal pure returns (uint256) {
-        if (xMin < 1) {
-            xMin = 1;
-        }
-        while (xMin < xMax) {
-            uint256 xMid = (xMin + xMax) / 2;
-            uint256 fxMid = f(xMid, c);
-            if (y >= fxMid) {
-                xMax = xMid;
-            } else {
-                xMin = xMid + 1;
-            }
-        }
-        if (y < f(xMin, c)) {
-            xMin += 1;
-        }
-        return xMin;
-    }
-
-    function binaryEulerSwap(
+    function binarySearch(
         uint256 y,
         uint256 px,
         uint256 py,
@@ -153,21 +87,56 @@ contract EulerSwapScenarioTest is Test {
         }
         while (xMin < xMax) {
             uint256 xMid = (xMin + xMax) / 2;
-            uint256 fxMid = fEulerSwap(xMid, px, py, x0, y0, c);
+            uint256 fxMid = f(xMid, px, py, x0, y0, c);
             if (y >= fxMid) {
                 xMax = xMid;
             } else {
                 xMin = xMid + 1;
             }
         }
-        if (y < fEulerSwap(xMin, px, py, x0, y0, c)) {
+        if (y < f(xMin, px, py, x0, y0, c)) {
             xMin += 1;
         }
         return xMin;
     }
 
+    function test_fInverse()
+        public view
+    {
+        // Params
+        uint256 px = 1e18;
+        uint256 py = 20e18;
+        uint256 x0 = 1e20;
+        uint256 y0 = 1e20;
+        uint256 cx = 0.4e18;
+        uint256 cy = 0.6e18;
+        console.log("px", px);
+        console.log("py", py);
+        console.log("x0", x0);
+        console.log("y0", y0);
+        console.log("cx", cx);
+        console.log("cy", cy);
+        
+        // Note without -2 in the max bound, f() sometimes fails when x gets too close to centre.        
+        // Note small x values lead to large y-values, which causes problems for both f() and fInverse(), so we cap it here
+        uint256 x = x0 / 10;
+        
+        uint256 y = f(x, px, py, x0, y0, cx);        
+        uint256 gasBefore = gasleft();
+        uint256 xCalc = fInverse(y, px, py, x0, y0, cx);
+        uint256 gasUsed = gasBefore - gasleft();
+        console.log("Gas used:", gasUsed);
+        console.log("x     ", x);
+        console.log("xCalc ", xCalc);
+        console.log("y     ", y);
+        
+        if (x < type(uint112).max && y < type(uint112).max) {
+            assert(verify(xCalc, y, x0, y0, px, py, cx, cy));
+        }
+    }
+
     function test_fuzzfInverse(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
-        public
+        public pure
     {
         // Params
         px = 1e18;
@@ -182,14 +151,16 @@ contract EulerSwapScenarioTest is Test {
         console.log("y0", y0);
         console.log("cx", cx);
         console.log("cy", cy);
-
-        x = bound(x, 1e18, x0 - 2); // TODO: note that the -2 here is the tolerance in the fInverse function. Without this, f() fails when x gets too close to centre.        
         
-        uint256 y = fEulerSwap(x, px, py, x0, y0, cx);        
-        uint256 xCalc = fInverseEulerSwap(y, px, py, x0, y0, cx);
-        uint256 yCalc = fEulerSwap(xCalc, px, py, x0, y0, cx);
-        uint256 xBin = binaryEulerSwap(yCalc, px, py, x0, y0, cx, 1, x0);
-        uint256 yBin = fEulerSwap(xBin, px, py, x0, y0, cx);
+        // Note without -2 in the max bound, f() sometimes fails when x gets too close to centre.        
+        // Note small x values lead to large y-values, which causes problems for both f() and fInverse(), so we cap it here
+        x = bound(x, 0.5e18, x0 - 2);
+        
+        uint256 y = f(x, px, py, x0, y0, cx);        
+        uint256 xCalc = fInverse(y, px, py, x0, y0, cx);
+        uint256 yCalc = f(xCalc, px, py, x0, y0, cx);
+        uint256 xBin = binarySearch(yCalc, px, py, x0, y0, cx, 1, x0);
+        uint256 yBin = f(xBin, px, py, x0, y0, cx);
         console.log("x     ", x);
         console.log("xCalc ", xCalc);
         console.log("xBin  ", xBin);
@@ -198,9 +169,9 @@ contract EulerSwapScenarioTest is Test {
         console.log("yBin  ", yBin);
         
         if (x < type(uint112).max && y < type(uint112).max) {
-            assert(verifyEulerSwap(xCalc, y, x0, y0, px, py, cx, cy));
-            assert(abs(int256(xBin) - int256(xCalc)) <= 3); // suspect this is 2 wei error in fInverse() + 1 wei error in f()
-            assert(abs(int256(yBin) - int256(yCalc)) <= 3);
+            assert(verify(xCalc, y, x0, y0, px, py, cx, cy));
+            assert(int256(xCalc) - int256(xBin) <= 3); // suspect this is 2 wei error in fInverse() + 1 wei error in f()
+            assert(int256(yCalc) - int256(yBin) <= 3);
         }
     }
 
