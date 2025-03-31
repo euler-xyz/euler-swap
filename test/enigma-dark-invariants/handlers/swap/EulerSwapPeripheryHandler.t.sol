@@ -50,8 +50,8 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
             }
 
             // HSPOST
-            assertGt(amountIn, tokenInLimit, HSPOST_SWAP_D);
-            assertLt(amountOutMin, tokenOutLimit, HSPOST_SWAP_D);
+            assertLe(amountIn, tokenInLimit, HSPOST_SWAP_D);
+            assertLe(amountOutMin, tokenOutLimit, HSPOST_SWAP_D);
         } else {
             revert("EulerSwapPeripheryHandler: swapExactIn failed");
         }
@@ -86,8 +86,8 @@ abstract contract EulerSwapPeripheryHandler is BaseHandler {
             }
 
             // HSPOST
-            assertGt(amountOut, tokenOutLimit, HSPOST_SWAP_D);
-            assertLt(amountInMax, tokenInLimit, HSPOST_SWAP_D);
+            assertLe(amountOut, tokenOutLimit, HSPOST_SWAP_D);
+            assertLe(amountInMax, tokenInLimit, HSPOST_SWAP_D);
         } else {
             revert("EulerSwapPeripheryHandler: swapExactOut failed");
         }

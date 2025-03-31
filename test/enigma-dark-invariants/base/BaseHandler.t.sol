@@ -12,6 +12,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Actor} from "../utils/Actor.sol";
 import {HookAggregator} from "../hooks/HookAggregator.t.sol";
 
+import "forge-std/console.sol";
+
 /// @title BaseHandler
 /// @notice Contains common logic for all handlers
 /// @dev inherits all suite assertions since per action assertions are implmenteds in the handlers
@@ -119,7 +121,7 @@ contract BaseHandler is HookAggregator {
     function _eulerSwapPostconditions(uint256 amount0Out, uint256 amount1Out, uint256 amount0In, uint256 amount1In)
         internal
     {
-        /// @dev HSPOST_SWAP_C
+        // SWAP POSTCONDITIONS
 
         if (amount0Out > 0) {
             assertEq(
@@ -137,52 +139,83 @@ contract BaseHandler is HookAggregator {
             );
         }
 
-        /// @dev HSPOST_SWAP_A
-
         assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
 
-        /// @dev HSPOST_RESERVES_A
+        // RESERVES POSTCONDITIONS
 
-        if (amount0In < defaultVarsBefore.holderETSTDebt) {
-            assertEq(defaultVarsAfter.holderETSTDebt, defaultVarsBefore.holderETSTDebt - amount0In, HSPOST_SWAP_B);
-        } else {
-            assertEq(defaultVarsAfter.holderETSTDebt, 0, HSPOST_RESERVES_A);
-        }
+        int256 amount0Delta = int256(amount0In) - int256(amount0Out);
+        int256 amount1Delta = int256(amount1In) - int256(amount1Out);
 
-        if (amount1In < defaultVarsBefore.holderETST2Debt) {
-            assertEq(defaultVarsAfter.holderETST2Debt, defaultVarsBefore.holderETST2Debt - amount1In, HSPOST_SWAP_B);
-        } else {
-            assertEq(defaultVarsAfter.holderETST2Debt, 0, HSPOST_RESERVES_A);
-        }
+        /// asset0 (eTST)
+        _checkAssetChanges(
+            amount0Delta,
+            defaultVarsBefore.holderETSTDebt,
+            defaultVarsAfter.holderETSTDebt,
+            defaultVarsBefore.holderETSTAssets,
+            defaultVarsAfter.holderETSTAssets,
+            "token0"
+        );
 
-        /// @dev HSPOST_RESERVES_B
+        /// asset1 (eTST2)
+        _checkAssetChanges(
+            amount1Delta,
+            defaultVarsBefore.holderETST2Debt,
+            defaultVarsAfter.holderETST2Debt,
+            defaultVarsBefore.holderETST2Assets,
+            defaultVarsAfter.holderETST2Assets,
+            "token1"
+        );
 
-        if (amount0Out < defaultVarsBefore.holderETSTAssets) {
-            assertEq(
-                defaultVarsAfter.holderETSTAssets, defaultVarsBefore.holderETSTAssets - amount0Out, HSPOST_RESERVES_B
-            );
-        } else {
-            assertEq(defaultVarsAfter.holderETSTAssets, 0, HSPOST_RESERVES_B);
-            assertEq(
-                defaultVarsAfter.holderETSTDebt, amount0Out - defaultVarsBefore.holderETSTAssets, HSPOST_RESERVES_C
-            );
-        }
+        // DEBT POSTCONDITIONS
 
-        if (amount1Out < defaultVarsBefore.holderETST2Assets) {
-            assertEq(
-                defaultVarsAfter.holderETST2Assets, defaultVarsBefore.holderETST2Assets - amount1Out, HSPOST_RESERVES_B
-            );
-        } else {
-            assertEq(defaultVarsAfter.holderETST2Assets, 0, HSPOST_RESERVES_B);
-            assertEq(
-                defaultVarsAfter.holderETST2Debt, amount1Out - defaultVarsBefore.holderETST2Assets, HSPOST_RESERVES_C
-            );
-        }
-
-        /// @dev HSPOST_DEBT_A
         assertLe(defaultVarsAfter.holderETSTDebt, eulerSwap.reserve0(), HSPOST_DEBT_A);
         assertLe(defaultVarsAfter.holderETST2Debt, eulerSwap.reserve1(), HSPOST_DEBT_A);
         assertLe(defaultVarsAfter.holderETSTDebt, eulerSwap.reserve1(), HSPOST_DEBT_A);
         assertLe(defaultVarsAfter.holderETST2Debt, eulerSwap.reserve0(), HSPOST_DEBT_A);
+    }
+
+    function _checkAssetChanges(
+        int256 amountDelta,
+        uint256 beforeDebt,
+        uint256 afterDebt,
+        uint256 beforeAssets,
+        uint256 afterAssets,
+        string memory tokenId
+    ) internal {
+        if (amountDelta > 0) {
+            // Positive delta means repaying debt first, then possibly increasing assets
+            if (uint256(amountDelta) < beforeDebt) {
+                // Just reduce debt
+                assertEq(
+                    afterDebt, beforeDebt - uint256(amountDelta), string.concat(HSPOST_RESERVES_A, " for ", tokenId)
+                );
+            } else {
+                // Debt is fully repaid
+                assertEq(afterDebt, 0, string.concat(HSPOST_RESERVES_B, " for ", tokenId));
+
+                // If there's excess after repaying debt, it should increase assets
+                uint256 excess = uint256(amountDelta) - beforeDebt;
+                if (excess > 0) {
+                    assertEq(afterAssets, beforeAssets + excess, string.concat(HSPOST_RESERVES_C, " for ", tokenId));
+                }
+            }
+        } else {
+            // Negative delta means using assets first, then borrowing
+            if (uint256(-amountDelta) < beforeAssets) {
+                // Just reduce assets
+                assertEq(
+                    afterAssets,
+                    beforeAssets - uint256(-amountDelta),
+                    string.concat(HSPOST_RESERVES_D, " for ", tokenId)
+                );
+            } else {
+                // Assets are depleted
+                assertEq(afterAssets, 0, string.concat(HSPOST_RESERVES_E, " for ", tokenId));
+
+                // Any deficit beyond available assets increases debt
+                uint256 deficit = uint256(-amountDelta) - beforeAssets;
+                assertEq(afterDebt - beforeDebt, deficit, string.concat(HSPOST_RESERVES_F, " for ", tokenId));
+            }
+        }
     }
 }

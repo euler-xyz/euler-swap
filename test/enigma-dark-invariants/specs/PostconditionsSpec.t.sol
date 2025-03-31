@@ -40,17 +40,27 @@ abstract contract PostconditionsSpec {
     //                                         RESERVES                                          //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    string constant HSPOST_RESERVES_A = "HSPOST_RESERVES_A: If there is debt in tokenIn, the debt must be repaid";
+    string constant HSPOST_RESERVES_A =
+        "HSPOST_RESERVES_A: When positive delta exists, debt must decrease by min(delta, previous_debt)";
 
     string constant HSPOST_RESERVES_B =
-        "HSPOST_RESERVES_B: If amountOut does not exceed tokenOut collateral, tokenOut amount is withdrawn";
+        "HSPOST_RESERVES_B: When positive delta is greater than previous debt, debt is fully repaid";
 
     string constant HSPOST_RESERVES_C =
-        "HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed";
+        "HSPOST_RESERVES_C: When positive delta is greater than previous debt, the excess delta is added to assets";
+
+    string constant HSPOST_RESERVES_D =
+        "HSPOST_RESERVES_D: When negative delta exists, assets must decrease by min(delta, previous_assets)";
+
+    string constant HSPOST_RESERVES_E =
+        "HSPOST_RESERVES_E: When negative delta is greater than previous assets, assets are fully depleted";
+
+    string constant HSPOST_RESERVES_F =
+        "HSPOST_RESERVES_F: When negative delta is greater than previous assets, the deficit is added to debt";
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //                                          DEBT                                             //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    string constant HSPOST_DEBT_A = "HSPOST_DEBT_A: Debt on an asset should never exceed the debt limit";
+    string constant HSPOST_DEBT_A = "HSPOST_DEBT_A: Debt on an asset after a swap should never exceed the debt limit";
 }

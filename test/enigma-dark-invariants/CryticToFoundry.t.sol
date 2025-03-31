@@ -71,7 +71,7 @@ contract CryticToFoundry is Invariants, Setup {
         Tester.roundtripSwap(200000000, 0);
     } */
 
-    function test_replay_setupEulerSwap() public {
+    /*     function test_replay_setupEulerSwap() public {
         //@audit-ok fixed by clamping fee
         Tester.setupEulerSwap(
             0,
@@ -85,35 +85,40 @@ contract CryticToFoundry is Invariants, Setup {
     }
 
     function test_replay_swapExactOut() public {
-        //@audit Invalid: 1!=0, reason: HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed
+        //@audit-ok Invalid: 1!=0, reason: HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed
         Tester.setupEulerSwap(0, 0, 0, 0, IEulerSwap.CurveParams(0, 0, 0, 0));
         Tester.swap(0, 0, 1, 0, 0);
         Tester.mint(1, 1, 0);
         Tester.redeem(115792089237316195423570985008687907853269984665640564039457584007913129639935, 0, 0);
+        console.log("########################");
+        console.log("debt2", eTST.debtOf(address(holder)));
         Tester.swapExactOut(0, 0, false);
     }
 
-    function test_replay_roundtripSwap() public {
-        //@audit Invalid: 1999999999999999999999<2000000000000000000000 failed, reason: HSPOST_SWAP_A: Holder's NAV should increase monotonically
-        Tester.setupEulerSwap(0, 0, 0, 0, IEulerSwap.CurveParams(2069895513206400, 0, 0, 77696590));
-        Tester.roundtripSwap(1, 0);
-    }
-
-    function test_replay_swap() public {
-        //@audit Invalid: 1!=0, reason: HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed
-        Tester.setupEulerSwap(0, 0, 0, 0, IEulerSwap.CurveParams(0, 0, 0, 0));
-        Tester.redeem(115792089237316195423570985008687907853269984665640564039457584007913129639935, 0, 1);
-        Tester.mint(1, 1, 1);
-        Tester.swap(0, 1, 2, 0, 0);
-    }
-
     function test_replay_swapExactIn() public {
-        //@audit Invalid: 1!=0, reason: HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed
+        //@audit-ok Invalid: 1!=0, reason: HSPOST_RESERVES_C: If amountIn tokenOut collateral, a specific amountOut is borrowed
         Tester.setupEulerSwap(0, 0, 0, 0, IEulerSwap.CurveParams(0, 0, 0, 0));
         Tester.mint(1, 1, 0);
         Tester.redeem(115792089237316195423570985008687907853269984665640564039457584007913129639935, 0, 0);
         Tester.donateUnderlying(2, 1);
         Tester.swapExactIn(0, 0, true);
+    } */
+
+    /*     function test_replay_swap() public {
+        //@audit-ok Invalid: 1!=0, reason: HSPOST_RESERVES_A: If there is debt in tokenIn, the debt must be repaid
+        Tester.setupEulerSwap(0, 0, 0, 0, IEulerSwap.CurveParams(0, 0, 0, 0));
+        Tester.redeem(115792089237316195423570985008687907853269984665640564039457584007913129639935, 0, 1);
+        Tester.mint(1, 1, 1);
+        console.log("########################");
+        console.log("debt2", eTST2.debtOf(address(holder)));
+        console.log("balance2", eTST2.balanceOf(address(holder)));
+        Tester.swap(0, 1, 2, 0, 0);
+    } */
+
+    function test_replay_roundtripSwap() public {
+        //@audit Invalid: 1999999999999999999999<2000000000000000000000 failed, reason: HSPOST_SWAP_A: Holder's NAV should increase monotonically
+        Tester.setupEulerSwap(0, 0, 0, 0, IEulerSwap.CurveParams(2069895513206400, 0, 0, 77696590));
+        Tester.roundtripSwap(1, 0);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

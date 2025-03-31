@@ -76,11 +76,9 @@ abstract contract DefaultBeforeAfterHooks is BaseHooks {
     function _setDefaultValues(DefaultVars storage _defaultVars) internal {
         // Holder
         _defaultVars.holderNAV = _getHolderNAV();
-        _defaultVars.holderETSTAssets =
-            eTST.convertToAssets(eTST.balanceOf(holder)) + assetTST.balanceOf(address(eulerSwap));
+        _defaultVars.holderETSTAssets = eTST.convertToAssets(eTST.balanceOf(holder));
         /// @dev adding eulerSwap balance to take donations into account
-        _defaultVars.holderETST2Assets =
-            eTST2.convertToAssets(eTST2.balanceOf(holder)) + assetTST2.balanceOf(address(eulerSwap));
+        _defaultVars.holderETST2Assets = eTST2.convertToAssets(eTST2.balanceOf(holder));
         _defaultVars.holderETSTDebt = eTST.debtOf(holder);
         _defaultVars.holderETST2Debt = eTST2.debtOf(holder);
     }
