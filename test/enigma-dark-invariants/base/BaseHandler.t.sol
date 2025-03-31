@@ -123,6 +123,8 @@ contract BaseHandler is HookAggregator {
     {
         // SWAP POSTCONDITIONS
 
+        assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
+
         if (amount0Out > 0) {
             assertEq(
                 defaultVarsAfter.users[receiver].assetTSTBalance,
@@ -138,8 +140,6 @@ contract BaseHandler is HookAggregator {
                 HSPOST_SWAP_C
             );
         }
-
-        assertGe(defaultVarsAfter.holderNAV, defaultVarsBefore.holderNAV, HSPOST_SWAP_A);
 
         // RESERVES POSTCONDITIONS
 
