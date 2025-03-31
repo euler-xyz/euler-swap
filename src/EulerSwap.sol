@@ -153,11 +153,11 @@ contract EulerSwap is IEulerSwap, EVCUtil, ProtocolFee {
     }
 
     function _depositWithoutFee(address vault, uint256 amountIn) internal returns (uint256 amountInDeposited) {
-        (, uint256 protocolFeeAmount) = _feeAmounts(amountIn);
+        (, uint256 protocolFeeAmount) = feeAmounts(amountIn);
         amountInDeposited = depositAssets(vault, amountIn - protocolFeeAmount) * feeMultiplier / 1e18;
     }
 
-    function _feeAmounts(uint256 amountIn) private view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount) {
+    function feeAmounts(uint256 amountIn) public view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount) {
         lpFeeAmount = (amountIn * (1e18 - feeMultiplier)) / 1e18;
         protocolFeeAmount = (lpFeeAmount * protocolFee) / 1e18;
         lpFeeAmount -= protocolFeeAmount;

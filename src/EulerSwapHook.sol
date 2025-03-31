@@ -121,7 +121,10 @@ contract EulerSwapHook is EulerSwap, BaseHook {
         require(amount <= type(uint112).max, SwapLimitExceeded());
 
         // exactIn: decrease received amountIn, rounding down
-        if (exactIn) amount = amount * feeMultiplier / 1e18;
+        if (exactIn) {
+            (, uint256 protocolFeeAmount) = feeAmounts(amount);
+            amount = (amount - protocolFeeAmount) * feeMultiplier / 1e18;
+        }
 
         (uint256 inLimit, uint256 outLimit) = calcLimits(asset0IsInput);
 

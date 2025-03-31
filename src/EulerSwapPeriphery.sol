@@ -109,7 +109,10 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
 
         // exactIn: decrease received amountIn, rounding down
-        if (exactIn) amount = amount * feeMultiplier / 1e18;
+        if (exactIn) {
+            (, uint256 protocolFeeAmount) = eulerSwap.feeAmounts(amount);
+            amount = (amount - protocolFeeAmount) * feeMultiplier / 1e18;
+        }
 
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
