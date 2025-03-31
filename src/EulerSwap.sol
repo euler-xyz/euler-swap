@@ -159,7 +159,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, ProtocolFee {
 
     function _feeAmounts(uint256 amountIn) private view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount) {
         lpFeeAmount = (amountIn * (1e18 - feeMultiplier)) / 1e18;
-        protocolFeeAmount = lpFeeAmount * protocolFee;
+        protocolFeeAmount = (lpFeeAmount * protocolFee) / 1e18;
         lpFeeAmount -= protocolFeeAmount;
     }
 

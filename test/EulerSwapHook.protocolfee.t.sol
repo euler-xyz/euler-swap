@@ -36,13 +36,17 @@ contract EulerSwapHookTest is EulerSwapTestBase {
         eulerSwap = createEulerSwapHook(poolManager, 60e18, 60e18, 0.001e18, 1e18, 1e18, 0.4e18, 0.85e18);
         eulerSwap.activate();
 
+        // set protocol fee to 10 bips
+        vm.prank(eulerSwap.owner()); // TODO: remove once owner is constructor-arg
+        eulerSwap.setProtocolFee(0.001e18);
+
         // confirm pool was created
         assertFalse(eulerSwap.poolKey().currency1 == CurrencyLibrary.ADDRESS_ZERO);
         (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(eulerSwap.poolKey().toId());
         assertNotEq(sqrtPriceX96, 0);
     }
 
-    function test_SwapExactIn() public {
+    function test_SwapExactIn_withProtocolFee() public {
         uint256 amountIn = 1e18;
         uint256 amountOut =
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
@@ -63,7 +67,7 @@ contract EulerSwapHookTest is EulerSwapTestBase {
         assertEq(zeroForOne ? uint256(int256(result.amount1())) : uint256(int256(result.amount0())), amountOut);
     }
 
-    function test_SwapExactOut() public {
+    function test_SwapExactOut_withProtocolFee() public {
         uint256 amountOut = 1e18;
         uint256 amountIn =
             periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
