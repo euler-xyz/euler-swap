@@ -51,47 +51,53 @@ contract EulerSwapHook is EulerSwap, BaseHook {
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         // determine inbound/outbound token based on 0->1 or 1->0 swap
-        (Currency inputCurrency, Currency outputCurrency) =
-            params.zeroForOne ? (key.currency0, key.currency1) : (key.currency1, key.currency0);
-        bool isExactInput = params.amountSpecified < 0;
+        bool zeroForOne = params.zeroForOne;
 
-        uint256 amountIn;
+        uint256 amountInWithoutFee;
         uint256 amountOut;
-
-        if (isExactInput) {
-            amountIn = uint256(-params.amountSpecified);
-            amountOut = computeQuote(params.zeroForOne, uint256(-params.amountSpecified), true);
-        } else {
-            amountIn = computeQuote(params.zeroForOne, uint256(params.amountSpecified), false);
-            amountOut = uint256(params.amountSpecified);
-        }
-
-        // return the delta to the PoolManager, so it can process the accounting
-        // exact input:
-        //   specifiedDelta = positive, to offset the input token taken by the hook (negative delta)
-        //   unspecifiedDelta = negative, to offset the credit of the output token paid by the hook (positive delta)
-        // exact output:
-        //   specifiedDelta = negative, to offset the output token paid by the hook (positive delta)
-        //   unspecifiedDelta = positive, to offset the input token taken by the hook (negative delta)
-        BeforeSwapDelta returnDelta = isExactInput
-            ? toBeforeSwapDelta(amountIn.toInt128(), -(amountOut.toInt128()))
-            : toBeforeSwapDelta(-(amountOut.toInt128()), amountIn.toInt128());
-
-        // take the input token, from the PoolManager to the Euler vault
-        // the debt will be paid by the swapper via the swap router
-        // TODO: can we optimize the transfer by pulling from PoolManager directly to Euler?
-        poolManager.take(inputCurrency, address(this), amountIn);
-        amountIn = _depositWithoutFee(inputCurrency == key.currency0 ? vault0 : vault1, amountIn);
-
-        // pay the output token, to the PoolManager from an Euler vault
-        // the credit will be forwarded to the swap router, which then forwards it to the swapper
-        poolManager.sync(outputCurrency);
-        withdrawAssets(outputCurrency == key.currency0 ? vault0 : vault1, amountOut, address(poolManager));
-        poolManager.settle();
+        BeforeSwapDelta returnDelta;
 
         {
-            uint256 newReserve0 = inputCurrency == key.currency0 ? (reserve0 + amountIn) : (reserve0 - amountOut);
-            uint256 newReserve1 = inputCurrency == key.currency1 ? (reserve1 + amountIn) : (reserve1 - amountOut);
+            (Currency inputCurrency, Currency outputCurrency) =
+                zeroForOne ? (key.currency0, key.currency1) : (key.currency1, key.currency0);
+
+            uint256 amountIn;
+            bool isExactInput = params.amountSpecified < 0;
+            if (isExactInput) {
+                amountIn = uint256(-params.amountSpecified);
+                amountOut = computeQuote(zeroForOne, uint256(-params.amountSpecified), true);
+            } else {
+                amountIn = computeQuote(zeroForOne, uint256(params.amountSpecified), false);
+                amountOut = uint256(params.amountSpecified);
+            }
+
+            // return the delta to the PoolManager, so it can process the accounting
+            // exact input:
+            //   specifiedDelta = positive, to offset the input token taken by the hook (negative delta)
+            //   unspecifiedDelta = negative, to offset the credit of the output token paid by the hook (positive delta)
+            // exact output:
+            //   specifiedDelta = negative, to offset the output token paid by the hook (positive delta)
+            //   unspecifiedDelta = positive, to offset the input token taken by the hook (negative delta)
+            returnDelta = isExactInput
+                ? toBeforeSwapDelta(amountIn.toInt128(), -(amountOut.toInt128()))
+                : toBeforeSwapDelta(-(amountOut.toInt128()), amountIn.toInt128());
+
+            // take the input token, from the PoolManager to the Euler vault
+            // the debt will be paid by the swapper via the swap router
+            // TODO: can we optimize the transfer by pulling from PoolManager directly to Euler?
+            poolManager.take(inputCurrency, address(this), amountIn);
+            amountInWithoutFee = _depositWithoutFee(zeroForOne ? vault0 : vault1, amountIn);
+
+            // pay the output token, to the PoolManager from an Euler vault
+            // the credit will be forwarded to the swap router, which then forwards it to the swapper
+            poolManager.sync(outputCurrency);
+            withdrawAssets(zeroForOne ? vault1 : vault0, amountOut, address(poolManager));
+            poolManager.settle();
+        }
+
+        {
+            uint256 newReserve0 = zeroForOne ? (reserve0 + amountInWithoutFee) : (reserve0 - amountOut);
+            uint256 newReserve1 = !zeroForOne ? (reserve1 + amountInWithoutFee) : (reserve1 - amountOut);
 
             require(newReserve0 <= type(uint112).max && newReserve1 <= type(uint112).max, Overflow());
             require(verify(newReserve0, newReserve1), CurveViolation());
