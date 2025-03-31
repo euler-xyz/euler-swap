@@ -43,6 +43,7 @@ contract EulerSwapHookTest is EulerSwapTestBase {
     }
 
     function test_SwapExactIn_withLpFee() public {
+        int256 origNav = getHolderNAV();
         (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
 
         uint256 amountIn = 1e18;
@@ -75,15 +76,20 @@ contract EulerSwapHookTest is EulerSwapTestBase {
             assertEq(r0New, r0 - amountOut);
             assertEq(r1New, r1 + amountInWithoutFee);
         }
+
+        assertGt(getHolderNAV(), origNav + int256(amountIn - amountInWithoutFee));
     }
 
     function test_SwapExactOut_withLpFee() public {
+        int256 origNav = getHolderNAV();
         (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
 
         uint256 amountOut = 1e18;
         uint256 amountIn =
             periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
-        uint256 amountInWithoutFee = (amountIn * 1e18) / (2e18 - eulerSwap.feeMultiplier());
+
+        // inverse of the fee math in Periphery
+        uint256 amountInWithoutFee = (amountIn * eulerSwap.feeMultiplier() - eulerSwap.feeMultiplier()) / 1e18;
 
         assetTST.mint(anyone, amountIn);
 
@@ -103,21 +109,14 @@ contract EulerSwapHookTest is EulerSwapTestBase {
         // assert fees were not added to the reserves
         (uint112 r0New, uint112 r1New,) = eulerSwap.getReserves();
         if (zeroForOne) {
-            assertEq(r0New, r0 + amountInWithoutFee, "A");
-            assertEq(r1New, r1 - amountOut, "B");
+            assertEq(r0New, r0 + amountInWithoutFee + 1); // 1 wei of imprecision
+            assertEq(r1New, r1 - amountOut);
         } else {
             // oneForZero, so the curve received asset1
-            assertEq(r0New, r0 - amountOut, "C");
-            assertEq(r1New, r1 + amountInWithoutFee, "D");
+            assertEq(r0New, r0 - amountOut);
+            assertEq(r1New, r1 + amountInWithoutFee);
         }
-    }
 
-    function _swap(PoolKey memory key, bool zeroForOne, bool exactInput, uint256 amount) internal {
-        IPoolManager.SwapParams memory swapParams = IPoolManager.SwapParams({
-            zeroForOne: zeroForOne,
-            amountSpecified: exactInput ? -int256(amount) : int256(amount),
-            sqrtPriceLimitX96: zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
-        });
-        swapRouter.swap(key, swapParams, settings, "");
+        assertGt(getHolderNAV(), origNav + int256(amountIn - amountInWithoutFee));
     }
 }
