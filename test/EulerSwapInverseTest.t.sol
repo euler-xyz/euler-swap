@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 import "forge-std/console.sol"; // Import console.sol for logging
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
-import {UD60x18, ud} from "prb-math/UD60x18.sol";
 
 contract EulerSwapScenarioTest is Test {
     /// @dev EulerSwap curve definition

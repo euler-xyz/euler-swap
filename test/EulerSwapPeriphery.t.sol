@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
+import "forge-std/Test.sol";
+import "forge-std/console.sol"; // Import console.sol for logging
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
 import {EulerSwapHarness} from "./harness/EulerSwapHarness.sol";
 
