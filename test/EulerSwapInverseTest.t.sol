@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol"; // Import console.sol for logging
+import {Test, console} from "forge-std/Test.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
 contract EulerSwapScenarioTest is Test {
@@ -89,12 +88,12 @@ contract EulerSwapScenarioTest is Test {
 
     function test_fInverse() public view {
         // Params
-        uint256 px = 1e18;
-        uint256 py = 20e18;
-        uint256 x0 = 1e20;
-        uint256 y0 = 1e20;
-        uint256 cx = 0.4e18;
-        uint256 cy = 0.6e18;
+        uint256 px = 1000000;
+        uint256 py = 1000000;
+        uint256 x0 = 60000000000000000000;
+        uint256 y0 = 50000000;
+        uint256 cx = 900000000000000000;
+        uint256 cy = 900000000000000000;
         console.log("px", px);
         console.log("py", py);
         console.log("x0", x0);
