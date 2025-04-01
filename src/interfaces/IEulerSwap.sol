@@ -51,7 +51,10 @@ interface IEulerSwap {
     function equilibriumReserve0() external view returns (uint112);
     function equilibriumReserve1() external view returns (uint112);
     function feeMultiplier() external view returns (uint256);
-    function feeAmounts(uint256 amountIn) external view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount);
+    function feeAmounts(uint256 amountIn, bool exactIn)
+        external
+        view
+        returns (uint256 lpFeeAmount, uint256 protocolFeeAmount);
     /// @notice Returns the current reserves of the pool
     /// @return reserve0 The amount of asset0 in the pool
     /// @return reserve1 The amount of asset1 in the pool

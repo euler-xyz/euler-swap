@@ -110,7 +110,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
 
         // exactIn: decrease received amountIn, rounding down
         if (exactIn) {
-            (, uint256 protocolFeeAmount) = eulerSwap.feeAmounts(amount);
+            (, uint256 protocolFeeAmount) = eulerSwap.feeAmounts(amount, true);
             amount = (amount - protocolFeeAmount) * feeMultiplier / 1e18;
         }
 

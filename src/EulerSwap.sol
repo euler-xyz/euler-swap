@@ -12,6 +12,7 @@ import {EVCUtil} from "evc/utils/EVCUtil.sol";
 import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
 
 import {ProtocolFee} from "./utils/ProtocolFee.sol";
+import "forge-std/console2.sol";
 
 contract EulerSwap is IEulerSwap, EVCUtil, ProtocolFee {
     using SafeERC20 for IERC20;
@@ -123,10 +124,10 @@ contract EulerSwap is IEulerSwap, EVCUtil, ProtocolFee {
         // Deposit all available funds, adjust received amounts downward to collect fees
 
         uint256 amount0In = IERC20(asset0).balanceOf(address(this));
-        if (amount0In > 0) amount0In = _depositWithoutFee(vault0, amount0In);
+        if (amount0In > 0) amount0In = _depositWithoutFee(vault0, amount0In, true);
 
         uint256 amount1In = IERC20(asset1).balanceOf(address(this));
-        if (amount1In > 0) amount1In = _depositWithoutFee(vault1, amount1In);
+        if (amount1In > 0) amount1In = _depositWithoutFee(vault1, amount1In, true);
 
         // Verify curve invariant is satisfied
 
@@ -152,15 +153,29 @@ contract EulerSwap is IEulerSwap, EVCUtil, ProtocolFee {
         }
     }
 
-    function _depositWithoutFee(address vault, uint256 amountIn) internal returns (uint256 amountInDeposited) {
-        (, uint256 protocolFeeAmount) = feeAmounts(amountIn);
+    function _depositWithoutFee(address vault, uint256 amountIn, bool exactIn) internal returns (uint256 amountInDeposited) {
+        (uint256 lpFeeAmount, uint256 protocolFeeAmount) = feeAmounts(amountIn, exactIn);
         amountInDeposited = depositAssets(vault, amountIn - protocolFeeAmount) * feeMultiplier / 1e18;
+        console2.log("Amount In", amountIn);
+        console2.log("Deposit", amountInDeposited);
+        console2.log("LP Fee", lpFeeAmount);
+        console2.log("Protocol Fee", protocolFeeAmount);
     }
 
-    function feeAmounts(uint256 amountIn) public view returns (uint256 lpFeeAmount, uint256 protocolFeeAmount) {
-        lpFeeAmount = (amountIn * (1e18 - feeMultiplier)) / 1e18;
-        protocolFeeAmount = (lpFeeAmount * protocolFee) / 1e18;
-        lpFeeAmount -= protocolFeeAmount;
+    function feeAmounts(uint256 amountIn, bool exactIn)
+        public
+        view
+        returns (uint256 lpFeeAmount, uint256 protocolFeeAmount)
+    {
+        if (exactIn) {
+            lpFeeAmount = (amountIn * (1e18 - feeMultiplier)) / 1e18;
+            protocolFeeAmount = (lpFeeAmount * protocolFee) / 1e18;
+            lpFeeAmount -= protocolFeeAmount;
+        } else {
+            lpFeeAmount = amountIn - ((amountIn * feeMultiplier) / 1e18);
+            protocolFeeAmount = (lpFeeAmount * protocolFee) / 1e18;
+            lpFeeAmount -= protocolFeeAmount;
+        }
     }
 
     /// @inheritdoc IEulerSwap
