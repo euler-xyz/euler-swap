@@ -16,6 +16,9 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
     bytes32 public constant curve = bytes32("EulerSwap v1");
 
+    uint256 public constant protocolFee = 0.1e18;
+    address public constant protocolFeeRecipient = address(0);
+
     address public immutable vault0;
     address public immutable vault1;
     address public immutable asset0;
@@ -24,6 +27,8 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     uint112 public immutable equilibriumReserve0;
     uint112 public immutable equilibriumReserve1;
     uint256 public immutable feeMultiplier;
+    uint256 private immutable feeMultiplierProtocol;
+    uint256 private immutable feeMultiplierLP;
 
     uint256 public immutable priceX;
     uint256 public immutable priceY;
@@ -84,6 +89,8 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         reserve0 = params.currReserve0;
         reserve1 = params.currReserve1;
         feeMultiplier = 1e18 - params.fee;
+        feeMultiplierProtocol = 1e18 - (params.fee * protocolFee / 1e18);
+        feeMultiplierLP = feeMultiplier * 1e18 / feeMultiplierProtocol;
 
         // Curve params
 
@@ -120,11 +127,8 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
         // Deposit all available funds, adjust received amounts downward to collect fees
 
-        uint256 amount0In = IERC20(asset0).balanceOf(address(this));
-        if (amount0In > 0) amount0In = depositAssets(vault0, amount0In) * feeMultiplier / 1e18;
-
-        uint256 amount1In = IERC20(asset1).balanceOf(address(this));
-        if (amount1In > 0) amount1In = depositAssets(vault1, amount1In) * feeMultiplier / 1e18;
+        uint256 amount0In = depositAssets(asset0, vault0);
+        uint256 amount1In = depositAssets(asset1, vault1);
 
         // Verify curve invariant is satisfied
 
@@ -211,14 +215,23 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     }
 
     /// @notice Deposits assets into a vault and automatically repays any outstanding debt
+    /// @param asset The address of the underlying asset
     /// @param vault The address of the vault to deposit into
-    /// @param amount The amount of assets to deposit
     /// @return The amount of assets successfully deposited
     /// @dev This function attempts to deposit assets into the specified vault.
     /// @dev If the deposit fails with E_ZeroShares error, it safely returns 0 (this happens with very small amounts).
     /// @dev After successful deposit, if the user has any outstanding controller-enabled debt, it attempts to repay it.
     /// @dev If all debt is repaid, the controller is automatically disabled to reduce gas costs in future operations.
-    function depositAssets(address vault, uint256 amount) internal returns (uint256) {
+    function depositAssets(address asset, address vault) internal returns (uint256) {
+        uint256 amount = IERC20(asset).balanceOf(address(this));
+        if (amount == 0) return 0;
+
+        {
+            uint256 feeAmount = amount - (amount * feeMultiplierProtocol / 1e18);
+            IERC20(asset).transfer(protocolFeeRecipient, feeAmount);
+            amount -= feeAmount;
+        }
+
         uint256 deposited;
 
         if (IEVC(evc).isControllerEnabled(eulerAccount, vault)) {
@@ -238,13 +251,13 @@ contract EulerSwap is IEulerSwap, EVCUtil {
             try IEVault(vault).deposit(amount, eulerAccount) {}
             catch (bytes memory reason) {
                 require(bytes4(reason) == EVKErrors.E_ZeroShares.selector, DepositFailure(reason));
-                return deposited;
+                amount = 0;
             }
 
             deposited += amount;
         }
 
-        return deposited;
+        return (deposited * feeMultiplierLP + (1e18 - 1)) / 1e18;
     }
 
     /// @notice Approves tokens for a given vault, supporting both standard approvals and permit2
