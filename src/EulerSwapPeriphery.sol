@@ -115,7 +115,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
 
-        uint256 quote = binarySearch2(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        uint256 quote = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
@@ -174,7 +174,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             require(reserve0New > 0 && reserve1New > 0, SwapLimitExceeded());
 
             console.log("px", eulerSwap.priceX());
-            console.log("py", eulerSwap.priceX());
+            console.log("py", eulerSwap.priceY());
             console.log("x0", eulerSwap.equilibriumReserve0());
             console.log("y0", eulerSwap.equilibriumReserve1());
             console.log("cx", eulerSwap.concentrationX());
@@ -244,7 +244,10 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     yNew = f(xNew, px, py, x0, y0, cx);                       
                 } else {
                     // move to g()
-                    yNew = fInverse(xNew, py, px, y0, x0, cy);                    
+                    console.log("Here");
+                    console.log("px", px);
+                    console.log("py", py);
+                    yNew = fInverse(xNew, py, px, y0, x0, cy);                                        
                 }
                 console.log("xNew", xNew);
                 console.log("yNew", yNew); 
@@ -330,26 +333,65 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
     {
         // components of quadratic equation
         int256 B = int256((py * (y - y0) + (px - 1)) / px) - (2 * int256(c) - int256(1e18)) * int256(x0) / 1e18;
-        console.log("B", B);
-        uint256 C = ((1e18 - c) * x0 * x0 + (1e36 - 1)) / 1e36; // upper bound of 1e28 for x0 means this is safe
-        console.log("C", C);
-        uint256 fourAC = Math.mulDiv(4 * c, C, 1, Math.Rounding.Ceil);
-        console.log("fourAC", fourAC);
+        uint256 C;
+        uint256 fourAC;
+        if(x0 < 1e18) {
+            C = ((1e18 - c) * x0 * x0 + (1e18 - 1)) / 1e18; // upper bound of 1e28 for x0 means this is safe
+            fourAC = Math.mulDiv(4 * c, C, 1e18, Math.Rounding.Ceil);
+        } else {
+            C = Math.mulDiv((1e18 - c), x0 * x0, 1e36, Math.Rounding.Ceil); // upper bound of 1e28 for x0 means this is safe
+            fourAC = Math.mulDiv(4 * c, C, 1, Math.Rounding.Ceil);
+        }
 
         // solve for the square root
         uint256 absB = abs(B);
-        uint256 squaredB = Math.mulDiv(absB, absB, 1, Math.Rounding.Ceil);
-        console.log("squaredB", squaredB);
-        uint256 discriminant = squaredB + fourAC; // keep in 1e36 scale for increased precision ahead of sqrt
-        console.log("discriminant", discriminant);
-        uint256 sqrt = Math.sqrt(discriminant); // drop back to 1e18 scale
-        sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
-        console.log("sqrt", sqrt);
-
-        if (B <= 0) {
-            return Math.mulDiv(absB + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 2;
+        uint256 squaredB;
+        uint256 discriminant;
+        uint256 sqrt;
+        if(absB > 1e33) {
+            uint256 scale = computeScale(absB);
+            squaredB = Math.mulDiv(absB / scale, absB, scale, Math.Rounding.Ceil);
+            discriminant = squaredB + fourAC / (scale * scale);
+            sqrt = Math.sqrt(discriminant);
+            sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
+            sqrt = sqrt * scale;
         } else {
-            return Math.mulDiv(2 * C, 1e18, absB + sqrt, Math.Rounding.Ceil) + 2;
+            squaredB = Math.mulDiv(absB, absB, 1, Math.Rounding.Ceil);
+            discriminant = squaredB + fourAC; // keep in 1e36 scale for increased precision ahead of sqrt
+            sqrt = Math.sqrt(discriminant); // drop back to 1e18 scale
+            sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
+        }
+
+        uint256 x;
+        if (B <= 0) {
+            x = Math.mulDiv(absB + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 3;
+        } else {
+            x = Math.mulDiv(2 * C, 1e18, absB + sqrt, Math.Rounding.Ceil) + 3;
+        }
+
+        if(x >= x0) {
+            return x0;
+        } else {
+            return x;
+        } 
+    }
+
+    function computeScale(uint256 x) internal pure returns (uint256 scale) {
+        uint256 bits = 0;
+        uint256 tmp = x;
+
+        while (tmp > 0) {
+            tmp >>= 1;
+            bits++;
+        }
+
+        // absB * absB must be <= 2^256 ⇒ bits(B) ≤ 128
+        if (bits > 128) {
+            uint256 excessBits = bits - 128;
+            // 2^excessBits is how much we need to scale down to prevent overflow
+            scale = 1 << excessBits;
+        } else {
+            scale = 1;
         }
     }
 
