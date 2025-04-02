@@ -29,7 +29,7 @@ function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uin
             fourAC = Math.mulDiv(4 * c, C, 1e18, Math.Rounding.Ceil);
         } else {
             C = Math.mulDiv((1e18 - c), x0 * x0, 1e36, Math.Rounding.Ceil); // upper bound of 1e28 for x0 means this is safe
-            fourAC = Math.mulDiv(4 * c, C, 1, Math.Rounding.Ceil);
+            fourAC = 4 * c * C;
         }
 
         // solve for the square root
@@ -45,7 +45,7 @@ function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uin
             sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
             sqrt = sqrt * scale;
         } else {
-            squaredB = Math.mulDiv(absB, absB, 1, Math.Rounding.Ceil);
+            squaredB = absB * absB;
             discriminant = squaredB + fourAC; // keep in 1e36 scale for increased precision ahead of sqrt
             sqrt = Math.sqrt(discriminant); // drop back to 1e18 scale
             sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt;
