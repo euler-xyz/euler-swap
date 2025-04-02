@@ -115,11 +115,11 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
 
-        
-        uint256 quote = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
-        console.log("quote", quote);
-        uint256 quote2 = search(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
-        console.log("quote2", quote2);
+        uint256 quoteBinary = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        uint256 quote = search(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        console.log();
+        console.log("quoteBinary:  ", quoteBinary);
+        console.log("quote:        ", quote);
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
@@ -157,13 +157,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         int256 dx;
         int256 dy;
 
-        console.log("reserve0", reserve0);
-        console.log("reserve1", reserve1);
-
-        console.log("amount", amount);
-        console.log("exactIn", exactIn);
-        console.log("asset0IsInput", asset0IsInput);
-
         if (exactIn) {
             if (asset0IsInput) dx = int256(amount);
             else dy = int256(amount);
@@ -176,13 +169,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             int256 reserve0New = int256(uint256(reserve0)) + dx;
             int256 reserve1New = int256(uint256(reserve1)) + dy;
             require(reserve0New > 0 && reserve1New > 0, SwapLimitExceeded());
-
-            console.log("px", eulerSwap.priceX());
-            console.log("py", eulerSwap.priceY());
-            console.log("x0", eulerSwap.equilibriumReserve0());
-            console.log("y0", eulerSwap.equilibriumReserve1());
-            console.log("cx", eulerSwap.concentrationX());
-            console.log("cy", eulerSwap.concentrationY());
 
             uint256 low;
             uint256 high = type(uint112).max;
@@ -207,9 +193,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                 dx = int256(low) - reserve0New;
                 reserve0New += dx;
             }
-
-            console.log("reserve0New", reserve0New);
-            console.log("reserve1New", reserve1New);
         }
 
         if (exactIn) {
@@ -219,7 +202,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             if (asset0IsInput) output = dx >= 0 ? uint256(dx) : 0;
             else output = dy >= 0 ? uint256(dy) : 0;
         }
-        console.log("output", output);
     }
 
     // Exact version starts here.
@@ -238,10 +220,14 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 y0 = eulerSwap.equilibriumReserve1();
         uint256 cx = eulerSwap.concentrationX();
         uint256 cy = eulerSwap.concentrationY();
-
-        console.log("Search: ");
-        console.log("x0", x0);
-        console.log("y0", y0);
+        // console.log("Search: ");
+        // console.log("x0", x0);
+        // console.log("y0", y0);
+        // console.log("reserve0", reserve0);
+        // console.log("reserve1", reserve1);
+        // console.log("amount", amount);
+        // console.log("exactIn", exactIn);
+        // console.log("asset0IsInput", asset0IsInput);
 
         uint256 xNew;
         uint256 yNew;
@@ -256,17 +242,9 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     yNew = f(xNew, px, py, x0, y0, cx);
                 } else {
                     // move to g()
-                    console.log("Here");
-                    console.log("px", px);
-                    console.log("py", py);
                     yNew = fInverse(xNew, py, px, y0, x0, cy);
                 }
-                console.log("xNew", xNew);
-                console.log("yNew", yNew);
-                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));
-                console.log("reserve1 > yNew", reserve1 > yNew);
                 output = reserve1 > yNew ? reserve1 - yNew : 0;
-                console.log("output", output);
             } else {
                 // swap Y in and X out
                 yNew = reserve1 + amount;
@@ -277,11 +255,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     // move to f()
                     xNew = fInverse(yNew, px, py, x0, y0, cx);
                 }
-                console.log("xNew", xNew);
-                console.log("yNew", yNew);
-                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));                
                 output = reserve0 > xNew ? reserve0 - xNew : 0;
-                console.log("output", output);
             }
         } else {
             // exact out
@@ -295,11 +269,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     // move to f()
                     xNew = fInverse(yNew, px, py, x0, y0, cx);
                 }
-                console.log("xNew", xNew);
-                console.log("yNew", yNew);
-                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));
                 output = xNew > reserve0 ? xNew - reserve0 : 0;
-                console.log("output", output);
             } else {
                 // swap X out and Y in
                 xNew = reserve0 - amount;
@@ -310,16 +280,9 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     // move to g()
                     yNew = fInverse(xNew, py, px, y0, x0, cy);
                 }
-                console.log("xNew", xNew);
-                console.log("yNew", yNew);
-                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));                
                 output = yNew > reserve1 ? yNew - reserve1 : 0;
-                console.log("output", output);
             }
         }
-
-        console.log("xNew", xNew);
-        console.log("yNew", yNew);
 
         console.log();
     }

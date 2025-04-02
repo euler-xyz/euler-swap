@@ -196,7 +196,6 @@ contract EulerSwapScenarioTest is Test {
         console.log("y    ", y);
         console.log("yCalc", yCalc);
         console.log("yBin ", yBin);
-        console.log("verify", verify(xCalc, y, x0, y0, px, py, cx, cy));
 
         if (x < type(uint112).max && y < type(uint112).max) {
             assert(verify(xCalc, y, x0, y0, px, py, cx, cy));
