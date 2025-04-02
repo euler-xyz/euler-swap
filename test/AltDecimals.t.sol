@@ -21,11 +21,12 @@ contract AltDecimals is EulerSwapTestBase {
         assetTST.mint(address(this), amount);
         assetTST.transfer(address(eulerSwap), amount);
 
-        {
+        
             uint256 qPlus = q + 1;
+            bool reverted = true;
             vm.expectRevert();
             eulerSwap.swap(0, qPlus, address(this), "");
-        }
+        
 
         eulerSwap.swap(0, q, address(this), "");
     }

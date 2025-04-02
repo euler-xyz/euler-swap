@@ -115,8 +115,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
 
-        
-        uint256 quoteBinary = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);        
+        uint256 quoteBinary = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
         uint256 quote = search(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
         console.log();
         console.log("quoteBinary:  ", quoteBinary);
@@ -194,7 +193,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                 dx = int256(low) - reserve0New;
                 reserve0New += dx;
             }
-
         }
 
         if (exactIn) {
@@ -257,7 +255,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     // move to f()
                     xNew = fInverse(yNew, px, py, x0, y0, cx);
                 }
-                output = reserve0 > xNew ? reserve0 - xNew : 0;                
+                output = reserve0 > xNew ? reserve0 - xNew : 0;
             }
         } else {
             // exact out
@@ -282,7 +280,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
                     // move to g()
                     yNew = fInverse(xNew, py, px, y0, x0, cy);
                 }
-                output = yNew > reserve1 ? yNew - reserve1 : 0;                
+                output = yNew > reserve1 ? yNew - reserve1 : 0;
             }
         }
 
