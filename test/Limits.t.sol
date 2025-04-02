@@ -131,19 +131,24 @@ contract LimitsTest is EulerSwapTestBase {
 
         // Exact output quotes: Costs nothing to perform this swap (in theory the quote could
         // be negative, but this is not supported by the interface)
-        
+
+        console.log("here");
         amount = periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 1e18);
+        console.log("amount", amount);
         assertEq(amount, 0);
 
+        console.log("here2");
         amount = periphery.quoteExactOutput(address(eulerSwap), address(assetTST2), address(assetTST), 1e18);
         assertEq(amount, 0);
 
         // Exact input quotes: The additional extractable value is provided as swap output, even
         // with tiny quotes such as 1 wei.
 
+        console.log("here3");
         amount = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), 1);
         assertApproxEqAbs(amount, 19.8e18, 0.1e18);
 
+        console.log("here4");
         amount = periphery.quoteExactInput(address(eulerSwap), address(assetTST2), address(assetTST), 1);
         assertApproxEqAbs(amount, 19.8e18, 0.1e18);
     }

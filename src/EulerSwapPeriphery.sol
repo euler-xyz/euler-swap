@@ -115,7 +115,11 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
 
+        
         uint256 quote = binarySearch(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        console.log("quote", quote);
+        uint256 quote2 = search(eulerSwap, reserve0, reserve1, amount, exactIn, asset0IsInput);
+        console.log("quote2", quote2);
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
@@ -216,10 +220,18 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             else output = dy >= 0 ? uint256(dy) : 0;
         }
         console.log("output", output);
+    }
 
-        // Exact version starts here. 
-        // Strategy is to re-calculate everything using f() and fInverse() and see where things break.
-
+    // Exact version starts here.
+    // Strategy is to re-calculate everything using f() and fInverse() and see where things break.
+    function search(
+        IEulerSwap eulerSwap,
+        uint112 reserve0,
+        uint112 reserve1,
+        uint256 amount,
+        bool exactIn,
+        bool asset0IsInput
+    ) internal view returns (uint256 output) {
         uint256 px = eulerSwap.priceX();
         uint256 py = eulerSwap.priceY();
         uint256 x0 = eulerSwap.equilibriumReserve0();
@@ -227,86 +239,82 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 cx = eulerSwap.concentrationX();
         uint256 cy = eulerSwap.concentrationY();
 
+        console.log("Search: ");
         console.log("x0", x0);
         console.log("y0", y0);
 
         uint256 xNew;
         uint256 yNew;
-        uint256 outputNew;
 
-        if(exactIn){
+        if (exactIn) {
             // exact in
-            if(asset0IsInput) {
+            if (asset0IsInput) {
                 // swap X in and Y out
                 xNew = reserve0 + amount;
-                if(xNew < x0) {
+                if (xNew < x0) {
                     // remain on f()
-                    yNew = f(xNew, px, py, x0, y0, cx);                       
+                    yNew = f(xNew, px, py, x0, y0, cx);
                 } else {
                     // move to g()
                     console.log("Here");
                     console.log("px", px);
                     console.log("py", py);
-                    yNew = fInverse(xNew, py, px, y0, x0, cy);                                        
+                    yNew = fInverse(xNew, py, px, y0, x0, cy);
                 }
                 console.log("xNew", xNew);
-                console.log("yNew", yNew); 
+                console.log("yNew", yNew);
                 console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));
                 console.log("reserve1 > yNew", reserve1 > yNew);
-                outputNew = reserve1 - yNew;
-                output = outputNew;
-                console.log("outputNew", outputNew);
+                output = reserve1 > yNew ? reserve1 - yNew : 0;
+                console.log("output", output);
             } else {
                 // swap Y in and X out
                 yNew = reserve1 + amount;
-                if(yNew < y0) {
-                    // remain on g()
-                    xNew = f(yNew, py, px, y0, x0, cy);  
-                } else {
-                    // move to f()
-                    xNew = fInverse(yNew, px, py, x0, y0, cx);
-                }                               
-                console.log("xNew", xNew); 
-                console.log("yNew", yNew); 
-                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));
-                outputNew = reserve0 - xNew;
-                output = outputNew;
-                console.log("outputNew", outputNew);
-            }
-        } else {
-            // exact out
-            if(asset0IsInput) {
-                // swap Y out and X in
-                yNew = reserve1 - amount;
-                if(yNew < y0) {
+                if (yNew < y0) {
                     // remain on g()
                     xNew = f(yNew, py, px, y0, x0, cy);
                 } else {
                     // move to f()
-                    xNew = fInverse(yNew, px, py, x0, y0, cx);  
+                    xNew = fInverse(yNew, px, py, x0, y0, cx);
                 }
-                console.log("xNew", xNew);              
-                console.log("yNew", yNew); 
+                console.log("xNew", xNew);
+                console.log("yNew", yNew);
+                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));                
+                output = reserve0 > xNew ? reserve0 - xNew : 0;
+                console.log("output", output);
+            }
+        } else {
+            // exact out
+            if (asset0IsInput) {
+                // swap Y out and X in
+                yNew = reserve1 - amount;
+                if (yNew < y0) {
+                    // remain on g()
+                    xNew = f(yNew, py, px, y0, x0, cy);
+                } else {
+                    // move to f()
+                    xNew = fInverse(yNew, px, py, x0, y0, cx);
+                }
+                console.log("xNew", xNew);
+                console.log("yNew", yNew);
                 console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));
-                outputNew = xNew - reserve0; // inputNew
-                output = outputNew;
-                console.log("outputNew", outputNew);
+                output = xNew > reserve0 ? xNew - reserve0 : 0;
+                console.log("output", output);
             } else {
                 // swap X out and Y in
                 xNew = reserve0 - amount;
-                if(xNew < x0) {
+                if (xNew < x0) {
                     // remain on f()
-                    yNew = f(xNew, py, px, y0, x0, cx);  
+                    yNew = f(xNew, py, px, y0, x0, cx);
                 } else {
                     // move to g()
                     yNew = fInverse(xNew, py, px, y0, x0, cy);
                 }
-                console.log("xNew", xNew); 
-                console.log("yNew", yNew); 
-                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));
-                outputNew = yNew - reserve1;
-                output = outputNew;
-                console.log("outputNew", outputNew);
+                console.log("xNew", xNew);
+                console.log("yNew", yNew);
+                console.log("verify", verify(xNew, yNew, x0, y0, px, py, cx, cy));                
+                output = yNew > reserve1 ? yNew - reserve1 : 0;
+                console.log("output", output);
             }
         }
 
@@ -335,7 +343,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         int256 B = int256((py * (y - y0) + (px - 1)) / px) - (2 * int256(c) - int256(1e18)) * int256(x0) / 1e18;
         uint256 C;
         uint256 fourAC;
-        if(x0 < 1e18) {
+        if (x0 < 1e18) {
             C = ((1e18 - c) * x0 * x0 + (1e18 - 1)) / 1e18; // upper bound of 1e28 for x0 means this is safe
             fourAC = Math.mulDiv(4 * c, C, 1e18, Math.Rounding.Ceil);
         } else {
@@ -348,7 +356,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 squaredB;
         uint256 discriminant;
         uint256 sqrt;
-        if(absB > 1e33) {
+        if (absB > 1e33) {
             uint256 scale = computeScale(absB);
             squaredB = Math.mulDiv(absB / scale, absB, scale, Math.Rounding.Ceil);
             discriminant = squaredB + fourAC / (scale * scale);
@@ -369,11 +377,11 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             x = Math.mulDiv(2 * C, 1e18, absB + sqrt, Math.Rounding.Ceil) + 3;
         }
 
-        if(x >= x0) {
+        if (x >= x0) {
             return x0;
         } else {
             return x;
-        } 
+        }
     }
 
     function computeScale(uint256 x) internal pure returns (uint256 scale) {
@@ -399,7 +407,16 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         return uint256(x >= 0 ? x : -x);
     }
 
-    function verify(uint256 newReserve0, uint256 newReserve1, uint256 equilibriumReserve0, uint256 equilibriumReserve1, uint256 priceX, uint256 priceY, uint256 concentrationX, uint256 concentrationY) public view returns (bool) {
+    function verify(
+        uint256 newReserve0,
+        uint256 newReserve1,
+        uint256 equilibriumReserve0,
+        uint256 equilibriumReserve1,
+        uint256 priceX,
+        uint256 priceY,
+        uint256 concentrationX,
+        uint256 concentrationY
+    ) public view returns (bool) {
         if (newReserve0 > type(uint112).max || newReserve1 > type(uint112).max) return false;
 
         if (newReserve0 >= equilibriumReserve0) {

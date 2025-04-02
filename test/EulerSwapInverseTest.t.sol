@@ -15,7 +15,7 @@ contract EulerSwapScenarioTest is Test {
         }
     }
 
-function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
         internal
         pure
         returns (uint256)
@@ -24,7 +24,7 @@ function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uin
         int256 B = int256((py * (y - y0) + (px - 1)) / px) - (2 * int256(c) - int256(1e18)) * int256(x0) / 1e18;
         uint256 C;
         uint256 fourAC;
-        if(x0 < 1e18) {
+        if (x0 < 1e18) {
             C = ((1e18 - c) * x0 * x0 + (1e18 - 1)) / 1e18; // upper bound of 1e28 for x0 means this is safe
             fourAC = Math.mulDiv(4 * c, C, 1e18, Math.Rounding.Ceil);
         } else {
@@ -37,7 +37,7 @@ function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uin
         uint256 squaredB;
         uint256 discriminant;
         uint256 sqrt;
-        if(absB > 1e33) {
+        if (absB > 1e33) {
             uint256 scale = computeScale(absB);
             squaredB = Math.mulDiv(absB / scale, absB, scale, Math.Rounding.Ceil);
             discriminant = squaredB + fourAC / (scale * scale);
@@ -58,11 +58,11 @@ function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uin
             x = Math.mulDiv(2 * C, 1e18, absB + sqrt, Math.Rounding.Ceil) + 3;
         }
 
-        if(x >= x0) {
+        if (x >= x0) {
             return x0;
         } else {
             return x;
-        } 
+        }
     }
 
     function computeScale(uint256 x) internal pure returns (uint256 scale) {
@@ -182,14 +182,14 @@ function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uin
         // Note without -2 in the max bound, f() sometimes fails when x gets too close to centre.
         // Note small x values lead to large y-values, which causes problems for both f() and fInverse(), so we cap it here
         x = bound(x, 1e2 - 3, x0 - 3);
-        
+
         uint256 y = f(x, px, py, x0, y0, cx);
         console.log("y    ", y);
         uint256 xCalc = fInverse(y, px, py, x0, y0, cx);
         console.log("xCalc", xCalc);
         uint256 yCalc = f(xCalc, px, py, x0, y0, cx);
-        uint256 xBin = binarySearch(y, px, py, x0, y0, cx, 1, x0);        
-        uint256 yBin = f(xBin, px, py, x0, y0, cx);        
+        uint256 xBin = binarySearch(y, px, py, x0, y0, cx, 1, x0);
+        uint256 yBin = f(xBin, px, py, x0, y0, cx);
         console.log("x    ", x);
         console.log("xCalc", xCalc);
         console.log("xBin ", xBin);
