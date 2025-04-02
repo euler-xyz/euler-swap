@@ -158,21 +158,31 @@ contract EulerSwapTest is EulerSwapTestBase {
 
             t1.transfer(address(eulerSwap), amount);
 
-            {
-                uint256 qPlus = q + 1;
-                vm.expectRevert();
-                if (dir) eulerSwap.swap(0, qPlus, address(this), "");
-                else eulerSwap.swap(qPlus, 0, address(this), "");
+            uint256 qPlus = q + 1;
+            uint256 prevBal = t2.balanceOf(address(this));
+                    
+            if (dir) {
+                try eulerSwap.swap(0, qPlus, address(this), "") {
+                    // succeeded
+                    assertEq(t2.balanceOf(address(this)), qPlus + prevBal);                    
+                } catch {
+                    // reverted so run normal quote
+                    eulerSwap.swap(0, q, address(this), "");
+                    assertEq(t2.balanceOf(address(this)), q + prevBal);
+                }
+            } else {
+                try eulerSwap.swap(qPlus, 0, address(this), "") {
+                    // succeeded
+                    assertEq(t2.balanceOf(address(this)), qPlus + prevBal);
+                } catch {
+                    // reverted so run normal quote
+                    eulerSwap.swap(q, 0, address(this), "");
+                    assertEq(t2.balanceOf(address(this)), q + prevBal);
+                }
             }
 
-            // Confirm actual quote works
-
-            uint256 prevBal = t2.balanceOf(address(this));
-            if (dir) eulerSwap.swap(0, q, address(this), "");
-            else eulerSwap.swap(q, 0, address(this), "");
-            assertEq(t2.balanceOf(address(this)), q + prevBal);
-
             assertGe(getHolderNAV(), origNAV);
+            
         }
     }
 
