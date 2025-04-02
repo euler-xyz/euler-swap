@@ -48,7 +48,6 @@ contract PreserveNav is EulerSwapTestBase {
             t1.transfer(address(eulerSwap), amount1);
 
             uint256 qPlus = q + 1;
-<<<<<<< HEAD
             
             if (dir1) {
                 try eulerSwap.swap(0, qPlus, address(this), "") {
@@ -66,36 +65,6 @@ contract PreserveNav is EulerSwapTestBase {
                 }
             }
          
-=======
-            bool reverted = true;
-
-            // vm.expectRevert();
-            if (dir1) {
-                try eulerSwap.swap(0, qPlus, address(this), "") {
-                    console.log("Swap succeeded");
-                    reverted = false;
-                } catch {
-                    console.log("Swap reverted");
-                }
-            } else {
-                try eulerSwap.swap(qPlus, 0, address(this), "") {
-                    console.log("Swap succeeded");
-                    reverted = false;
-                } catch {
-                    console.log("Swap reverted");
-                }
-            }
-
-            // if (dir1) eulerSwap.swap(0, qPlus, address(this), "");
-            // else eulerSwap.swap(qPlus, 0, address(this), "");
-
-            if (reverted) {
-                if (dir1) eulerSwap.swap(0, q, address(this), "");
-                else eulerSwap.swap(q, 0, address(this), "");
-            }
-
-            console.log("here");
->>>>>>> ba07b35844b62bc22d7506e03a51726c578d2542
         }
 
         assertGe(getHolderNAV(), nav1);
@@ -112,7 +81,6 @@ contract PreserveNav is EulerSwapTestBase {
             t1.transfer(address(eulerSwap), amount2);
 
             uint256 qPlus = q + 1;
-<<<<<<< HEAD
 
             if (dir2) {
                 try eulerSwap.swap(0, qPlus, address(this), "") {
@@ -130,35 +98,6 @@ contract PreserveNav is EulerSwapTestBase {
                 }
             }
 
-=======
-            bool reverted = true;
-
-            // vm.expectRevert();
-
-            if (dir2) {
-                try eulerSwap.swap(0, qPlus, address(this), "") {
-                    console.log("Swap succeeded");
-                    reverted = false;
-                } catch {
-                    console.log("Swap reverted");
-                }
-            } else {
-                try eulerSwap.swap(qPlus, 0, address(this), "") {
-                    console.log("Swap succeeded");
-                    reverted = false;
-                } catch {
-                    console.log("Swap reverted");
-                }
-            }
-
-            // if (dir2) eulerSwap.swap(0, qPlus, address(this), "");
-            // else eulerSwap.swap(qPlus, 0, address(this), "");
-
-            if (reverted) {
-                if (dir2) eulerSwap.swap(0, q, address(this), "");
-                else eulerSwap.swap(q, 0, address(this), "");
-            }
->>>>>>> ba07b35844b62bc22d7506e03a51726c578d2542
         }
 
         assertGe(getHolderNAV(), nav1);
