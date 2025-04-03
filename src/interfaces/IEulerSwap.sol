@@ -6,11 +6,13 @@ interface IEulerSwap {
         address vault0;
         address vault1;
         address eulerAccount;
+        address protocolFeeRecipient;
         uint112 equilibriumReserve0;
         uint112 equilibriumReserve1;
         uint112 currReserve0;
         uint112 currReserve1;
         uint256 fee;
+        uint256 protocolFee;
     }
 
     struct CurveParams {

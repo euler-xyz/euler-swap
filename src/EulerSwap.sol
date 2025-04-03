@@ -16,8 +16,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
     bytes32 public constant curve = bytes32("EulerSwap v1");
 
-    uint256 public constant protocolFee = 0.1e18;
-    address public constant protocolFeeRecipient = address(0);
+    address public immutable protocolFeeRecipient;
 
     address public immutable vault0;
     address public immutable vault1;
@@ -84,12 +83,13 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         asset0 = asset0Addr;
         asset1 = asset1Addr;
         eulerAccount = params.eulerAccount;
+        protocolFeeRecipient = params.protocolFeeRecipient;
         equilibriumReserve0 = params.equilibriumReserve0;
         equilibriumReserve1 = params.equilibriumReserve1;
         reserve0 = params.currReserve0;
         reserve1 = params.currReserve1;
         feeMultiplier = 1e18 - params.fee;
-        feeMultiplierProtocol = 1e18 - (params.fee * protocolFee / 1e18);
+        feeMultiplierProtocol = 1e18 - (params.fee * params.protocolFee / 1e18);
         feeMultiplierLP = feeMultiplier * 1e18 / feeMultiplierProtocol;
 
         // Curve params

@@ -5,11 +5,12 @@ import {IEulerSwapFactory, IEulerSwap} from "./interfaces/IEulerSwapFactory.sol"
 import {EulerSwap} from "./EulerSwap.sol";
 import {EVCUtil} from "ethereum-vault-connector/utils/EVCUtil.sol";
 import {GenericFactory} from "evk/GenericFactory/GenericFactory.sol";
+import {ProtocolFee} from "./base/ProtocolFee.sol";
 
 /// @title EulerSwapFactory contract
 /// @custom:security-contact security@euler.xyz
 /// @author Euler Labs (https://www.eulerlabs.com/)
-contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
+contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     /// @dev An array to store all pools addresses.
     address[] public allPools;
     /// @dev Mapping between euler account and deployed pool that is currently set as operator
@@ -39,7 +40,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
     error OperatorNotInstalled();
     error InvalidVaultImplementation();
 
-    constructor(address evc, address evkFactory_) EVCUtil(evc) {
+    constructor(address evc, address evkFactory_, address feeOwner_) EVCUtil(evc) ProtocolFee(feeOwner_) {
         evkFactory = evkFactory_;
     }
 
@@ -54,6 +55,8 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
             InvalidVaultImplementation()
         );
 
+        params.protocolFeeRecipient = protocolFeeRecipient;
+        params.protocolFee = protocolFee;
         EulerSwap pool = new EulerSwap{salt: keccak256(abi.encode(params.eulerAccount, salt))}(params, curveParams);
 
         checkEulerAccountOperators(params.eulerAccount, address(pool));
