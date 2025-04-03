@@ -18,10 +18,11 @@ contract DeployProtocol is ScriptUtil {
 
         address evc = vm.parseJsonAddress(json, ".evc");
         address factory = vm.parseJsonAddress(json, ".factory");
+        address feeOwner = vm.parseJsonAddress(json, ".feeOwner");
 
         vm.startBroadcast(deployerAddress);
 
-        new EulerSwapFactory(evc, factory);
+        new EulerSwapFactory(evc, factory, feeOwner);
         new EulerSwapPeriphery();
 
         vm.stopBroadcast();

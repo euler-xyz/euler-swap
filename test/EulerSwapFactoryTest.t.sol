@@ -13,7 +13,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
         super.setUp();
 
         vm.prank(creator);
-        eulerSwapFactory = new EulerSwapFactory(address(evc), address(factory));
+        eulerSwapFactory = new EulerSwapFactory(address(evc), address(factory), address(this));
     }
 
     function testDeployPool() public {
@@ -21,7 +21,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
 
         bytes32 salt = bytes32(uint256(1234));
         IEulerSwap.Params memory poolParams =
-            IEulerSwap.Params(address(eTST), address(eTST2), holder, 1e18, 1e18, 1e18, 1e18, 0);
+            IEulerSwap.Params(address(eTST), address(eTST2), holder, address(this), 1e18, 1e18, 1e18, 1e18, 0, 0);
         IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams(0.4e18, 0.85e18, 1e18, 1e18);
 
         address predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
@@ -75,7 +75,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
     function testDeployWithAssetsOutOfOrderOrEqual() public {
         bytes32 salt = bytes32(uint256(1234));
         IEulerSwap.Params memory poolParams =
-            IEulerSwap.Params(address(eTST), address(eTST), holder, 1e18, 1e18, 1e18, 1e18, 0);
+            IEulerSwap.Params(address(eTST), address(eTST), holder, address(this), 1e18, 1e18, 1e18, 1e18, 0, 0);
         IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams(0.4e18, 0.85e18, 1e18, 1e18);
 
         vm.prank(holder);
@@ -86,7 +86,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
     function testDeployWithBadFee() public {
         bytes32 salt = bytes32(uint256(1234));
         IEulerSwap.Params memory poolParams =
-            IEulerSwap.Params(address(eTST), address(eTST2), holder, 1e18, 1e18, 1e18, 1e18, 1e18);
+            IEulerSwap.Params(address(eTST), address(eTST2), holder, address(this), 1e18, 1e18, 1e18, 1e18, 1e18, 0);
         IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams(0.4e18, 0.85e18, 1e18, 1e18);
 
         vm.prank(holder);

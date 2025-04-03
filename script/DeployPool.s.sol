@@ -21,11 +21,13 @@ contract DeployPool is ScriptUtil {
             vault0: vm.parseJsonAddress(json, ".vault0"),
             vault1: vm.parseJsonAddress(json, ".vault1"),
             eulerAccount: eulerAccount,
+            protocolFeeRecipient: address(0),
             equilibriumReserve0: uint112(vm.parseJsonUint(json, ".equilibriumReserve0")),
             equilibriumReserve1: uint112(vm.parseJsonUint(json, ".equilibriumReserve1")),
             currReserve0: uint112(vm.parseJsonUint(json, ".currReserve0")),
             currReserve1: uint112(vm.parseJsonUint(json, ".currReserve1")),
-            fee: vm.parseJsonUint(json, ".fee")
+            fee: vm.parseJsonUint(json, ".fee"),
+            protocolFee: 0
         });
         IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams({
             priceX: vm.parseJsonUint(json, ".priceX"),

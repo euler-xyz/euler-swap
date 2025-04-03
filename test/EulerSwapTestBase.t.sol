@@ -150,11 +150,13 @@ contract EulerSwapTestBase is EVaultTestBase {
             vault0: address(eTST),
             vault1: address(eTST2),
             eulerAccount: holder,
+            protocolFeeRecipient: address(0),
             equilibriumReserve0: reserve0,
             equilibriumReserve1: reserve1,
             currReserve0: reserve0,
             currReserve1: reserve1,
-            fee: fee
+            fee: fee,
+            protocolFee: 0
         });
     }
 
