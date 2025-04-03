@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
-import {EVaultTestBase, TestERC20} from "evk-test/unit/evault/EVaultTestBase.t.sol";
+import {EVaultTestBase, TestERC20, IRMTestDefault} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap, IEVC, EulerSwap} from "../src/EulerSwap.sol";
 import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
@@ -13,6 +13,9 @@ contract EulerSwapTestBase is EVaultTestBase {
     address public holder = makeAddr("holder");
     address public recipient = makeAddr("recipient");
     address public anyone = makeAddr("anyone");
+
+    TestERC20 assetTST3;
+    IEVault public eTST3;
 
     EulerSwapPeriphery public periphery;
 
@@ -27,28 +30,45 @@ contract EulerSwapTestBase is EVaultTestBase {
 
         periphery = new EulerSwapPeriphery();
 
+        // deploy more vaults
+        assetTST3 = new TestERC20("Test Token 3", "TST3", 18, false);
+        eTST3 = IEVault(
+            factory.createProxy(address(0), true, abi.encodePacked(address(assetTST3), address(oracle), unitOfAccount))
+        );
+        eTST3.setHookConfig(address(0), 0);
+        eTST3.setInterestRateModel(address(new IRMTestDefault()));
+        eTST3.setMaxLiquidationDiscount(0.2e4);
+        eTST3.setFeeReceiver(feeReceiver);
+
         // Vault config
 
         eTST.setLTV(address(eTST2), 0.9e4, 0.9e4, 0);
         eTST2.setLTV(address(eTST), 0.9e4, 0.9e4, 0);
+        eTST.setLTV(address(eTST3), 0.9e4, 0.9e4, 0);
 
         // Pricing
 
         oracle.setPrice(address(assetTST), unitOfAccount, 1e18);
         oracle.setPrice(address(assetTST2), unitOfAccount, 1e18);
+        oracle.setPrice(address(assetTST3), unitOfAccount, 1e18);
         oracle.setPrice(address(eTST), unitOfAccount, 1e18);
         oracle.setPrice(address(eTST2), unitOfAccount, 1e18);
+        oracle.setPrice(address(eTST3), unitOfAccount, 1e18);
 
         oracle.setPrice(address(assetTST), address(assetTST2), 1e18);
         oracle.setPrice(address(assetTST2), address(assetTST), 1e18);
+        oracle.setPrice(address(assetTST), address(assetTST3), 1e18);
+        oracle.setPrice(address(assetTST3), address(assetTST), 1e18);
 
         // Funding
 
         mintAndDeposit(depositor, eTST, 100e18);
         mintAndDeposit(depositor, eTST2, 100e18);
+        mintAndDeposit(depositor, eTST3, 100e18);
 
         mintAndDeposit(holder, eTST, 10e18);
         mintAndDeposit(holder, eTST2, 10e18);
+        mintAndDeposit(holder, eTST3, 10e18);
     }
 
     function skimAll(EulerSwap ml, bool order) public {

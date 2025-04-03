@@ -20,7 +20,8 @@ contract FeesTest is EulerSwapTestBase {
         // No fees
 
         uint256 amountInNoFees = 1e18;
-        uint256 amountOutNoFees = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountInNoFees);
+        uint256 amountOutNoFees =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountInNoFees);
         assertApproxEqAbs(amountOutNoFees, 0.9983e18, 0.0001e18);
 
         // With fees: Increase input amount so that corresponding output amount matches
@@ -28,7 +29,8 @@ contract FeesTest is EulerSwapTestBase {
         eulerSwap = createEulerSwap(60e18, 60e18, fee, 1e18, 1e18, 0.9e18, 0.9e18);
 
         uint256 amountIn = amountInNoFees * 1e18 / (1e18 - fee);
-        uint256 amountOut = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
         assertApproxEqAbs(amountOut, amountOutNoFees, 1); // Same except for possible rounding down by 1
 
         // Actually execute swap
@@ -70,14 +72,16 @@ contract FeesTest is EulerSwapTestBase {
         // No fees
 
         uint256 amountOut = 1e18;
-        uint256 amountInNoFees = periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+        uint256 amountInNoFees =
+            periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
         assertApproxEqAbs(amountInNoFees, 1.0017e18, 0.0001e18);
 
         // With fees: Increase input amount so output amount stays same
 
         eulerSwap = createEulerSwap(60e18, 60e18, fee, 1e18, 1e18, 0.9e18, 0.9e18);
 
-        uint256 amountIn = periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+        uint256 amountIn =
+            periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
         assertApproxEqAbs(amountIn, amountInNoFees * 1e18 / (1e18 - fee), 1); // Same except for possible rounding up by 1
 
         // Actually execute swap

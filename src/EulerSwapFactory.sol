@@ -12,11 +12,12 @@ import {ProtocolFee} from "./base/ProtocolFee.sol";
 /// @author Euler Labs (https://www.eulerlabs.com/)
 contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     /// @dev An array to store all pools addresses.
-    address[] public allPools;
-    /// @dev Mapping between euler account and deployed pool that is currently set as operator
-    mapping(address eulerAccount => address operator) public eulerAccountToPool;
+    address[] private allPools;
     /// @dev Vaults must be deployed by this factory
     address public immutable evkFactory;
+    /// @dev Mapping between euler account and EulerAccountState
+    mapping(address eulerAccount => EulerAccountState state) private eulerAccountState;
+    mapping(address asset0 => mapping(address asset1 => address[])) private poolMap;
 
     event PoolDeployed(
         address indexed asset0,
@@ -33,12 +34,14 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         uint256 concentrationY,
         address pool
     );
+    event PoolUninstalled(address indexed asset0, address indexed asset1, address indexed eulerAccount, address pool);
 
     error InvalidQuery();
     error Unauthorized();
     error OldOperatorStillInstalled();
     error OperatorNotInstalled();
     error InvalidVaultImplementation();
+    error SliceOutOfBounds();
 
     constructor(address evc, address evkFactory_, address feeOwner_) EVCUtil(evc) ProtocolFee(feeOwner_) {
         evkFactory = evkFactory_;
@@ -57,11 +60,11 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
 
         params.protocolFeeRecipient = protocolFeeRecipient;
         params.protocolFee = protocolFee;
+        uninstall(params.eulerAccount);
+
         EulerSwap pool = new EulerSwap{salt: keccak256(abi.encode(params.eulerAccount, salt))}(params, curveParams);
 
-        checkEulerAccountOperators(params.eulerAccount, address(pool));
-
-        allPools.push(address(pool));
+        updateEulerAccountState(params.eulerAccount, address(pool));
 
         EulerSwap(pool).activate();
 
@@ -82,6 +85,11 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         );
 
         return address(pool);
+    }
+
+    /// @inheritdoc IEulerSwapFactory
+    function uninstallPool() external {
+        uninstall(_msgSender());
     }
 
     /// @inheritdoc IEulerSwapFactory
@@ -108,43 +116,127 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         );
     }
 
+    /// @inheritdoc IEulerSwapFactory
     function EVC() external view override(EVCUtil, IEulerSwapFactory) returns (address) {
         return address(evc);
     }
 
     /// @inheritdoc IEulerSwapFactory
-    function allPoolsLength() external view returns (uint256) {
+    function poolByEulerAccount(address eulerAccount) external view returns (address) {
+        return eulerAccountState[eulerAccount].pool;
+    }
+
+    /// @inheritdoc IEulerSwapFactory
+    function poolsLength() external view returns (uint256) {
         return allPools.length;
     }
 
     /// @inheritdoc IEulerSwapFactory
-    function getAllPoolsListSlice(uint256 _start, uint256 _end) external view returns (address[] memory) {
-        uint256 length = allPools.length;
-        if (_end == type(uint256).max) _end = length;
-        if (_end < _start || _end > length) revert InvalidQuery();
-
-        address[] memory allPoolsList = new address[](_end - _start);
-        for (uint256 i; i < _end - _start; ++i) {
-            allPoolsList[i] = allPools[_start + i];
-        }
-
-        return allPoolsList;
+    function poolsSlice(uint256 start, uint256 end) external view returns (address[] memory) {
+        return _getSlice(allPools, start, end);
     }
 
-    /// @notice Validates operator authorization for euler account. First checks if the account has an existing operator
-    /// and ensures it is deauthorized. Then verifies the new pool is authorized as an operator. Finally, updates the
-    /// mapping to track the new pool as the account's operator.
-    /// @param eulerAccount The address of the euler account.
-    /// @param newPool The address of the new pool.
-    function checkEulerAccountOperators(address eulerAccount, address newPool) internal {
-        address operator = eulerAccountToPool[eulerAccount];
+    /// @inheritdoc IEulerSwapFactory
+    function pools() external view returns (address[] memory) {
+        return _getSlice(allPools, 0, type(uint256).max);
+    }
 
-        if (operator != address(0)) {
-            require(!evc.isAccountOperatorAuthorized(eulerAccount, operator), OldOperatorStillInstalled());
+    /// @inheritdoc IEulerSwapFactory
+    function poolsByPairLength(address asset0, address asset1) external view returns (uint256) {
+        return poolMap[asset0][asset1].length;
+    }
+
+    /// @inheritdoc IEulerSwapFactory
+    function poolsByPairSlice(address asset0, address asset1, uint256 start, uint256 end)
+        external
+        view
+        returns (address[] memory)
+    {
+        return _getSlice(poolMap[asset0][asset1], start, end);
+    }
+
+    /// @inheritdoc IEulerSwapFactory
+    function poolsByPair(address asset0, address asset1) external view returns (address[] memory) {
+        return _getSlice(poolMap[asset0][asset1], 0, type(uint256).max);
+    }
+
+    /// @notice Validates operator authorization for euler account and update the relevant EulerAccountState.
+    /// @param eulerAccount The address of the euler account.
+    /// @param newOperator The address of the new pool.
+    function updateEulerAccountState(address eulerAccount, address newOperator) internal {
+        require(evc.isAccountOperatorAuthorized(eulerAccount, newOperator), OperatorNotInstalled());
+
+        (address asset0, address asset1) = _getAssets(newOperator);
+
+        address[] storage poolMapArray = poolMap[asset0][asset1];
+
+        eulerAccountState[eulerAccount] = EulerAccountState({
+            pool: newOperator,
+            allPoolsIndex: uint48(allPools.length),
+            poolMapIndex: uint48(poolMapArray.length)
+        });
+
+        allPools.push(newOperator);
+        poolMapArray.push(newOperator);
+    }
+
+    /// @notice Uninstalls the pool associated with the given Euler account
+    /// @dev This function removes the pool from the factory's tracking and emits a PoolUninstalled event
+    /// @dev The function checks if the operator is still installed and reverts if it is
+    /// @dev If no pool exists for the account, the function returns without any action
+    /// @param eulerAccount The address of the Euler account whose pool should be uninstalled
+    function uninstall(address eulerAccount) internal {
+        address pool = eulerAccountState[eulerAccount].pool;
+
+        if (pool == address(0)) return;
+
+        require(!evc.isAccountOperatorAuthorized(eulerAccount, pool), OldOperatorStillInstalled());
+
+        (address asset0, address asset1) = _getAssets(pool);
+
+        address[] storage poolMapArr = poolMap[asset0][asset1];
+
+        swapAndPop(allPools, eulerAccountState[eulerAccount].allPoolsIndex);
+        swapAndPop(poolMapArr, eulerAccountState[eulerAccount].poolMapIndex);
+
+        delete eulerAccountState[eulerAccount];
+
+        emit PoolUninstalled(asset0, asset1, eulerAccount, pool);
+    }
+
+    /// @notice Swaps the element at the given index with the last element and removes the last element
+    /// @param arr The storage array to modify
+    /// @param index The index of the element to remove
+    function swapAndPop(address[] storage arr, uint256 index) internal {
+        arr[index] = arr[arr.length - 1];
+        arr.pop();
+    }
+
+    /// @notice Retrieves the asset addresses for a given pool
+    /// @dev Calls the pool contract to get its asset0 and asset1 addresses
+    /// @param pool The address of the pool to query
+    /// @return The addresses of asset0 and asset1 in the pool
+    function _getAssets(address pool) internal view returns (address, address) {
+        return (EulerSwap(pool).asset0(), EulerSwap(pool).asset1());
+    }
+
+    /// @notice Returns a slice of an array of addresses
+    /// @dev Creates a new memory array containing elements from start to end index
+    ///      If end is type(uint256).max, it will return all elements from start to the end of the array
+    /// @param arr The storage array to slice
+    /// @param start The starting index of the slice (inclusive)
+    /// @param end The ending index of the slice (exclusive)
+    /// @return A new memory array containing the requested slice of addresses
+    function _getSlice(address[] storage arr, uint256 start, uint256 end) internal view returns (address[] memory) {
+        uint256 length = arr.length;
+        if (end == type(uint256).max) end = length;
+        if (end < start || end > length) revert SliceOutOfBounds();
+
+        address[] memory slice = new address[](end - start);
+        for (uint256 i; i < end - start; ++i) {
+            slice[i] = arr[start + i];
         }
 
-        require(evc.isAccountOperatorAuthorized(eulerAccount, newPool), OperatorNotInstalled());
-
-        eulerAccountToPool[eulerAccount] = newPool;
+        return slice;
     }
 }
