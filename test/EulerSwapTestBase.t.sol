@@ -6,6 +6,10 @@ import {EVaultTestBase, TestERC20, IRMTestDefault} from "evk-test/unit/evault/EV
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap, IEVC, EulerSwap} from "../src/EulerSwap.sol";
 import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
+import {EulerSwapHook} from "../src/EulerSwapHook.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
+import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 
 contract EulerSwapTestBase is EVaultTestBase {
     address public depositor = makeAddr("depositor");
@@ -114,6 +118,38 @@ contract EulerSwapTestBase is EVaultTestBase {
         evc.setAccountOperator(holder, address(eulerSwap), true);
 
         return eulerSwap;
+    }
+
+    function createEulerSwapHook(
+        IPoolManager _poolManager,
+        uint112 debtLimitA,
+        uint112 debtLimitB,
+        uint256 fee,
+        uint256 px,
+        uint256 py,
+        uint256 cx,
+        uint256 cy
+    ) internal returns (EulerSwapHook) {
+        IEulerSwap.Params memory poolParams = getEulerSwapParams(debtLimitA, debtLimitB, fee);
+        IEulerSwap.CurveParams memory curveParams =
+            IEulerSwap.CurveParams({priceX: px, priceY: py, concentrationX: cx, concentrationY: cy});
+
+        bytes memory constructorArgs = abi.encode(_poolManager, poolParams, curveParams);
+        (address hookAddress, bytes32 salt) = HookMiner.find(
+            creator,
+            uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG),
+            type(EulerSwapHook).creationCode,
+            constructorArgs
+        );
+
+        vm.prank(creator);
+        EulerSwapHook eulerSwapHook = new EulerSwapHook{salt: salt}(_poolManager, poolParams, curveParams);
+        assertEq(address(eulerSwapHook), hookAddress);
+
+        vm.prank(holder);
+        evc.setAccountOperator(holder, address(eulerSwapHook), true);
+
+        return eulerSwapHook;
     }
 
     function mintAndDeposit(address who, IEVault vault, uint256 amount) internal {

@@ -105,11 +105,11 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         );
         require(amount <= type(uint112).max, SwapLimitExceeded());
 
-        uint256 feeMultiplier = eulerSwap.feeMultiplier();
+        uint256 fee = eulerSwap.fee();
         (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
 
-        // exactIn: decrease received amountIn, rounding down
-        if (exactIn) amount = amount * feeMultiplier / 1e18;
+        // exactIn: decrease effective amountIn
+        if (exactIn) amount = amount - (amount * fee / 1e18);
 
         bool asset0IsInput = checkTokens(eulerSwap, tokenIn, tokenOut);
         (uint256 inLimit, uint256 outLimit) = calcLimits(eulerSwap, asset0IsInput);
@@ -124,8 +124,8 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
             require(amount <= outLimit && quote <= inLimit, SwapLimitExceeded());
         }
 
-        // exactOut: increase required quote(amountIn), rounding up
-        if (!exactIn) quote = (quote * 1e18 + (feeMultiplier - 1)) / feeMultiplier;
+        // exactOut: inflate required amountIn
+        if (!exactIn) quote = (quote * 1e18) / (1e18 - fee);
 
         return quote;
     }

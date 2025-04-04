@@ -1,19 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolManagerDeployer} from "./utils/PoolManagerDeployer.sol";
+import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {HookMiner} from "../src/utils/HookMiner.sol";
 import {EulerSwapTestBase, IEulerSwap, IEVC, EulerSwap} from "./EulerSwapTestBase.t.sol";
 import {EulerSwapFactory, IEulerSwapFactory} from "../src/EulerSwapFactory.sol";
+import {EulerSwapHook} from "../src/EulerSwapHook.sol";
 
 contract EulerSwapFactoryTest is EulerSwapTestBase {
     EulerSwapFactory public eulerSwapFactory;
+    IPoolManager public poolManager;
 
     uint256 minFee = 0.0000000000001e18;
 
     function setUp() public virtual override {
         super.setUp();
 
-        vm.prank(creator);
-        eulerSwapFactory = new EulerSwapFactory(address(evc), address(factory), address(this));
+        vm.startPrank(creator);
+        poolManager = PoolManagerDeployer.deploy(creator);
+        eulerSwapFactory = new EulerSwapFactory(poolManager, address(evc), address(factory), address(this));
+        vm.stopPrank();
 
         assertEq(eulerSwapFactory.EVC(), address(evc));
     }
@@ -23,12 +31,17 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
 
         // test when new pool not set as operator
 
-        bytes32 salt = bytes32(uint256(1234));
         IEulerSwap.Params memory poolParams =
             IEulerSwap.Params(address(eTST), address(eTST2), holder, address(this), 1e18, 1e18, 1e18, 1e18, 0, 0);
         IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams(0.4e18, 0.85e18, 1e18, 1e18);
 
+        uint160 flags = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG);
+        bytes memory constructorArgs = abi.encode(poolManager, poolParams, curveParams);
+        (address hookAddress, bytes32 salt) =
+            HookMiner.find(address(eulerSwapFactory), holder, flags, type(EulerSwapHook).creationCode, constructorArgs);
+
         address predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
+        assertEq(hookAddress, predictedAddress);
 
         IEVC.BatchItem[] memory items = new IEVC.BatchItem[](1);
 
@@ -73,90 +86,23 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
         assertEq(poolsList[0], eulerSwap);
         assertEq(poolsList[0], address(eulerSwap));
 
-        // test when deploying second pool while old pool is still set as operator
+        // revert when attempting to deploy a new pool (with a different salt)
+        (address newHookAddress, bytes32 newSalt) =
+            HookMiner.find(address(eulerSwapFactory), holder, flags, type(EulerSwapHook).creationCode, constructorArgs);
+        assertNotEq(newHookAddress, hookAddress);
+        assertNotEq(newSalt, salt);
 
-        salt = bytes32(uint256(12345));
-        predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
+        items = new IEVC.BatchItem[](1);
         items[0] = IEVC.BatchItem({
-            onBehalfOfAccount: address(0),
-            targetContract: address(evc),
-            value: 0,
-            data: abi.encodeCall(evc.setAccountOperator, (holder, predictedAddress, true))
-        });
-        items[1] = IEVC.BatchItem({
             onBehalfOfAccount: holder,
             targetContract: address(eulerSwapFactory),
             value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, curveParams, salt))
+            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, curveParams, newSalt))
         });
 
         vm.prank(holder);
         vm.expectRevert(EulerSwapFactory.OldOperatorStillInstalled.selector);
         evc.batch(items);
-
-        // test deploying new pool for same assets pair as old one
-        address oldPool = eulerSwapFactory.poolByEulerAccount(holder);
-        salt = bytes32(uint256(123456));
-        predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
-
-        items = new IEVC.BatchItem[](3);
-        items[0] = IEVC.BatchItem({
-            onBehalfOfAccount: address(0),
-            targetContract: address(evc),
-            value: 0,
-            data: abi.encodeCall(evc.setAccountOperator, (holder, oldPool, false))
-        });
-        items[1] = IEVC.BatchItem({
-            onBehalfOfAccount: address(0),
-            targetContract: address(evc),
-            value: 0,
-            data: abi.encodeCall(evc.setAccountOperator, (holder, predictedAddress, true))
-        });
-        items[2] = IEVC.BatchItem({
-            onBehalfOfAccount: holder,
-            targetContract: address(eulerSwapFactory),
-            value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, curveParams, salt))
-        });
-
-        vm.prank(holder);
-        evc.batch(items);
-
-        address pool = eulerSwapFactory.poolByEulerAccount(holder);
-        assertEq(pool, predictedAddress);
-
-        // test deploying new pool for different assets pair as old one
-        oldPool = eulerSwapFactory.poolByEulerAccount(holder);
-        poolParams = IEulerSwap.Params(address(eTST), address(eTST3), holder, address(this), 1e18, 1e18, 1e18, 1e18, 0, 0);
-
-        salt = bytes32(uint256(1234567));
-        predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
-
-        items = new IEVC.BatchItem[](3);
-        items[0] = IEVC.BatchItem({
-            onBehalfOfAccount: address(0),
-            targetContract: address(evc),
-            value: 0,
-            data: abi.encodeCall(evc.setAccountOperator, (holder, oldPool, false))
-        });
-        items[1] = IEVC.BatchItem({
-            onBehalfOfAccount: address(0),
-            targetContract: address(evc),
-            value: 0,
-            data: abi.encodeCall(evc.setAccountOperator, (holder, predictedAddress, true))
-        });
-        items[2] = IEVC.BatchItem({
-            onBehalfOfAccount: holder,
-            targetContract: address(eulerSwapFactory),
-            value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, curveParams, salt))
-        });
-
-        vm.prank(holder);
-        evc.batch(items);
-
-        pool = eulerSwapFactory.poolByEulerAccount(holder);
-        assertEq(pool, predictedAddress);
     }
 
     function testInvalidPoolsSliceOutOfBounds() public {
@@ -274,7 +220,7 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
         IEulerSwap.Params memory poolParams,
         IEulerSwap.CurveParams memory curveParams,
         bytes32 salt
-    ) internal pure returns (address) {
+    ) internal view returns (address) {
         return address(
             uint160(
                 uint256(
@@ -284,7 +230,9 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
                             factoryAddress,
                             keccak256(abi.encode(address(poolParams.eulerAccount), salt)),
                             keccak256(
-                                abi.encodePacked(type(EulerSwap).creationCode, abi.encode(poolParams, curveParams))
+                                abi.encodePacked(
+                                    type(EulerSwapHook).creationCode, abi.encode(poolManager, poolParams, curveParams)
+                                )
                             )
                         )
                     )

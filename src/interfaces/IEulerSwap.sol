@@ -52,7 +52,9 @@ interface IEulerSwap {
     function eulerAccount() external view returns (address);
     function equilibriumReserve0() external view returns (uint112);
     function equilibriumReserve1() external view returns (uint112);
-    function feeMultiplier() external view returns (uint256);
+    function fee() external view returns (uint256);
+    function protocolFee() external view returns (uint256);
+    function protocolFeeRecipient() external view returns (address);
     /// @notice Returns the current reserves of the pool
     /// @return reserve0 The amount of asset0 in the pool
     /// @return reserve1 The amount of asset1 in the pool

@@ -16,8 +16,6 @@ contract EulerSwap is IEulerSwap, EVCUtil {
 
     bytes32 public constant curve = bytes32("EulerSwap v1");
 
-    address public immutable protocolFeeRecipient;
-
     address public immutable vault0;
     address public immutable vault1;
     address public immutable asset0;
@@ -25,9 +23,9 @@ contract EulerSwap is IEulerSwap, EVCUtil {
     address public immutable eulerAccount;
     uint112 public immutable equilibriumReserve0;
     uint112 public immutable equilibriumReserve1;
-    uint256 public immutable feeMultiplier;
-    uint256 private immutable feeMultiplierProtocol;
-    uint256 private immutable feeMultiplierLP;
+    uint256 public immutable fee;
+    uint256 public immutable protocolFee;
+    address public immutable protocolFeeRecipient;
 
     uint256 public immutable priceX;
     uint256 public immutable priceY;
@@ -88,9 +86,9 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         equilibriumReserve1 = params.equilibriumReserve1;
         reserve0 = params.currReserve0;
         reserve1 = params.currReserve1;
-        feeMultiplier = 1e18 - params.fee;
-        feeMultiplierProtocol = 1e18 - (params.fee * params.protocolFee / 1e18);
-        feeMultiplierLP = feeMultiplier * 1e18 / feeMultiplierProtocol;
+        fee = params.fee;
+        protocolFee = params.protocolFee;
+        protocolFeeRecipient = params.protocolFeeRecipient;
 
         // Curve params
 
@@ -226,10 +224,16 @@ contract EulerSwap is IEulerSwap, EVCUtil {
         uint256 amount = IERC20(asset).balanceOf(address(this));
         if (amount == 0) return 0;
 
+        uint256 feeAmount = amount * fee / 1e18;
+
         {
-            uint256 feeAmount = amount - (amount * feeMultiplierProtocol / 1e18);
-            IERC20(asset).transfer(protocolFeeRecipient, feeAmount);
-            amount -= feeAmount;
+            uint256 protocolFeeAmount = feeAmount * protocolFee / 1e18;
+
+            if (protocolFeeAmount != 0) {
+                IERC20(asset).transfer(protocolFeeRecipient, protocolFeeAmount);
+                amount -= protocolFeeAmount;
+                feeAmount -= protocolFeeAmount;
+            }
         }
 
         uint256 deposited;
@@ -257,7 +261,7 @@ contract EulerSwap is IEulerSwap, EVCUtil {
             deposited += amount;
         }
 
-        return (deposited * feeMultiplierLP + (1e18 - 1)) / 1e18;
+        return deposited > feeAmount ? deposited - feeAmount : 0;
     }
 
     /// @notice Approves tokens for a given vault, supporting both standard approvals and permit2
