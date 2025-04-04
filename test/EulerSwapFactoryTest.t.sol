@@ -162,13 +162,18 @@ contract EulerSwapFactoryTest is EulerSwapTestBase {
 
     function testPoolsByPair() public {
         // First deploy a pool
-        bytes32 salt = bytes32(uint256(1234));
         IEulerSwap.Params memory poolParams =
             IEulerSwap.Params(address(eTST), address(eTST2), holder, address(this), 1e18, 1e18, 1e18, 1e18, 0, 0);
         IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams(0.4e18, 0.85e18, 1e18, 1e18);
 
-        address predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
+        uint160 flags = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG);
+        bytes memory constructorArgs = abi.encode(poolManager, poolParams, curveParams);
+        (address hookAddress, bytes32 salt) =
+            HookMiner.find(address(eulerSwapFactory), holder, flags, type(EulerSwapHook).creationCode, constructorArgs);       
 
+        address predictedAddress = predictPoolAddress(address(eulerSwapFactory), poolParams, curveParams, salt);
+        assertEq(hookAddress, predictedAddress);
+        
         IEVC.BatchItem[] memory items = new IEVC.BatchItem[](2);
         items[0] = IEVC.BatchItem({
             onBehalfOfAccount: address(0),
