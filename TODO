@@ -1,9 +1,3 @@
-* docs
-  ! new flow for activate
-  ! document that periphery depends on non-malicious eulerSwap instances
-  ! limitations of getLimits
-* update deploy scripts
-* small cleanups in CurveLib
 ? tighten up getLimits bounds
 
 TESTING

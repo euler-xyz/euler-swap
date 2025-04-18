@@ -8,109 +8,107 @@ Each EulerSwap instance is a lightweight smart contract that functions as an [EV
 
 When a user initiates a swap, the EulerSwap operator borrows the required output token using the input token as collateral. The operator’s internal AMM curve governs the exchange rate, ensuring deep liquidity over short timeframes while maintaining a balance between collateral and debt over the long term.
 
+Swapping can be performed by invoking the EulerSwap instance, either through a Uniswap2-compatible `swap()` function or as a [Uniswap4 hook](https://docs.uniswap.org/contracts/v4/concepts/hooks).
+
 ## Code structure
 
-EulerSwap’s code is split into two main smart contracts:
+EulerSwap is split into the following main contracts:
 
-### EulerSwap core (`EulerSwap.sol`)
+* `EulerSwap`: Contract that is installed as an EVC operator by liquidity providers, and is also invoked by swappers in order to execute a swap.
+  * `UniswapHook`: The functions required so that the EulerSwap instance can function as a Uniswap4 hook.
+* `EulerSwapFactory`: Factory contract for creating `EulerSwap` instances and for querying existing instances.
+* `EulerSwapPeriphery`: This is a wrapper contract for quoting and performing swaps, while handling approvals, slippage, etc.
 
-- Handles collateralization via EVC and Euler credit vaults.
-- Implements AMM curve invariant checks through the `verify()` function.
+The above contracts depend on libraries:
 
-### EulerSwap periphery (`EulerSwapPeriphery.sol`)
+* `CtxLib`: Allows access to the `EulerSwap` context: Structured storage and the instance parameters
+* `FundsLib`: Moving tokens: approvals and transfers in/out
+* `CurveLib`: Mathematical routines for calculating the EulerSwap curve
+* `QuoteLib`: Computing quotes. This involves invoking the logic from `CurveLib`, as well as taking into account other limitations such as vault utilisation, supply caps, etc.
 
-- Provides simplified functions for retrieving swap quotes from the AMM curve.
-- Acts as a convenience layer for external integrations.
+And some utilities:
+
+* `MetaProxyDeployer`: Deploys EIP-3448-style proxies.
+* `ProtocolFee`: The factory stores protocol fee parameters that will affect subsequently created `EulerSwap` instances. These can be changed by an owner.
 
 ## Operational flow
 
 The following steps outline how an EulerSwap operator is created and configured:
 
 1. Deposit initial liquidity into one or both of the underlying credit vaults to enable swaps.
-2. Deploy an instance of EulerSwap, specifying AMM curve parameters and the `fee`.
-3. Set the [virtual reserves](#virtual-reserves) by invoking `setVirtualReserves()`.
-4. Install the EulerSwap contract as an operator for the user's account.
-5. Invoke the `configure()` function on the EulerSwap contract.
+1. Choose the desired pool parameters (`IEulerSwap.Params` struct). The `protocolFee` and `protocolFeeRecipient` must be read from the factory.
+1. [Mine](https://docs.uniswap.org/contracts/v4/guides/hooks/hook-deployment#hook-miner) a salt such that the predicted address of the `EulerSwap` instance will be deployed with the correct flags.
+1. Install the above address as an EVC operator, ensuring that any previous `EulerSwap` operators are uninstalled.
+1. Invoke `deployPool()` on the EulerSwap factory.
 
-Once configured, the EulerSwap contract can process swaps. When a user invokes `swap()`, the contract facilitates borrowing and transfers between the underlying vaults as dictated by the AMM curve.
+## Metaproxies
 
-### Virtual reserves
+Each `EulerSwap` instance is a lightweight proxy, roughly modelled after [EIP-3448](https://eips.ethereum.org/EIPS/eip-3448). The only difference is that EIP-3448 appends the length of the metadata, whereas we don't, since it is a fixed size.
 
-The initial deposits in the vaults provide starting liquidity and facilitate swaps. In traditional AMMs like Uniswap, these balances are known as _reserves_.
-However, relying solely on these assets would impose a hard limit on swap size. To overcome this, EulerSwap introduces _virtual reserves_, allowing the AMM to extend its effective liquidity by borrowing against its real reserves.
+When an `EulerSwap` instance is created, the `IEulerSwap.Params` struct is ABI encoded and provided as the proxy metadata. This is provided to the implementation contract as trailing calldata via `delegatecall`. This allows the parameters to be accessed cheaply when servicing a swap, compared to if they had to be read from storage.
 
-Virtual reserves control the maximum debt that the EulerSwap contract will attempt to acquire on each of its two vaults. Each vault can be configured independently. For example, if the initial investment has a NAV of \$1000, and virtual reserves are configured at \$5000 for each vault, then the maximum LTV loan that the AMM will support will be `5000/6000 = 0.8333`. In order to leave a safety buffer, it is recommended to select a maximum LTV that is below the borrowing LTV of the vault. Note that it depends on the [curve](#curves) if the maximum LTV can actually be achieved. A constant product curve will only approach these reserve levels asymptotically, since each unit will get more and more expensive. However, with a constant sum curve, the maximum LTV can be achieved directly.
+## Curve Parameters
 
-### Reserve synchronisation
+Traditional AMMs hold dedicated reserves of each of the supported tokens, which inherently limit the sizes of swaps that can be serviced. For example, if an AMM has 100 units of a token available, there is no possible price that can convince it to send more than 100 units.
 
-The EulerSwap contract tracks what it believes the reserves to be by caching their values in storage. These reserves are updated on each swap. However, since the balance is not actually held by the EulerSwap contract (it is simply an operator), the actual underlying balances may get out of sync. This can happen gradually as interest is accrued, or suddenly if the holder moves funds or the position is liquidated. When this occurs, the EulerSwap operator should be uninstalled and a new, updated one installed instead.
+Since EulerSwap does not have dedicated reserves, its swapping limits must be defined in another way. This is accomplished by having the EulerSwap operator define an abstract curve. The domain of this curve defines the swap limits, which can be considered the virtual reserves.
 
-## Components
+The abstract curve is centred on an *equilibrium point*. This is parameterised by two equilibrium reserves values. These specify the magnitude of the virtual reserves, and function as hard limits on the supported swap sizes. They are often equal, but do not necessarily have to be (for instance, if the two vaults have asymmetric LTVs).
 
-### **1. Core contracts**
+At the equilibrium point, the marginal swap price is defined by the ratio of two parameters `priceX` and `priceY`. Generally operators will choose the price ratio at equilibrium to be the asset's pegged price, or the wider market price. The prices should also compensate for a difference in token decimals, if any.
 
-#### **EulerSwap contract**
+The curve is also parameterised by two **concentration factors** between `0` and `1`. These control the shape of each side of the curve (to the left of the equilibrium point, and to the right). The curve shape is essentially a blend of constant product and constant sum. The closer to `0` the more the curve resembles constant product, and the closer to `1`, constant sum.
 
-The `EulerSwap` contract is the core of EulerSwap and is responsible for:
+In most cases (except with concentration factor of `1`), virtual reserves can never be fully depleted. The limits can only be approached asymptotically.
 
-- Managing liquidity reserves.
-- Executing token swaps based on the EulerSwap curve.
-- Enforcing collateralization through EVC.
-- Maintaining vault and asset associations.
+Generally it is expected that arbitrage will favour returning the reserves to the equilbrium point. The price and the convex constant-product-like curve shape encourages this. If the price at equilibrium is accurate then the equilbrium point always represents the point of minimum NAV for the operator, and this point is arbitrage-free.
 
-##### **Key features**
+## Initial State
 
-- Implements a unique **swapping curve** that ensures efficient liquidity provision.
-- Handles **collateralized borrowing** via vaults.
-- Enforces a **fee multiplier** to apply swap fees.
-- Implements a **non-reentrant mechanism** to prevent recursive calls.
+The curve as parameterised above is an abstract geometric shape. In order to actually make use of it, you must install it on an account that already has some existing conditions. For example, it may already have a borrow, or it may have unequal deposits in the two vaults.
 
-##### **Key functions**
+To be as flexible as possible, EulerSwap allows you to specify the **current reserves** when you are instantiating a pool.
 
-- `activate()`: Initializes vault approvals and enables collateral.
-- `swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data)`: Performs asset swaps and enforces curve constraints.
-- `verify(uint256 newReserve0, uint256 newReserve1)`: Ensures reserves conform to the defined curve.
-- `f(uint256 xt, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)`: Defines the EulerSwap curve formula for swaps.
+If the current state of the account is where you wish the equilbrium point to be, then you should make the current reserves the same as the equilibrium reserves. Otherwise, the current reserves can be offset (take from one side and give to the other) to specify a new equilibrium point that swapping activity should take you to.
 
-### **2. Periphery contracts**
+Note that there may be a race condition when removing one swap operator and installing another. In between when you've calculated the current reserves and when you've actually created and installed the new operator, a swap may occur that modifies the account state. To avoid this, a wrapper contract should be used that calculates the current reserves. Or, more simply, just verifies that the account state was as observed by the operator and otherwise reverts.
 
-#### **EulerSwapPeriphery contract**
 
-The `EulerSwapPeriphery` contract extends the functionality of the core EulerSwap contract by providing:
+## Fees
 
-- **Swap price quotations** before execution.
-- **Liquidity checks** to ensure solvency before transactions.
-- **Binary search mechanisms** for dynamic price calculation.
+Swapping fees are charged by requiring the swapper to pay slightly more of the input token than is proscribed by the curve parameters. This extra amount is simply directly deposited into the vaults on behalf of the EulerSwap account. This means that it has the effect of increasing the account's NAV, but does not change the shape of the curve itself. The curve is always static, per EulerSwap instance.
 
-##### **Key functions**
 
-- `quoteExactInput(address eulerSwap, address tokenIn, address tokenOut, uint256 amountIn)`: Estimates the output amount for a given input.
-- `quoteExactOutput(address eulerSwap, address tokenIn, address tokenOut, uint256 amountOut)`: Estimates the required input amount to receive a specified output.
-- `computeQuote(IEulerSwap eulerSwap, address tokenIn, address tokenOut, uint256 amount, bool exactIn)`: A high-level function to compute swaps while enforcing fee multipliers.
-- `binarySearch(IEulerSwap eulerSwap, uint112 reserve0, uint112 reserve1, uint256 amount, bool exactIn, bool asset0IsInput)`: Uses binary search to determine an optimal swap amount along the curve.
+## Reserve desynchronisation
 
-### **3. Vault integration**
+The EulerSwap contract tracks the current reserves in storage. After a swap, the amount of received tokens is added to the current reserves, and the amount of sent tokens subtracted. Since the reserves are not allowed to go negative, this implies a hard limit on the swap sizes.
 
-EulerSwap integrates with **Ethereum Vault Connector (EVC)** to enable collateralized trading. Each liquidity vault manages asset balances, borrowing, and repayment, ensuring:
+While these reserves track the state of the world as influenced by swaps, they can get out-of-sync with the actual account for various reasons:
 
-- **Controlled debt exposure**
-- **Dynamic liquidity reserves**
-- **Secure vault interactions**
+* Interest can be accrued, either increasing or decreasing the account's NAV.
+* Swap fees are not tracked, and instead increase the account's NAV.
+* The account could be liquidated.
+* The account owner could manually add or remove funds, repay loans, etc.
 
-### **4. Security mechanisms**
+In order to correct these desynchronisations, the EulerSwap operator should be uninstalled and a new, updated one installed instead.
 
-- **Non-reentrant protection**: Ensures swaps do not trigger recursive calls.
-- **Collateral verification**: Uses EVC to verify and adjust collateral balances.
-- **Curve constraints enforcement**: Prevents swap execution that violates the defined curve invariant.
-- **Precision safeguards**: Fixed-point arithmetic (`1e18` scaling) ensures precision in calculations.
 
-## Summary
+## getLimits
 
-EulerSwap’s architecture is designed for **efficient, secure, and collateral-backed trading** with a custom **swapping curve**. The system leverages:
+Although the virtual reserves specify a hard limit for swaps, there may be other implicit limits that are even lower:
 
-- **EulerSwap** as the core AMM contract.
-- **EulerSwapPeriphery** for auxiliary quoting and validations.
-- **Ethereum Vault Connector (EVC)** for collateralized vault management.
-- **Security-focused design** to prevent vulnerabilities in asset handling.
+* The vaults have high utilisation and cannot service large borrows or withdrawals
+* The vaults have supply and/or borrow caps
+* The operator may have been uninstalled
 
-This modular and scalable architecture ensures that EulerSwap provides robust DeFi trading functionality while maintaining security and efficiency.
+There is a function `getLimits` that can take these into account. This function itself is an upper-bound and the values it returns may not be swappable either, in particular if the curve shape does not allow it. However, it makes a best effort and this function can be used to rapidly exclude pools that are currently unable to service a given size swap.
+
+
+## Swapper Security
+
+When swapping with an EulerSwap instance, users should always make sure that they received the desired amount of output tokens in one of two ways:
+
+* Actually checking your output token balances before and after and making sure they increased by an amount to satisfy slippage.
+* Ensure that the EulerSwap code is a trusted instance that will send the specified output amount or revert if not possible. This can be done by making sure an instance was created by a trusted factory.
+
+In particular, note that the periphery does not perform either of these checks, so if you use the periphery for swapping, you should ensure that you only interact with EulerSwap instances created by a known-good factory.
