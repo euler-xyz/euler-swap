@@ -86,7 +86,7 @@ library CurveLib {
             // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
             x = Math.mulDiv(absB + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 1;
         } else {
-            // use the "citardauq" quadratic formula solution 2c / (-b + sqrt(b^2 - 4ac))
+            // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
             x = (2 * C + (absB + sqrt - 1)) / (absB + sqrt) + 1;
         }
 
