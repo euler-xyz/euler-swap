@@ -12,44 +12,44 @@ The `f()` function is part of the EulerSwap core, defined in `EulerSwap.sol`, an
 
 This derivation shows how to implement the `f()` function in Solidity, starting from the theoretical model described in the EulerSwap white paper. The initial equation from the EulerSwap white paper is:
 
-\[
-y_0 + \left(\frac{p_x}{p_y}\right) (x_0 - x) \left(c + (1 - c) \frac{x_0}{x}\right)
-\]
+```
+y0 + (px / py) * (x0 - x) * (c + (1 - c) * (x0 / x))
+```
 
-Multiply the second term by \(\frac{x}{x}\) and scale `c` by \(1e18\):
+Multiply the second term by `x / x` and scale `c` by `1e18`:
 
-\[
-y_0 + \left(\frac{p_x}{p_y}\right) (x_0 - x) \frac{(c \cdot x) + (1e18 - c) \cdot x_0}{x \cdot 1e18}
-\]
+```
+y0 + (px / py) * (x0 - x) * ((c * x + (1e18 - c) * x0) / (x * 1e18))
+```
 
-Reorder division by \(p_y\) to prepare for Solidity implementation:
+Reorder division by `py` to prepare for Solidity implementation:
 
-\[
-y_0 + p_x \cdot (x_0 - x) \cdot \frac{(c \cdot x) + (1e18 - c) \cdot x_0}{x \cdot 1e18} \cdot \frac{1}{p_y}
-\]
+```
+y0 + px * (x0 - x) * ((c * x + (1e18 - c) * x0) / (x * 1e18)) * (1 / py)
+```
 
 To avoid intermediate overflow, use `Math.mulDiv` in Solidity, which combines multiplication and division safely:
 
-\[
-y_0 + \frac{\text{Math.mulDiv}(p_x \cdot (x_0 - x), c \cdot x + (1e18 - c) \cdot x_0, x \cdot 1e18)}{p_y}
-\]
+```
+y0 + Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18) / py
+```
 
 Applying ceiling rounding with `Math.Rounding.Ceil` ensures accuracy:
 
-\[
-y_0 + \left(\text{Math.mulDiv}(p_x \cdot (x_0 - x), c \cdot x + (1e18 - c) \cdot x_0, x \cdot 1e18, \text{Math.Rounding.Ceil}) + (p_y - 1)\right) / p_y
-\]
+```
+y0 + (Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil) + (py - 1)) / py
+```
 
-Adding `(p_y - 1)` ensures proper ceiling rounding by making sure the result is rounded up when the numerator is not perfectly divisible by `p_y`.
+Adding `(py - 1)` ensures proper ceiling rounding by making sure the result is rounded up when the numerator is not perfectly divisible by `py`.
 
 ### Boundary analysis
 
 #### Pre-conditions
 
-- \(x \leq x_0\)
-- \(1e18 \leq p_x, p_y \leq 1e36\) (60 to 120 bits)
-- \(1 \leq x_0, y_0 \leq 2^{112} - 1 \approx 5.19e33\) (0 to 112 bits)
-- \(1 < c \leq 1e18\) (0 to 60 bits)
+- `x <= x0`
+- `1e18 <= px, py <= 1e36` (60 to 120 bits)
+- `1 <= x0, y0 <= 2^112 - 1 ≈ 5.19e33` (0 to 112 bits)
+- `1 < c <= 1e18` (0 to 60 bits)
 
 #### Step-by-step
 
