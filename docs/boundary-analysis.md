@@ -55,9 +55,9 @@ Adding `(p_y - 1)` ensures proper ceiling rounding by making sure the result is 
 
 The arguments to `mulDiv` are safe from overflow:
 
-- **Arg 1:** `px * (x0 - x)` ≤ `1e36 * (2**112 - 1)` ≈ 232 bits
-- **Arg 2:** `c * x + (1e18 - c) * x0` ≤ `1e18 * (2**112 - 1) * 2` ≈ 173 bits
-- **Arg 3:** `x * 1e18` ≤ `1e18 * (2**112 - 1)` ≈ 172 bits
+- **Arg 1:** `px * (x0 - x) <= 1e36 * (2**112 - 1)` ≈ 232 bits
+- **Arg 2:** `c * x + (1e18 - c) * x0 <= 1e18 * (2**112 - 1) * 2` ≈ 173 bits
+- **Arg 3:** `x * 1e18 <= 1e18 * (2**112 - 1)` ≈ 172 bits
 
 If `mulDiv` or the addition with `y0` overflows, the result would exceed `type(uint112).max`. When `mulDiv` overflows, its result would be > `2**256 - 1`. Dividing by `py` (`1e36` max) gives ~`2**136`, which exceeds the `2**112 - 1` limit, meaning these results are invalid as they cannot be satisfied by any swapper.
 
@@ -75,64 +75,201 @@ unchecked {
 
 This does not introduce additional failure cases. Even values between `2**248 - 1` and `2**256 - 1` would not reduce to `2**112 - 1`, aligning with the boundary analysis.
 
-## Implementation of function `fInverse()`
+### Implementation of function `fInverse()`
 
-The `fInverse()` function, defined in `EulerSwapPeriphery.sol`, is part of the periphery because it is not required as an invariant. Instead, its sole purpose is to facilitate specific swap input and output calculations that cannot be managed by `f()`. This function maps to equation (22) in the Appendix of the EulerSwap white paper.
+The `fInverse()` function defined in `CurveLib.sol` represents the positive real root of the solution to a quadratic equation. It is used to find `x` given `y` when quoting for swap input/output amounts in the domain `0 <= x <= x0`. More information about the derivation of the function can be found in the Appendix of the EulerSwap white paper. This documentation covers the implementation in Solidity.
+
+The main components of the particular quadratic equation we wish to solve are:
+
+`A = cx`
+`B = py / px (y - y0) - (2cx - 1) x0`
+`C = -(1 - cx) x0^2`
+
+The solution we seek is the positive real root, which is given by:
+
+`x = (-B + sqrt(B^2 - 4AC)) / 2A`
+
+This can be rearranged into a lesser-known form sometimes called the "[citardauq](https://en.wikipedia.org/wiki/Quadratic_formula#Square_root_in_the_denominator)" form as:
+
+`x = 2C / (-B - sqrt(B^2 - 4AC))`
+
+We make use of the more common form when `B <= 0` and the "citardauq" form when `B > 0`, which helps provide greater numerical stability. Since `C` is always negative in our case, note that we can further simplify the equations above by redefining it as a strictly positive quantity `C = (1 - cx) x0^2`, which allows many of the minus signs to cancel. Combined, these simplifications mean we can use:
+
+`x = (B + sqrt(B^2 + 4AC)) / 2A`
+
+when `B < 0`, and
+
+`x = 2C / (B + sqrt(B^2 + 4AC))`
+
+when `B >= 0`.
+
+The components we consider in the boundary analysis below are therefore:
+
+`B = py / px (y - y0) - (2cx - 1) x0`
+`C = (1 - cx) x0^2`
+`fourAC = cx (1 - cx) x0^2`
 
 ### Boundary analysis
 
 #### Pre-conditions
 
-- \(y > y_0\)
-- \(1e18 \leq p_x, p_y \leq 1e36\) (60 to 120 bits)
-- \(1 \leq x_0, y_0 \leq 2^{112} - 1 \approx 5.19e33\) (0 to 112 bits)
-- \(1 < c \leq 1e18\) (0 to 60 bits)
+- `y > y0`
+- `1e18 <= px, py <= 1e36`
+- `1 <= x0, y0 <= 2^112 - 1`
+- `1 < c <= 1e18`
 
 #### Step-by-step
 
-1. **A component (`A = 2 * c`)**
+Components `B`, `C`, and `fourAC` are calculated in an unchecked block, so we must ensure that none of their intermediate values cause overflow or underflow.
 
-   - Since `c <= 1e18`, `A = 2 * c <= 2e18`, well within `uint256` capacity (max `2**256 - 1`).
+##### B component
 
-2. **B component calculation**
+```solidity
+int256 term1 = int256(Math.mulDiv(py * 1e18, y - y0, px, Math.Rounding.Ceil)); // scale: 1e36
+int256 term2 = (2 * int256(c) - int256(1e18)) * int256(x0); // scale: 1e36
+B = (term1 - term2) / int256(1e18); // scale: 1e18
+```
 
-   - `B = int256((px * (y - y0) + py - 1) / py) - int256((x0 * (2 * c - 1e18) + 1e18 - 1) / 1e18)`
-   - The first term is bounded by `(px * (y - y0)) / py`, where `px, py <= 1e36` and `(y - y0) <= 2**112 - 1`.
-   - The second term scales `x0` with `(2 * c - 1e18)`, keeping the result well within the `int256` bounds due to controlled arithmetic and the limits on `c` and `x0`.
+Since `y > y0`, `term1` is always a positive integer. Arguments to `mulDiv`:
 
-3. **Absolute value and B² computation**
+- **Arg 1:** `py * 1e18 <= 1e54`
+- **Arg 2:** `y - y0 <= 2^112 - 1`
+- **Arg 3:** `1e18 <= px <= 1e36`
 
-   - `absB = B < 0 ? uint256(-B) : uint256(B)`
-   - `squaredB = Math.mulDiv(absB, absB, 1e18, Math.Rounding.Ceil)`
-   - As `absB` is derived from `B`, and `B` is bounded, `squaredB` remains within a safe range.
+Gives rise to:
 
-4. **4AC Component (`AC4 = AC4a * AC4b / 1e18`)**
+- `term1_min = (1e18 * 1e18 * 1) / 1e36 = 1`
+- `term1_max = (1e36 * 1e18 * (2^112 - 1)) / 1e18 ≈ 5.19e69`
 
-   - `AC4a = Math.mulDiv(4 * c, (1e18 - c), 1e18, Math.Rounding.Ceil)`
-   - `4 * c * (1e18 - c)` has a maximum of `1e18 * 1e18 = 1e36`, divided by `1e18`, the result ≤ `1e18`.
-   - `AC4b = Math.mulDiv(x0, x0, 1e18, Math.Rounding.Ceil)`
-   - The maximum value of `x0 * x0` is `(2**112 - 1)² ≈ 2**224`, safely within the `uint256` range.
+The second term `term2` can be negative or positive:
 
-5. **Discriminant calculation**
+- `term2_min = (-1e18 + 2) * (2^112 - 1) ≈ -5.19e51`
+- `term2_max = 1e18 * (2^112 - 1) ≈ 5.19e51`
 
-   - `discriminant = (squaredB + AC4) * 1e18`
-   - Since both `squaredB` and `AC4` are bounded by `uint256`, multiplying by `1e18` does not cause overflow.
+Substituting into the expression for `B`, we get:
 
-6. **Square root computation and adjustment**
+- `B_min = (1 - 1e18 * (2^112 - 1)) / 1e18 ≈ -5.19e33`
+- `B_max = ((1e36 * (2^112 - 1)) - (-1e18 * (2^112 - 1))) / 1e18 ≈ 5.19e51`
 
-   - `uint256 sqrt = Math.sqrt(discriminant)`
-   - The square root of a `uint256` value is always within `uint128`, making this operation safe.
-   - Adjustment step `sqrt = (sqrt * sqrt < discriminant) ? sqrt + 1 : sqrt` maintains precision without overflow.
+So, `B ∈ [-5.19e33, 5.19e51]`, within `int256` bounds.
 
-7. **Final computation of `x`**
-   - `Math.mulDiv(uint256(int256(sqrt) - B), 1e18, A, Math.Rounding.Ceil)`
-   - The subtraction and multiplication are controlled by previous bounds, ensuring no overflow.
-   - Division by `A` is safe as `A` is non-zero and small (`≤ 2e18`).
+##### C component
 
-#### Unchecked math considerations
+```solidity
+uint256 C = Math.mulDiv((1e18 - c), x0 * x0, 1e18, Math.Rounding.Ceil); // scale: 1e36
+```
 
-As above, the use of unchecked arithmetic is safe because all inputs are bounded by pre-conditions.
+Arguments to `mulDiv`:
 
-## Conclusion
+- **Arg 1:** `1e18 - c < 1e18`
+- **Arg 2:** `x0 * x0 <= (2^112 - 1)^2`
+- **Arg 3:** `1e18`
 
-The `f()` and `fInverse()` functions of EulerSwap are implemented with rigorous safety measures, using `Math.mulDiv` for safe arithmetic and applying ceiling rounding to maintain precision. Boundary analysis shows that all potential overflow scenarios are precluded by pre-condition checks and bounded operations, justifying the use of unchecked math in the Solidity implementation.
+With `1 < c <= 1e18`, we know that `1e18 - c` is a strictly positive integer less than `1e18`. The squared term `x0 * x0` reaches its maximum when `x0 = 2^112 - 1`. Thus:
+
+- `C_min = 1`
+- `C_max = (1e18 - 1) * (2^112 - 1)^2 / 1e18 ≈ 2.69e49`
+
+So, `C ∈ [1, 2.69e49]`, within `uint256` bounds.
+
+##### fourAC component
+
+```solidity
+uint256 fourAC = Math.mulDiv(4 * c, C, 1e18, Math.Rounding.Ceil); // scale: 1e36
+```
+
+Arguments to `mulDiv`:
+
+- **Arg 1:** `4 * c <= 4e18`
+- **Arg 2:** `C ∈ [1, 2.69e49]`
+- **Arg 3:** `1e18`
+
+Given that `C` is already bounded and `c <= 1e18`, we have:
+
+- `fourAC_min = (4 * 1 * 1) / 1e18 = 1` (rounded up)
+- `fourAC_max = (4e18 * 2.69e49) / 1e18 = 1.076e50`
+
+Thus, `fourAC ∈ [1, 1.08e50]`, within `uint256` bounds.
+
+##### Proceeding absB, squaredB, discriminant, and sqrt components
+
+`absB` is computed as the absolute value of `B`, so:
+
+- `absB ∈ [0, 5.19e51]`
+
+`squaredB` is computed as:
+
+- If `absB < 1e36`, then `squaredB = absB * absB`, which gives at most `~1e72`.
+- If `absB >= 1e36`, then scaled multiplication is used safely to avoid overflow:
+
+```solidity
+uint256 scale = computeScale(absB);
+squaredB = Math.mulDiv(absB / scale, absB, scale, Math.Rounding.Ceil);
+```
+
+In this case, `scale` is the smallest power-of-two scale factor such that the multiplication `absB / scale * absB` does not overflow `uint256`. The resulting value is slightly larger than the true square due to rounding, but remains bounded within `~1e72`.
+
+`discriminant` is then computed differently depending on which path was taken:
+
+- If `absB < 1e36`: `discriminant = squaredB + fourAC`
+- If `absB >= 1e36`: `discriminant = squaredB + fourAC / (scale * scale)`
+
+The maximum values in both paths are dominated by the `squaredB` term, which is at most `~1e72`, and the additive `fourAC` or `fourAC / (scale^2)` term remains below `1.08e50`. So in either case:
+
+- `discriminant ∈ [0, ~1e72]`
+
+`sqrt` is the square root of the discriminant:
+
+- `sqrt ∈ [0, 1e36]`, since `sqrt(1e72) = 1e36`
+
+All intermediate results (`absB`, `squaredB`, `discriminant`, `sqrt`) fit safely within `uint256`.
+
+##### Final calculation of x
+
+The final calculation for `x` depends on the sign of `B`:
+
+```solidity
+if (B <= 0) {
+    x = Math.mulDiv(absB + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 1;
+} else {
+    x = (2 * C + (absB + sqrt - 1)) / (absB + sqrt) + 1;
+}
+```
+
+###### When `B <= 0`:
+
+- `absB + sqrt ∈ [0, ~2 * 5.19e51] = ~1.04e52`
+- The denominator `2 * c ∈ [2, 2e18]`
+- `Math.mulDiv(absB + sqrt, 1e18, 2 * c)` scales back to a fixed-point value.
+
+So:
+
+- `x_min ≈ (1 * 1e18) / (2e18) + 1 = 1`
+- `x_max ≈ (1.04e52 * 1e18) / 2 = 5.2e69 + 1`
+
+This fits safely within `uint256`.
+
+###### When `B > 0`:
+
+- `numerator = 2 * C + (absB + sqrt - 1) ∈ [2 + 0, 2 * 2.69e49 + 1.04e52] ≈ 1.09e52`
+- `denominator = absB + sqrt ∈ [1, ~1.04e52]`
+- The maximum result occurs when numerator ≈ denominator → `x ≈ 2`
+- The minimum value occurs when numerator is small and denominator is large → `x ≈ 1`
+
+In both cases, the result is clamped to at most `x0`, which is at most `2^112 - 1 ≈ 5.19e33`
+
+So:
+
+- `x ∈ [1, min(5.2e69, x0)]`
+
+Final clamping ensures that:
+
+```solidity
+if (x >= x0) {
+    return x0;
+} else {
+    return x;
+}
+```
+
+Therefore, final result `x` always returns a value in `[1, x0]`, safely within bounds.

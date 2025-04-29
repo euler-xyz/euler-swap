@@ -40,7 +40,8 @@ library CurveLib {
     }
 
     /// @dev EulerSwap inverse function definition
-    /// Pre-conditions: 0 < x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
+    /// Pre-conditions: y >= y0, 1e18 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
+    /// @return x in the range [1, x0]
     function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
         internal
         pure
