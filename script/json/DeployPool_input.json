@@ -1,17 +1,17 @@
 {
-    "factory": "0x52177559e6430396b9A7E2176Ef33b4e4052D125",
-    "eulerSwapImplementation": "0x0B8CD42911551882638f4C762A66570e1fAc624f",
-    "vault0": "0xa66957e58b60d6b92b850c8773a9ff9b0ba96a65",
-    "vault1": "0x4212e01c7c8e1c21dea6030c74ae2084f5337bd1",
-    "equilibriumReserve0": 2000e6,
-    "equilibriumReserve1": 2000e6,
-    "priceX": 1e18,
+    "factory": "0x410c17C9BbCB2C69F55B450B047B8909d33e66e4",
+    "eulerSwapImplementation": "0xdeAFb42e380a1b067f0Dd04e2fa6E56b75A79A65",
+    "vault0": "0x556d518FDFDCC4027A3A1388699c5E11AC201D8b",
+    "vault1": "0x0A1a3b5f2041F33522C4efc754a7D096f880eE16",
+    "equilibriumReserve0": 0,
+    "equilibriumReserve1": 1e6,
+    "priceX": 1e6,
     "priceY": 1e18,
     "concentrationX": 0.97e18,
     "concentrationY": 0.97e18,
     "fee": 0,
     "protocolFee": 0,
     "protocolFeeRecipient": "0x0000000000000000000000000000000000000000",
-    "currReserve0": 2000e6,
-    "currReserve1": 2000e6
+    "currReserve0": 0,
+    "currReserve1": 1e6
 }
