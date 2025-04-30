@@ -66,6 +66,11 @@ forge doc --serve --port 4000
 - EulerSwapPeriphery: 0x9F27Bc363DB128cdC349CA54671E6Fbe2bE194D0
 - USDT-USDT pool: 0x13f627635CD96a2A75c2efBDba979172cAb2E888
 
+## Base Dev Deployment
+
+- EulerSwapFactory: 0x410c17c9bbcb2c69f55b450b047b8909d33e66e4
+- EulerSwapPeriphery: 0x57256da76b154c8b3cff6ab816f18f48c541dbc4
+
 ## Safety
 
 This software is experimental and is provided "as is" and "as available".
