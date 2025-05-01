@@ -30,7 +30,7 @@ library CurveLib {
     }
 
     /// @dev EulerSwap curve definition
-    /// Pre-conditions: 0 < x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
+    /// Pre-conditions: 1 < x <= x0, 0 < px, py <= 1e36, 0 <= x0, y0 <= type(uint112).max, 0 < c <= 1e18
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         unchecked {
             uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
@@ -40,7 +40,7 @@ library CurveLib {
     }
 
     /// @dev EulerSwap inverse function definition
-    /// Pre-conditions: 0 < x <= x0, 1 <= {px,py} <= 1e36, {x0,y0} <= type(uint112).max, c <= 1e18
+    /// Pre-conditions: y >= 0, 0 < px, py <= 1e36, 0 <= x0, y0 <= type(uint112).max, 0 < c <= 1e18
     function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
         internal
         pure
