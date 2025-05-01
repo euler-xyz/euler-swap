@@ -70,8 +70,12 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         require(p.fee < 1e18, BadParam());
         require(p.priceX > 0 && p.priceY > 0, BadParam());
         require(p.priceX <= 1e36 && p.priceY <= 1e36, BadParam());
+        require(p.priceX <= type(uint256).max / (1e18 * (type(uint112).max - p.equilibriumReserve0)), BadParam());
+        require(p.priceY <= type(uint256).max / (1e18 * (type(uint112).max - p.equilibriumReserve1)), BadParam());
         require(p.concentrationX > 0 && p.concentrationY > 0, BadParam());
         require(p.concentrationX <= 1e18 && p.concentrationY <= 1e18, BadParam());
+
+
 
         {
             address asset0Addr = IEVault(p.vault0).asset();
