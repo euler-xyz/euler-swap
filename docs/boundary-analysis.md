@@ -2,7 +2,42 @@
 
 ## Introduction
 
-The EulerSwap automated market maker (AMM) curve is governed by two key functions: f() and fInverse(). These functions are critical to maintaining protocol invariants and ensuring accurate swap calculations within the AMM. This document provides a detailed boundary analysis of both functions, assessing their Solidity implementations against the equations in the white paper. It ensures that appropriate safety measures are in place to avoid overflow, underflow, and precision loss, and that unchecked operations are thoroughly justified.
+The EulerSwap automated market maker (AMM) curve is governed by two key functions: `f()` and `fInverse()`. These functions are critical to maintaining protocol invariants and ensuring accurate swap calculations within the AMM. This document provides a detailed boundary analysis of both functions, assessing their Solidity implementations against the equations in the white paper. It ensures that appropriate safety measures are in place to avoid overflow, underflow, and precision loss, and that unchecked operations are thoroughly justified. We assume throughout the following pre-conditions.
+
+## Pre-conditions
+
+### Domain and range
+
+The curve functions are specified in `f()` and `fInverse()` inside `CurveLib.sol`.
+
+The function `f()` operates on the domain `1 <= x <= x0`, where the output satisfies `y >= y0`.  
+The function `fInverse()` operates on the domain `y >= y0`, where the output satisfies `1 <= x <= x0`.
+
+### Parameter ranges
+
+Valid parameter ranges for both functions are:
+
+```
+0 < px, py <= 1e36
+0 < c <= 1e18
+0 <= x0, y0 <= type(uint112).max
+```
+
+These are enforced in the `activate()` function of `EulerSwap.sol`.
+
+Additional constraints are placed on `px` and `py` to prevent overflow in `fInverse()` under extreme parameterisations of the price factor parameters. These conditions are:
+
+```
+py * 1e18 * (y - y0) <= type(uint256).max
+px * 1e18 * (x - x0) <= type(uint256).max
+```
+
+Assuming the worst-case values for `y` and `x`, we obtain:
+
+```
+py <= type(uint256).max / (1e18 * (type(uint112).max - y0))
+px <= type(uint256).max / (1e18 * (type(uint112).max - x0))
+```
 
 ## Implementation of function `f()`
 
@@ -43,13 +78,6 @@ y_0 + \left(\text{Math.mulDiv}(p_x \cdot (x_0 - x), c \cdot x + (1e18 - c) \cdot
 Adding `(p_y - 1)` ensures proper ceiling rounding by making sure the result is rounded up when the numerator is not perfectly divisible by `p_y`.
 
 ### Boundary analysis
-
-#### Pre-conditions
-
-- \(x \leq x_0\)
-- \(1e18 \leq p_x, p_y \leq 1e36\) (60 to 120 bits)
-- \(1 \leq x_0, y_0 \leq 2^{112} - 1 \approx 5.19e33\) (0 to 112 bits)
-- \(1 < c \leq 1e18\) (0 to 60 bits)
 
 #### Step-by-step
 
