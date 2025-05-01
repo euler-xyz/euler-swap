@@ -10,7 +10,8 @@ import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
 import {MinimalRouter} from "../test/utils/MinimalRouter.sol";
 import {ScriptUtil} from "./ScriptUtil.s.sol";
 
-contract SwapExactIn is ScriptUtil {
+// from the output of SwapExactInV4.s.sol, swap the tokens back to the original token
+contract SwapBackV4 is ScriptUtil {
     using SafeERC20 for IERC20;
 
     MinimalRouter public minRouter = MinimalRouter(0x43292c68390e9c30Fe1ebB9db904914f2aD7D075);
@@ -25,15 +26,19 @@ contract SwapExactIn is ScriptUtil {
         string memory json = _getJsonFile(inputScriptFileName);
 
         EulerSwap pool = EulerSwap(vm.parseJsonAddress(json, ".pool"));
-        address tokenIn = vm.parseJsonAddress(json, ".tokenIn");
-        uint256 amountIn = vm.parseJsonUint(json, ".amountIn");
+        address previousTokenIn = vm.parseJsonAddress(json, ".tokenIn");
 
         PoolKey memory poolKey = pool.poolKey();
-        bool zeroForOne = Currency.unwrap(poolKey.currency0) == tokenIn;
+
+        // tokenIn from the previous swap becomes the output now
+        bool zeroForOne = Currency.unwrap(poolKey.currency0) != previousTokenIn;
+        (uint256 amountIn, Currency inputCurrency) = Currency.unwrap(poolKey.currency0) == previousTokenIn
+            ? (poolKey.currency1.balanceOf(swapperAddress), poolKey.currency1)
+            : (poolKey.currency0.balanceOf(swapperAddress), poolKey.currency0);
 
         vm.startBroadcast(swapperAddress);
 
-        IERC20(tokenIn).forceApprove(address(minRouter), amountIn);
+        IERC20(Currency.unwrap(inputCurrency)).forceApprove(address(minRouter), amountIn);
 
         minRouter.swap(poolKey, zeroForOne, amountIn, 0, "");
 
