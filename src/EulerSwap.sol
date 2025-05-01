@@ -75,8 +75,6 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         require(p.concentrationX > 0 && p.concentrationY > 0, BadParam());
         require(p.concentrationX <= 1e18 && p.concentrationY <= 1e18, BadParam());
 
-
-
         {
             address asset0Addr = IEVault(p.vault0).asset();
             address asset1Addr = IEVault(p.vault1).asset();
