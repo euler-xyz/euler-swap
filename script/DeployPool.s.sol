@@ -4,6 +4,9 @@ pragma solidity ^0.8.0;
 import {ScriptUtil} from "./ScriptUtil.s.sol";
 import {IEulerSwapFactory, IEulerSwap, EulerSwapFactory} from "../src/EulerSwapFactory.sol";
 import {IEVC, IEulerSwap} from "../src/EulerSwap.sol";
+import {HookMiner} from "../test/utils/HookMiner.sol";
+import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {MetaProxyDeployer} from "../src/utils/MetaProxyDeployer.sol";
 
 /// @title Script to deploy new pool.
 contract DeployPool is ScriptUtil {
@@ -23,21 +26,31 @@ contract DeployPool is ScriptUtil {
             eulerAccount: eulerAccount,
             equilibriumReserve0: uint112(vm.parseJsonUint(json, ".equilibriumReserve0")),
             equilibriumReserve1: uint112(vm.parseJsonUint(json, ".equilibriumReserve1")),
-            currReserve0: uint112(vm.parseJsonUint(json, ".currReserve0")),
-            currReserve1: uint112(vm.parseJsonUint(json, ".currReserve1")),
-            fee: vm.parseJsonUint(json, ".fee")
-        });
-        IEulerSwap.CurveParams memory curveParams = IEulerSwap.CurveParams({
             priceX: vm.parseJsonUint(json, ".priceX"),
             priceY: vm.parseJsonUint(json, ".priceY"),
             concentrationX: vm.parseJsonUint(json, ".concentrationX"),
-            concentrationY: vm.parseJsonUint(json, ".concentrationY")
+            concentrationY: vm.parseJsonUint(json, ".concentrationY"),
+            fee: vm.parseJsonUint(json, ".fee"),
+            protocolFee: vm.parseJsonUint(json, ".protocolFee"),
+            protocolFeeRecipient: vm.parseJsonAddress(json, ".protocolFeeRecipient")
         });
-        bytes32 salt = bytes32(uint256(vm.parseJsonUint(json, ".salt")));
+        IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({
+            currReserve0: uint112(vm.parseJsonUint(json, ".currReserve0")),
+            currReserve1: uint112(vm.parseJsonUint(json, ".currReserve1"))
+        });
+        address eulerSwapImpl = vm.parseJsonAddress(json, ".eulerSwapImplementation");
+
+        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(poolParams));
+        (address predictedPoolAddress, bytes32 salt) = HookMiner.find(
+            address(address(factory)),
+            uint160(
+                Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+                    | Hooks.BEFORE_DONATE_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
+            ),
+            creationCode
+        );
 
         IEVC evc = IEVC(factory.EVC());
-        address predictedPoolAddress = factory.computePoolAddress(poolParams, curveParams, salt);
-
         IEVC.BatchItem[] memory items = new IEVC.BatchItem[](2);
 
         items[0] = IEVC.BatchItem({
@@ -50,7 +63,7 @@ contract DeployPool is ScriptUtil {
             onBehalfOfAccount: eulerAccount,
             targetContract: address(factory),
             value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, curveParams, salt))
+            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, initialState, salt))
         });
 
         vm.startBroadcast(eulerAccount);

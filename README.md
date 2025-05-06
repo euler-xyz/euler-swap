@@ -59,6 +59,12 @@ forge doc --serve --port 4000
 - EulerSwapPeriphery: 0x813D74E832b3d9E9451d8f0E871E877edf2a5A5f
 - USDT-USDT pool: 0x2bFED8dBEb8e6226a15300AC77eE9130E52410fE
 
+------ with Uniswap hook contracts (latest)
+
+- EulerSwap implementation: 0x0B8CD42911551882638f4C762A66570e1fAc624f
+- EulerSwapFactory: 0x52177559e6430396b9A7E2176Ef33b4e4052D125
+- EulerSwapPeriphery: 0x9F27Bc363DB128cdC349CA54671E6Fbe2bE194D0
+- USDT-USDT pool: 0x13f627635CD96a2A75c2efBDba979172cAb2E888
 
 ## Safety
 

@@ -1,27 +1,16 @@
-* Better revert messages when a swap fails due to debt-limit/vault utilisation/etc
-  * currently they are errors thrown by the vaults or arithmetic underflows
-
+? tighten up getLimits bounds
 
 TESTING
 
 * when exchange rate in vaults != 1
-
-
-MISC
-
-? A really small swap could fail because deposit() results in 0 shares, which causes EVK to revert. Call convertToShares() first? Seems like overkill...
-* Improve the efficiency of on-chain quoting
-  * Probably necessary for supporting non-zero slippage swaps
-  * Use fInverse() Closed-form quoting solutions
-  * "Range hints" for the binary search
-
+* better coverage of swaps done via hooks
 
 IDEAS
 
 * Currently we have only been supporting stable-stable pairs
   * What extra considerations would there be for floating pairs?
 * Automatically re-invest fees? There are a few options:
-  * Don't do anything: Re-deploing probably isn't a huge deal
+  * Don't do anything: Re-deploying probably isn't a huge deal
   * Increase the reserves by the fee amount
   * Increase the reserves by the extra amount of possible leverage supported by the new fee
   * Apply fees to a super-concentrated middle section of the curve (needs R&D)

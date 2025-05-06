@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
+import {CurveLib} from "../src/libraries/CurveLib.sol";
 
 contract FeesTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -40,8 +41,8 @@ contract FeesTest is EulerSwapTestBase {
 
         // Pulling out one extra reverts...
 
-        vm.expectRevert(EulerSwap.CurveViolation.selector);
-        eulerSwap.swap(0, amountOut + 1, address(this), "");
+        vm.expectRevert(CurveLib.CurveViolation.selector);
+        eulerSwap.swap(0, amountOut + MAX_QUOTE_ERROR + 1, address(this), "");
 
         // Just right:
 
@@ -58,8 +59,10 @@ contract FeesTest is EulerSwapTestBase {
 
         // Holder's NAV increased by fee amount, plus slightly extra because we are not at curve equilibrium point
 
-        assertGt(getHolderNAV(), origNav + int256(amountIn - amountInNoFees));
-        assertEq(eTST.balanceOf(address(holder)), 10e18 + amountIn);
+        uint256 protocolFeesCollected = assetTST.balanceOf(address(0));
+
+        assertGt(getHolderNAV() + int256(protocolFeesCollected), origNav + int256(amountIn - amountInNoFees));
+        assertEq(eTST.balanceOf(address(holder)), 10e18 + amountIn - protocolFeesCollected);
         assertEq(eTST2.balanceOf(address(holder)), 10e18 - amountOut);
     }
 
@@ -89,8 +92,8 @@ contract FeesTest is EulerSwapTestBase {
 
         // Pulling out one extra reverts...
 
-        vm.expectRevert(EulerSwap.CurveViolation.selector);
-        eulerSwap.swap(0, amountOut + 1, address(this), "");
+        vm.expectRevert(CurveLib.CurveViolation.selector);
+        eulerSwap.swap(0, amountOut + MAX_QUOTE_ERROR + 1, address(this), "");
 
         // Just right:
 
@@ -107,8 +110,28 @@ contract FeesTest is EulerSwapTestBase {
 
         // Holder's NAV increased by fee amount, plus slightly extra because we are not at curve equilibrium point
 
-        assertGt(getHolderNAV(), origNav + int256(amountIn - amountInNoFees));
-        assertEq(eTST.balanceOf(address(holder)), 10e18 + amountIn);
+        uint256 protocolFeesCollected = assetTST.balanceOf(address(0));
+
+        assertGt(getHolderNAV() + int256(protocolFeesCollected), origNav + int256(amountIn - amountInNoFees));
+        assertEq(eTST.balanceOf(address(holder)), 10e18 + amountIn - protocolFeesCollected);
         assertEq(eTST2.balanceOf(address(holder)), 10e18 - amountOut);
+    }
+
+    function test_fuzzFeeRounding(uint256 amount, uint256 fee) public pure {
+        // This test demonstrates why you don't need to round up fees required
+        // when quoting an exact output swap. It's because the actual fee
+        // subtracted during a deposit is rounded down.
+
+        amount = bound(amount, 1, type(uint112).max);
+        fee = bound(fee, 0, 1e18 - 1);
+
+        // Exact out
+        {
+            uint256 quote = (amount * 1e18) / (1e18 - fee);
+            uint256 feeAmount = quote * fee / 1e18;
+            uint256 paid = quote - feeAmount;
+
+            assertEq(paid, amount);
+        }
     }
 }

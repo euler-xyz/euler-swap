@@ -4,21 +4,15 @@ pragma solidity >=0.8.0;
 import {IEulerSwap} from "./IEulerSwap.sol";
 
 interface IEulerSwapFactory {
-    struct EulerAccountState {
-        address pool;
-        uint48 allPoolsIndex;
-        uint48 poolMapIndex;
-    }
-
     /// @notice Deploy a new EulerSwap pool with the given parameters
     /// @dev The pool address is deterministically generated using CREATE2 with a salt derived from
     ///      the euler account address and provided salt parameter. This allows the pool address to be
     ///      predicted before deployment.
-    /// @param params Core pool parameters including vaults, account, and fee settings
-    /// @param curveParams Parameters defining the curve shape including prices and concentrations
+    /// @param params Core pool parameters including vaults, account, fees, and curve shape
+    /// @param initialState Initial state of the pool
     /// @param salt Unique value to generate deterministic pool address
     /// @return Address of the newly deployed pool
-    function deployPool(IEulerSwap.Params memory params, IEulerSwap.CurveParams memory curveParams, bytes32 salt)
+    function deployPool(IEulerSwap.Params memory params, IEulerSwap.InitialState memory initialState, bytes32 salt)
         external
         returns (address);
 
@@ -33,18 +27,9 @@ interface IEulerSwapFactory {
     ///      the euler account address and provided salt parameter. This allows the pool address to be
     ///      predicted before deployment.
     /// @param poolParams Core pool parameters including vaults, account, and fee settings
-    /// @param curveParams Parameters defining the curve shape including prices and concentrations
     /// @param salt Unique value to generate deterministic pool address
     /// @return Address of the newly deployed pool
-    function computePoolAddress(
-        IEulerSwap.Params memory poolParams,
-        IEulerSwap.CurveParams memory curveParams,
-        bytes32 salt
-    ) external view returns (address);
-
-    /// @notice Returns the address of the Ethereum Vault Connector (EVC) contract
-    /// @return The address of the EVC contract
-    function EVC() external view returns (address);
+    function computePoolAddress(IEulerSwap.Params memory poolParams, bytes32 salt) external view returns (address);
 
     /// @notice Returns a slice of all deployed pools
     /// @dev Returns a subset of the pools array from start to end index

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
 import {IRMTestFixed} from "evk-test/mocks/IRMTestFixed.sol";
 import {Errors as EVKErrors} from "evk/EVault/shared/Errors.sol";
+import {FundsLib} from "../src/libraries/FundsLib.sol";
 import "evk/EVault/shared/Constants.sol" as EVKConstants;
 
 contract DepositFailuresTest is EulerSwapTestBase {
@@ -76,7 +77,7 @@ contract DepositFailuresTest is EulerSwapTestBase {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                EulerSwap.DepositFailure.selector, abi.encodeWithSelector(EVKErrors.E_OperationDisabled.selector)
+                FundsLib.DepositFailure.selector, abi.encodeWithSelector(EVKErrors.E_OperationDisabled.selector)
             )
         );
         eulerSwap.swap(0, amountOut, address(this), "");

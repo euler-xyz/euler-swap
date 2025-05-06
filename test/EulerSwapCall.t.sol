@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import {IUniswapV2Callee} from "../src/interfaces/IUniswapV2Callee.sol";
+import {IEulerSwapCallee} from "../src/interfaces/IEulerSwapCallee.sol";
 import {IEVault, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
 
-contract UniswapV2CallTest is EulerSwapTestBase {
+contract EulerSwapCallTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
     SwapCallbackTest swapCallback;
 
@@ -36,7 +36,7 @@ contract UniswapV2CallTest is EulerSwapTestBase {
     }
 }
 
-contract SwapCallbackTest is IUniswapV2Callee {
+contract SwapCallbackTest is IEulerSwapCallee {
     address public callbackSender;
     uint256 public callbackAmount0;
     uint256 public callbackAmount1;
@@ -46,7 +46,7 @@ contract SwapCallbackTest is IUniswapV2Callee {
         eulerSwap.swap(amountIn, amountOut, address(this), data);
     }
 
-    function uniswapV2Call(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
+    function eulerSwapCall(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
         randomBalance = abi.decode(data, (uint256));
 
         callbackSender = sender;

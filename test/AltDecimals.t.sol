@@ -22,7 +22,7 @@ contract AltDecimals is EulerSwapTestBase {
         assetTST.transfer(address(eulerSwap), amount);
 
         {
-            uint256 qPlus = q + 1;
+            uint256 qPlus = q + MAX_QUOTE_ERROR + 1;
             vm.expectRevert();
             eulerSwap.swap(0, qPlus, address(this), "");
         }
@@ -62,7 +62,7 @@ contract AltDecimals is EulerSwapTestBase {
         assetTST.transfer(address(eulerSwap), amount);
 
         {
-            uint256 qPlus = q + 1;
+            uint256 qPlus = q + MAX_QUOTE_ERROR + 1;
             vm.expectRevert();
             eulerSwap.swap(0, qPlus, address(this), "");
         }

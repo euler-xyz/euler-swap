@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
+import {QuoteLib} from "../src/libraries/QuoteLib.sol";
 
 contract LimitsTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -27,15 +28,15 @@ contract LimitsTest is EulerSwapTestBase {
         quote = periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 59.9999999e18);
         assertApproxEqAbs(quote, 3.6e27, 0.1e27);
 
-        vm.expectRevert(EulerSwapPeriphery.SwapLimitExceeded.selector);
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
         quote = periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 60e18);
 
-        vm.expectRevert(EulerSwapPeriphery.SwapLimitExceeded.selector);
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
         quote = periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 60.000001e18);
 
         // Exact input
 
-        vm.expectRevert(EulerSwapPeriphery.SwapLimitExceeded.selector);
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
         quote = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), type(uint112).max);
     }
 
@@ -56,7 +57,7 @@ contract LimitsTest is EulerSwapTestBase {
         assertEq(inLimit, 0); // cap exceeded
         assertEq(outLimit, 60e18);
 
-        vm.expectRevert(EulerSwapPeriphery.SwapLimitExceeded.selector);
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
         periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), 1);
     }
 
@@ -83,7 +84,7 @@ contract LimitsTest is EulerSwapTestBase {
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), 161.9999e18);
         assertApproxEqAbs(quote, 56.9e18, 0.1e18);
 
-        vm.expectRevert(EulerSwapPeriphery.SwapLimitExceeded.selector);
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
         periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), 162e18 + 1);
     }
 

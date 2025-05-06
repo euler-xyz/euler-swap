@@ -1,15 +1,17 @@
 {
-    "factory": "0xF75548aF02f1928CbE9015985D4Fcbf96d728544",
-    "salt": "1",
+    "factory": "0x52177559e6430396b9A7E2176Ef33b4e4052D125",
+    "eulerSwapImplementation": "0x0B8CD42911551882638f4C762A66570e1fAc624f",
     "vault0": "0xa66957e58b60d6b92b850c8773a9ff9b0ba96a65",
     "vault1": "0x4212e01c7c8e1c21dea6030c74ae2084f5337bd1",
     "equilibriumReserve0": 2000e6,
     "equilibriumReserve1": 2000e6,
-    "currReserve0": 2000e6,
-    "currReserve1": 2000e6,
-    "fee": 0,
     "priceX": 1e18,
     "priceY": 1e18,
     "concentrationX": 0.97e18,
-    "concentrationY": 0.97e18
+    "concentrationY": 0.97e18,
+    "fee": 0,
+    "protocolFee": 0,
+    "protocolFeeRecipient": "0x0000000000000000000000000000000000000000",
+    "currReserve0": 2000e6,
+    "currReserve1": 2000e6
 }

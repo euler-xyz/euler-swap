@@ -4,3 +4,4 @@ evk/=lib/euler-vault-kit/src/
 ethereum-vault-connector/=lib/ethereum-vault-connector/src/
 evk-test/=lib/euler-vault-kit/test/
 permit2/=lib/euler-vault-kit/lib/permit2/
+@uniswap/v4-core/=lib/v4-periphery/lib/v4-core/
