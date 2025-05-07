@@ -128,4 +128,29 @@ contract PeripheryTest is EulerSwapTestBase {
         assertEq(periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 0), 0);
         assertEq(periphery.quoteExactOutput(address(eulerSwap), address(assetTST2), address(assetTST), 0), 0);
     }
+
+    function test_periphery4TychoEquivalent() public {
+        // exact in
+        uint256 amountIn = 1e18;
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
+        uint256 amountOutWithReserves = periphery4Tycho.quoteExactInputWithReserves(
+            address(eulerSwap), address(assetTST), address(assetTST2), amountIn, reserve0, reserve1
+        );
+
+        assertEq(amountOut, amountOutWithReserves);
+
+        // exact out
+        amountOut = 1e18;
+        amountIn =
+            periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+
+        uint256 amountInWithReserves = periphery4Tycho.quoteExactOutputWithReserves(
+            address(eulerSwap), address(assetTST), address(assetTST2), amountOut, reserve0, reserve1
+        );
+
+        assertEq(amountIn, amountInWithReserves);
+    }
 }

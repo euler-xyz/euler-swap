@@ -7,6 +7,7 @@ import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap, IEVC, EulerSwap} from "../src/EulerSwap.sol";
 import {EulerSwapFactory} from "../src/EulerSwapFactory.sol";
 import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
+import {EulerSwapPeriphery4Tycho} from "../src/EulerSwapPeriphery4Tycho.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
@@ -26,6 +27,7 @@ contract EulerSwapTestBase is EVaultTestBase {
     address public eulerSwapImpl;
     EulerSwapFactory public eulerSwapFactory;
     EulerSwapPeriphery public periphery;
+    EulerSwapPeriphery4Tycho public periphery4Tycho;
 
     uint256 currSalt = 0;
     address installedOperator;
@@ -40,6 +42,7 @@ contract EulerSwapTestBase is EVaultTestBase {
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
         eulerSwapFactory = new EulerSwapFactory(address(evc), address(factory), eulerSwapImpl, address(this));
         periphery = new EulerSwapPeriphery();
+        periphery4Tycho = new EulerSwapPeriphery4Tycho(address(evc));
     }
 
     function removeInstalledOperator() public {
