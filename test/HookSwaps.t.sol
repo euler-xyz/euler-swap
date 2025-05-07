@@ -12,6 +12,7 @@ import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {PoolDonateTest} from "@uniswap/v4-core/src/test/PoolDonateTest.sol";
 import {MinimalRouter} from "./utils/MinimalRouter.sol";
 import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiquidityTest.sol";
+import {V4Quoter, IV4Quoter} from "v4-periphery/src/lens/V4Quoter.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
@@ -31,6 +32,7 @@ contract HookSwapsTest is EulerSwapTestBase {
     MinimalRouter public minimalRouter;
     PoolModifyLiquidityTest public liquidityManager;
     PoolDonateTest public donateRouter;
+    V4Quoter public quoter;
 
     PoolSwapTest.TestSettings public settings = PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
 
@@ -42,6 +44,7 @@ contract HookSwapsTest is EulerSwapTestBase {
         minimalRouter = new MinimalRouter(poolManager);
         liquidityManager = new PoolModifyLiquidityTest(poolManager);
         donateRouter = new PoolDonateTest(poolManager);
+        quoter = new V4Quoter(poolManager);
 
         deployEulerSwap(address(poolManager));
 
@@ -92,6 +95,58 @@ contract HookSwapsTest is EulerSwapTestBase {
     }
 
     function test_SwapExactOut() public {
+        uint256 amountOut = 1e18;
+        uint256 amountIn =
+            periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
+
+        assetTST.mint(anyone, amountIn);
+
+        vm.startPrank(anyone);
+        assetTST.approve(address(minimalRouter), amountIn);
+
+        bool zeroForOne = address(assetTST) < address(assetTST2);
+        BalanceDelta result = minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, amountOut, "");
+        vm.stopPrank();
+
+        assertEq(assetTST.balanceOf(anyone), 0);
+        assertEq(assetTST2.balanceOf(anyone), amountOut);
+
+        assertEq(zeroForOne ? uint256(-int256(result.amount0())) : uint256(-int256(result.amount1())), amountIn);
+        assertEq(zeroForOne ? uint256(int256(result.amount1())) : uint256(int256(result.amount0())), amountOut);
+    }
+
+    function test_v4quoter_swapExactIn() public {
+        bool zeroForOne = address(assetTST) < address(assetTST2);
+        uint256 amountIn = 1e18;
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        // assetTST.mint(address(poolManager), amountIn);
+        quoter.quoteExactInputSingle(
+            IV4Quoter.QuoteExactSingleParams({
+                poolKey: eulerSwap.poolKey(),
+                zeroForOne: zeroForOne,
+                exactAmount: uint128(amountIn),
+                hookData: ""
+            })
+        );
+
+        assetTST.mint(anyone, amountIn);
+
+        vm.startPrank(anyone);
+        assetTST.approve(address(minimalRouter), amountIn);
+
+        BalanceDelta result = minimalRouter.swap(eulerSwap.poolKey(), zeroForOne, amountIn, 0, "");
+        vm.stopPrank();
+
+        assertEq(assetTST.balanceOf(anyone), 0);
+        assertEq(assetTST2.balanceOf(anyone), amountOut);
+
+        assertEq(zeroForOne ? uint256(-int256(result.amount0())) : uint256(-int256(result.amount1())), amountIn);
+        assertEq(zeroForOne ? uint256(int256(result.amount1())) : uint256(int256(result.amount0())), amountOut);
+    }
+
+    function test_v4quoter_swapExactOut() public {
         uint256 amountOut = 1e18;
         uint256 amountIn =
             periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
