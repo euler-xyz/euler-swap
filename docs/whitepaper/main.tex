@@ -134,7 +134,7 @@ While the operator logic manages execution and capital flow, the behaviour of sw
 \label{fig:fig1}
 \end{figure}
 
-Since EulerSwap AMMs do not always hold the assets used to service swaps at all times, they perform calculations based on \emph{virtual} reserves and debt limits, rather than on strictly \emph{real} reserves. Each EulerSwap LP can independently configure virtual reserve levels. These reserves define the maximum debt exposure an AMM will take on. Note that the effective LTV must always remain below the borrowing LTV of the lending vault to prevent liquidation. Additionally, different AMM curves influence whether the maximum virtual reserves are achievable.
+Since EulerSwap AMMs do not always hold the assets used to service swaps at all times, they perform calculations based on \emph{virtual} reserves and debt limits, rather than on strictly \emph{real} reserves. Each EulerSwap LP can independently configure virtual reserve levels. These reserves define the maximum debt exposure an AMM will take on. Note that the effective LTV must always remain below the borrowing LTV of the lending vault to prevent liquidation. EulerSwap account owners are also responsible for monitoring the health of their vaults and should take proactive steps if their collateral accrues bad debt or drops in value—since this can happen independently of swap activity, opening up the potential for liquidation if someone performs a large swap on their curve. Additionally, different AMM curves influence whether the maximum virtual reserves are achievable.
 
 The EulerSwap curve passes through a reserve equilibrium point $(x_0, y_0)$, at which the marginal price is defined by:
 
