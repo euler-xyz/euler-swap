@@ -18,20 +18,27 @@ contract EulerSwapPeriphery4Tycho is EulerSwapPeriphery {
         evc = _evc;
     }
 
-    function quoteExactInputWithReserves(address eulerSwap, address tokenIn, address tokenOut, uint256 amountIn, uint112 reserve0, uint112 reserve1)
-        external
-        returns (uint256)
-    {
+    function quoteExactInputWithReserves(
+        address eulerSwap,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint112 reserve0,
+        uint112 reserve1
+    ) external returns (uint256) {
         return computeQuoteWithReserves(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountIn, true, reserve0, reserve1);
     }
 
-    function quoteExactOutputWithReserves(address eulerSwap, address tokenIn, address tokenOut, uint256 amountOut, uint112 reserve0, uint112 reserve1)
-        external
-        returns (uint256)
-    {
+    function quoteExactOutputWithReserves(
+        address eulerSwap,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint112 reserve0,
+        uint112 reserve1
+    ) external returns (uint256) {
         return computeQuoteWithReserves(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountOut, false, reserve0, reserve1);
     }
-
 
     /// @dev Computes the quote for a swap by applying fees and validating state conditions. Starting with provided reserves
     /// @param eulerSwap The EulerSwap contract to quote from
@@ -47,10 +54,15 @@ contract EulerSwapPeriphery4Tycho is EulerSwapPeriphery {
     ///      - Token pair is supported
     ///      - Sufficient reserves exist
     ///      - Sufficient cash is available
-    function computeQuoteWithReserves(IEulerSwap eulerSwap, address tokenIn, address tokenOut, uint256 amount, bool exactIn, uint112 reserve0, uint112 reserve1)
-        internal
-        returns (uint256)
-    {
+    function computeQuoteWithReserves(
+        IEulerSwap eulerSwap,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        bool exactIn,
+        uint112 reserve0,
+        uint112 reserve1
+    ) internal returns (uint256) {
         // make a copy of the pools storage with provided reserves to be able to use the QuoteLib in the periphery
         IEulerSwap.Params memory p = eulerSwap.getParams();
         CtxLib.Storage storage s = CtxLib.getStorage();
@@ -58,20 +70,23 @@ contract EulerSwapPeriphery4Tycho is EulerSwapPeriphery {
         s.reserve1 = reserve1;
         s.status = 1;
 
-        return PeripheryQuoteLib.computeQuote(evc, p, QuoteLib.checkTokens(p, tokenIn, tokenOut), amount, exactIn, address(eulerSwap));
+        return PeripheryQuoteLib.computeQuote(
+            evc, p, QuoteLib.checkTokens(p, tokenIn, tokenOut), amount, exactIn, address(eulerSwap)
+        );
     }
 }
 
-
 library PeripheryQuoteLib {
-
     // Function copied from QuoteLib, with modified check of account operator. The quote is run by periphery, not the pool, so the check must
     // be modified to pass `eulerSwap` not `address(this)`
-    function computeQuote(address evc, IEulerSwap.Params memory p, bool asset0IsInput, uint256 amount, bool exactIn, address eulerSwap)
-        internal
-        view
-        returns (uint256)
-    {
+    function computeQuote(
+        address evc,
+        IEulerSwap.Params memory p,
+        bool asset0IsInput,
+        uint256 amount,
+        bool exactIn,
+        address eulerSwap
+    ) internal view returns (uint256) {
         if (amount == 0) return 0;
 
         // modified check, passing `eulerSwap` instead of `address(this)`
