@@ -8,13 +8,17 @@ interface IEulerSwapFactory {
     /// @dev The pool address is deterministically generated using CREATE2 with a salt derived from
     ///      the euler account address and provided salt parameter. This allows the pool address to be
     ///      predicted before deployment.
-    /// @param params Core pool parameters including vaults, account, fees, and curve shape
+    /// @param sParams Static parameters
+    /// @param dParams Dynamic parameters
     /// @param initialState Initial state of the pool
     /// @param salt Unique value to generate deterministic pool address
     /// @return Address of the newly deployed pool
-    function deployPool(IEulerSwap.Params memory params, IEulerSwap.InitialState memory initialState, bytes32 salt)
-        external
-        returns (address);
+    function deployPool(
+        IEulerSwap.StaticParams memory sParams,
+        IEulerSwap.DynamicParams memory dParams,
+        IEulerSwap.InitialState memory initialState,
+        bytes32 salt
+    ) external returns (address);
 
     /// @notice Uninstalls the pool associated with the Euler account
     /// @dev This function removes the pool from the factory's tracking and emits a PoolUninstalled event
@@ -26,10 +30,10 @@ interface IEulerSwapFactory {
     /// @dev The pool address is deterministically generated using CREATE2 with a salt derived from
     ///      the euler account address and provided salt parameter. This allows the pool address to be
     ///      predicted before deployment.
-    /// @param poolParams Core pool parameters including vaults, account, and fee settings
+    /// @param sParams Static parameters
     /// @param salt Unique value to generate deterministic pool address
     /// @return Address of the newly deployed pool
-    function computePoolAddress(IEulerSwap.Params memory poolParams, bytes32 salt) external view returns (address);
+    function computePoolAddress(IEulerSwap.StaticParams memory sParams, bytes32 salt) external view returns (address);
 
     /// @notice Returns a slice of all deployed pools
     /// @dev Returns a subset of the pools array from start to end index

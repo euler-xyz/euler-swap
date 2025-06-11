@@ -15,11 +15,11 @@ import {
 import {IEVault} from "evk/EVault/IEVault.sol";
 
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
-import "./Events.sol";
 import {CtxLib} from "./libraries/CtxLib.sol";
 import {QuoteLib} from "./libraries/QuoteLib.sol";
 import {CurveLib} from "./libraries/CurveLib.sol";
 import {FundsLib} from "./libraries/FundsLib.sol";
+import {SwapLib} from "./libraries/SwapLib.sol";
 
 contract UniswapHook is BaseHook {
     using SafeCast for uint256;
@@ -34,19 +34,16 @@ contract UniswapHook is BaseHook {
         evc = evc_;
     }
 
-    function activateHook(IEulerSwap.Params memory p) internal {
+    function activateHook(IEulerSwap.StaticParams memory sParams) internal {
         Hooks.validateHookPermissions(this, getHookPermissions());
 
-        address asset0Addr = IEVault(p.vault0).asset();
-        address asset1Addr = IEVault(p.vault1).asset();
-
-        // convert fee in WAD to pips. 0.003e18 / 1e12 = 3000 = 0.30%
-        uint24 fee = uint24(p.fee / 1e12);
+        address asset0Addr = IEVault(sParams.supplyVault0).asset();
+        address asset1Addr = IEVault(sParams.supplyVault1).asset();
 
         _poolKey = PoolKey({
             currency0: Currency.wrap(asset0Addr),
             currency1: Currency.wrap(asset1Addr),
-            fee: fee,
+            fee: 0, // hard-coded fee since it may change
             tickSpacing: 1, // hard-coded tick spacing, as its unused
             hooks: IHooks(address(this))
         });
@@ -66,18 +63,13 @@ contract UniswapHook is BaseHook {
     function validateHookAddress(BaseHook _this) internal pure override {}
 
     modifier nonReentrantHook() {
-        {
-            CtxLib.Storage storage s = CtxLib.getStorage();
-            require(s.status == 1, LockedHook());
-            s.status = 2;
-        }
+        CtxLib.State storage s = CtxLib.getState();
+        require(s.status == 1, LockedHook());
+        s.status = 2;
 
         _;
 
-        {
-            CtxLib.Storage storage s = CtxLib.getStorage();
-            s.status = 1;
-        }
+        s.status = 1;
     }
 
     function _beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata params, bytes calldata)
@@ -86,63 +78,47 @@ contract UniswapHook is BaseHook {
         nonReentrantHook
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        IEulerSwap.Params memory p = CtxLib.getParams();
+        SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), sender, msg.sender);
 
-        uint256 amountInWithoutFee;
+        uint256 amountIn;
         uint256 amountOut;
         BeforeSwapDelta returnDelta;
+        bool isExactInput = params.amountSpecified < 0;
 
-        {
-            uint256 amountIn;
-            bool isExactInput = params.amountSpecified < 0;
-            if (isExactInput) {
-                amountIn = uint256(-params.amountSpecified);
-                amountOut = QuoteLib.computeQuote(evc, p, params.zeroForOne, amountIn, true);
-            } else {
-                amountOut = uint256(params.amountSpecified);
-                amountIn = QuoteLib.computeQuote(evc, p, params.zeroForOne, amountOut, false);
-            }
-
-            // return the delta to the PoolManager, so it can process the accounting
-            // exact input:
-            //   specifiedDelta = positive, to offset the input token taken by the hook (negative delta)
-            //   unspecifiedDelta = negative, to offset the credit of the output token paid by the hook (positive delta)
-            // exact output:
-            //   specifiedDelta = negative, to offset the output token paid by the hook (positive delta)
-            //   unspecifiedDelta = positive, to offset the input token taken by the hook (negative delta)
-            returnDelta = isExactInput
-                ? toBeforeSwapDelta(amountIn.toInt128(), -(amountOut.toInt128()))
-                : toBeforeSwapDelta(-(amountOut.toInt128()), amountIn.toInt128());
-
-            // take the input token, from the PoolManager to the Euler vault
-            // the debt will be paid by the swapper via the swap router
-            poolManager.take(params.zeroForOne ? key.currency0 : key.currency1, address(this), amountIn);
-            amountInWithoutFee = FundsLib.depositAssets(evc, p, params.zeroForOne ? p.vault0 : p.vault1);
-
-            // pay the output token, to the PoolManager from an Euler vault
-            // the credit will be forwarded to the swap router, which then forwards it to the swapper
-            poolManager.sync(params.zeroForOne ? key.currency1 : key.currency0);
-            FundsLib.withdrawAssets(evc, p, params.zeroForOne ? p.vault1 : p.vault0, amountOut, address(poolManager));
-            poolManager.settle();
+        if (isExactInput) {
+            amountIn = uint256(-params.amountSpecified);
+            amountOut = QuoteLib.computeQuote(evc, ctx.sParams, ctx.dParams, params.zeroForOne, amountIn, true);
+        } else {
+            amountOut = uint256(params.amountSpecified);
+            amountIn = QuoteLib.computeQuote(evc, ctx.sParams, ctx.dParams, params.zeroForOne, amountOut, false);
         }
 
-        {
-            CtxLib.Storage storage s = CtxLib.getStorage();
+        if (params.zeroForOne) SwapLib.amounts(ctx, amountIn, 0, 0, amountOut);
+        else SwapLib.amounts(ctx, 0, amountIn, amountOut, 0);
 
-            uint256 newReserve0 = params.zeroForOne ? (s.reserve0 + amountInWithoutFee) : (s.reserve0 - amountOut);
-            uint256 newReserve1 = !params.zeroForOne ? (s.reserve1 + amountInWithoutFee) : (s.reserve1 - amountOut);
+        // return the delta to the PoolManager, so it can process the accounting
+        // exact input:
+        //   specifiedDelta = positive, to offset the input token taken by the hook (negative delta)
+        //   unspecifiedDelta = negative, to offset the credit of the output token paid by the hook (positive delta)
+        // exact output:
+        //   specifiedDelta = negative, to offset the output token paid by the hook (positive delta)
+        //   unspecifiedDelta = positive, to offset the input token taken by the hook (negative delta)
+        returnDelta = isExactInput
+            ? toBeforeSwapDelta(amountIn.toInt128(), -(amountOut.toInt128()))
+            : toBeforeSwapDelta(-(amountOut.toInt128()), amountIn.toInt128());
 
-            require(CurveLib.verify(p, newReserve0, newReserve1), CurveLib.CurveViolation());
+        // take the input token, from the PoolManager to the Euler vault
+        // the debt will be paid by the swapper via the swap router
+        poolManager.take(params.zeroForOne ? key.currency0 : key.currency1, address(this), amountIn);
+        SwapLib.doDeposits(ctx);
 
-            s.reserve0 = uint112(newReserve0);
-            s.reserve1 = uint112(newReserve1);
+        // pay the output token, to the PoolManager from an Euler vault
+        // the credit will be forwarded to the swap router, which then forwards it to the swapper
+        poolManager.sync(params.zeroForOne ? key.currency1 : key.currency0);
+        SwapLib.doWithdraws(ctx);
+        poolManager.settle();
 
-            if (params.zeroForOne) {
-                emit Swap(sender, amountInWithoutFee, 0, 0, amountOut, s.reserve0, s.reserve1, msg.sender);
-            } else {
-                emit Swap(sender, 0, amountInWithoutFee, amountOut, 0, s.reserve0, s.reserve1, msg.sender);
-            }
-        }
+        SwapLib.finish(ctx);
 
         return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }

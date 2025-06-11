@@ -4,30 +4,64 @@ pragma solidity ^0.8.27;
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 
 library CtxLib {
-    struct Storage {
+    struct State {
         uint112 reserve0;
         uint112 reserve1;
         uint32 status; // 0 = unactivated, 1 = unlocked, 2 = locked
     }
 
-    // keccak256("eulerSwap.storage")
-    bytes32 internal constant CtxStorageLocation = 0xae890085f98619e96ae34ba28d74baa4a4f79785b58fd4afcd3dc0338b79df91;
+    // keccak256("eulerSwap.state") - 1
+    bytes32 internal constant CtxStateLocation = 0x10ee9b31f73104ff2cf413742414a498e1f7b56c11cb512bca58a9c50727bb58;
 
-    function getStorage() internal pure returns (Storage storage s) {
+    function getState() internal pure returns (State storage s) {
         assembly {
-            s.slot := CtxStorageLocation
+            s.slot := CtxStateLocation
         }
+    }
+
+    // keccak256("eulerSwap.dynamicParams") - 1
+    bytes32 internal constant CtxDynamicParamsLocation =
+        0xca4da3477ca592c011a91679daaaf19e95f02a3a91537965b17e4113575fb219;
+
+    function writeDynamicParamsToStorage(IEulerSwap.DynamicParams memory dParams) internal {
+        IEulerSwap.DynamicParams storage s;
+
+        assembly {
+            s.slot := CtxDynamicParamsLocation
+        }
+
+        s.equilibriumReserve0 = dParams.equilibriumReserve0;
+        s.equilibriumReserve1 = dParams.equilibriumReserve1;
+        s.minReserve0 = dParams.minReserve0;
+        s.minReserve1 = dParams.minReserve1;
+        s.priceX = dParams.priceX;
+        s.priceY = dParams.priceY;
+        s.concentrationX = dParams.concentrationX;
+        s.concentrationY = dParams.concentrationY;
+        s.fee0 = dParams.fee0;
+        s.fee1 = dParams.fee1;
+        s.swapHook = dParams.swapHook;
+    }
+
+    function getDynamicParams() internal pure returns (IEulerSwap.DynamicParams memory) {
+        IEulerSwap.DynamicParams storage s;
+
+        assembly {
+            s.slot := CtxDynamicParamsLocation
+        }
+
+        return s;
     }
 
     error InsufficientCalldata();
 
     /// @dev Unpacks encoded Params from trailing calldata. Loosely based on
     /// the implementation from EIP-3448 (except length is hard-coded).
-    /// 384 is the size of the Params struct after ABI encoding.
-    function getParams() internal pure returns (IEulerSwap.Params memory p) {
-        require(msg.data.length >= 384, InsufficientCalldata());
+    /// 256 is the size of the StaticParams struct after ABI encoding.
+    function getStaticParams() internal pure returns (IEulerSwap.StaticParams memory p) {
+        require(msg.data.length >= 256, InsufficientCalldata());
         unchecked {
-            return abi.decode(msg.data[msg.data.length - 384:], (IEulerSwap.Params));
+            return abi.decode(msg.data[msg.data.length - 256:], (IEulerSwap.StaticParams));
         }
     }
 }

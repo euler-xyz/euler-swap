@@ -14,7 +14,8 @@ library QuoteLib {
 
     /// @dev Computes the quote for a swap by applying fees and validating state conditions
     /// @param evc EVC instance
-    /// @param p The EulerSwap params
+    /// @param sParams Static params
+    /// @param dParams Dynamic params
     /// @param asset0IsInput Swap direction
     /// @param amount The amount to quote (input amount if exactIn=true, output amount if exactIn=false)
     /// @param exactIn True if quoting for exact input amount, false if quoting for exact output amount
@@ -24,24 +25,27 @@ library QuoteLib {
     ///      - Token pair is supported
     ///      - Sufficient reserves exist
     ///      - Sufficient cash is available
-    function computeQuote(address evc, IEulerSwap.Params memory p, bool asset0IsInput, uint256 amount, bool exactIn)
-        internal
-        view
-        returns (uint256)
-    {
+    function computeQuote(
+        address evc,
+        IEulerSwap.StaticParams memory sParams,
+        IEulerSwap.DynamicParams memory dParams,
+        bool asset0IsInput,
+        uint256 amount,
+        bool exactIn
+    ) internal view returns (uint256) {
         if (amount == 0) return 0;
 
-        require(IEVC(evc).isAccountOperatorAuthorized(p.eulerAccount, address(this)), OperatorNotInstalled());
+        require(IEVC(evc).isAccountOperatorAuthorized(sParams.eulerAccount, address(this)), OperatorNotInstalled());
         require(amount <= type(uint112).max, SwapLimitExceeded());
 
-        uint256 fee = p.fee;
+        uint256 fee = asset0IsInput ? dParams.fee0 : dParams.fee1; // FIXME: needs to call hook in read-only mode
 
         // exactIn: decrease effective amountIn
         if (exactIn) amount = amount - (amount * fee / 1e18);
 
-        (uint256 inLimit, uint256 outLimit) = calcLimits(p, asset0IsInput);
+        (uint256 inLimit, uint256 outLimit) = calcLimits(sParams, asset0IsInput);
 
-        uint256 quote = findCurvePoint(p, amount, exactIn, asset0IsInput);
+        uint256 quote = findCurvePoint(dParams, amount, exactIn, asset0IsInput);
 
         if (exactIn) {
             // if `exactIn`, `quote` is the amount of assets to buy from the AMM
@@ -63,22 +67,27 @@ library QuoteLib {
     ///      2. Available reserves in the EulerSwap for the output token
     ///      3. Available cash and borrow caps for the output token
     ///      4. Account balances in the respective vaults
-    /// @param p The EulerSwap params
+    /// @param sParams Static params
     /// @param asset0IsInput Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return uint256 Maximum amount of input token that can be deposited
     /// @return uint256 Maximum amount of output token that can be withdrawn
-    function calcLimits(IEulerSwap.Params memory p, bool asset0IsInput) internal view returns (uint256, uint256) {
-        CtxLib.Storage storage s = CtxLib.getStorage();
+    function calcLimits(IEulerSwap.StaticParams memory sParams, bool asset0IsInput)
+        internal
+        view
+        returns (uint256, uint256)
+    {
+        CtxLib.State storage s = CtxLib.getState();
 
         uint256 inLimit = type(uint112).max;
         uint256 outLimit = type(uint112).max;
 
-        address eulerAccount = p.eulerAccount;
-        (IEVault vault0, IEVault vault1) = (IEVault(p.vault0), IEVault(p.vault1));
+        address eulerAccount = sParams.eulerAccount;
+
         // Supply caps on input
         {
-            IEVault vault = (asset0IsInput ? vault0 : vault1);
-            uint256 maxDeposit = vault.debtOf(eulerAccount) + vault.maxDeposit(eulerAccount);
+            IEVault supplyVault = IEVault(asset0IsInput ? sParams.supplyVault0 : sParams.supplyVault1);
+            IEVault borrowVault = IEVault(asset0IsInput ? sParams.borrowVault0 : sParams.borrowVault1);
+            uint256 maxDeposit = borrowVault.debtOf(eulerAccount) + supplyVault.maxDeposit(eulerAccount);
             if (maxDeposit < inLimit) inLimit = maxDeposit;
         }
 
@@ -90,17 +99,30 @@ library QuoteLib {
 
         // Remaining cash and borrow caps in output
         {
-            IEVault vault = (asset0IsInput ? vault1 : vault0);
+            IEVault supplyVault = IEVault(asset0IsInput ? sParams.supplyVault1 : sParams.supplyVault0);
+            IEVault borrowVault = IEVault(asset0IsInput ? sParams.borrowVault1 : sParams.borrowVault0);
+            uint256 supplyBalance = supplyVault.convertToAssets(supplyVault.balanceOf(eulerAccount));
 
-            uint256 cash = vault.cash();
-            if (cash < outLimit) outLimit = cash;
+            {
+                uint256 supplyCash = supplyVault.cash();
+                if (supplyBalance > supplyCash || supplyVault == borrowVault) {
+                    // Cash in supplyVault is limiting factor
+                    if (supplyCash < outLimit) outLimit = supplyCash;
+                } else {
+                    // Sufficient cash to cover full withdrawal, so limiting factor is cash in borrowVault
+                    uint256 cashLimit = supplyCash + borrowVault.cash();
+                    if (cashLimit < outLimit) outLimit = cashLimit;
+                }
+            }
 
-            (, uint16 borrowCap) = vault.caps();
-            uint256 maxWithdraw = decodeCap(uint256(borrowCap));
-            maxWithdraw = vault.totalBorrows() > maxWithdraw ? 0 : maxWithdraw - vault.totalBorrows();
-            if (maxWithdraw < outLimit) {
-                maxWithdraw += vault.convertToAssets(vault.balanceOf(eulerAccount));
-                if (maxWithdraw < outLimit) outLimit = maxWithdraw;
+            {
+                (, uint16 borrowCapEncoded) = borrowVault.caps();
+                uint256 borrowCap = decodeCap(uint256(borrowCapEncoded));
+                if (borrowCap != type(uint256).max) {
+                    uint256 totalBorrows = borrowVault.totalBorrows();
+                    uint256 maxWithdraw = supplyBalance + (totalBorrows > borrowCap ? 0 : borrowCap - totalBorrows);
+                    if (maxWithdraw < outLimit) outLimit = maxWithdraw;
+                }
             }
         }
 
@@ -129,39 +151,39 @@ library QuoteLib {
 
     /// @notice Verifies that the given tokens are supported by the EulerSwap pool and determines swap direction
     /// @dev Returns a boolean indicating whether the input token is asset0 (true) or asset1 (false)
-    /// @param p The EulerSwap params
+    /// @param sParams Static params
     /// @param tokenIn The input token address for the swap
     /// @param tokenOut The output token address for the swap
     /// @return asset0IsInput True if tokenIn is asset0 and tokenOut is asset1, false if reversed
     /// @custom:error UnsupportedPair Thrown if the token pair is not supported by the EulerSwap pool
-    function checkTokens(IEulerSwap.Params memory p, address tokenIn, address tokenOut)
+    function checkTokens(IEulerSwap.StaticParams memory sParams, address tokenIn, address tokenOut)
         internal
         view
         returns (bool asset0IsInput)
     {
-        address asset0 = IEVault(p.vault0).asset();
-        address asset1 = IEVault(p.vault1).asset();
+        address asset0 = IEVault(sParams.supplyVault0).asset();
+        address asset1 = IEVault(sParams.supplyVault1).asset();
 
         if (tokenIn == asset0 && tokenOut == asset1) asset0IsInput = true;
         else if (tokenIn == asset1 && tokenOut == asset0) asset0IsInput = false;
         else revert UnsupportedPair();
     }
 
-    function findCurvePoint(IEulerSwap.Params memory p, uint256 amount, bool exactIn, bool asset0IsInput)
+    function findCurvePoint(IEulerSwap.DynamicParams memory dParams, uint256 amount, bool exactIn, bool asset0IsInput)
         internal
         view
         returns (uint256 output)
     {
-        CtxLib.Storage storage s = CtxLib.getStorage();
-
-        uint256 px = p.priceX;
-        uint256 py = p.priceY;
-        uint256 x0 = p.equilibriumReserve0;
-        uint256 y0 = p.equilibriumReserve1;
-        uint256 cx = p.concentrationX;
-        uint256 cy = p.concentrationY;
+        CtxLib.State storage s = CtxLib.getState();
         uint112 reserve0 = s.reserve0;
         uint112 reserve1 = s.reserve1;
+
+        uint256 px = dParams.priceX;
+        uint256 py = dParams.priceY;
+        uint256 x0 = dParams.equilibriumReserve0;
+        uint256 y0 = dParams.equilibriumReserve1;
+        uint256 cx = dParams.concentrationX;
+        uint256 cy = dParams.concentrationY;
 
         uint256 xNew;
         uint256 yNew;

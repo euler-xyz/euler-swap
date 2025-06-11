@@ -9,19 +9,19 @@ library CurveExtrasLib {
     /// @dev Calculates marginal price after a swap of `amount` either of `asset0` or `asset1`, depending on `asset0IsInput`
     /// @return price asset1\asset0 price in 1e18 scale
     function computeMarginalPriceAfterSwap(
-        IEulerSwap.Params memory p,
+        IEulerSwap.DynamicParams memory dParams,
         uint256 reserve0,
         uint256 reserve1,
         bool asset0IsInput,
         uint256 amount
     ) internal pure returns (uint256) {
-        uint256 px = p.priceX;
-        uint256 py = p.priceY;
-        uint256 x0 = p.equilibriumReserve0;
-        uint256 y0 = p.equilibriumReserve1;
-        uint256 cx = p.concentrationX;
-        uint256 cy = p.concentrationY;
-        uint256 fee = p.fee;
+        uint256 px = dParams.priceX;
+        uint256 py = dParams.priceY;
+        uint256 x0 = dParams.equilibriumReserve0;
+        uint256 y0 = dParams.equilibriumReserve1;
+        uint256 cx = dParams.concentrationX;
+        uint256 cy = dParams.concentrationY;
+        uint256 fee = dParams.fee0;
 
         amount = amount - (amount * fee / 1e18);
 

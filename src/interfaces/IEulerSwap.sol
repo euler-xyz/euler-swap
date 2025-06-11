@@ -2,38 +2,50 @@
 pragma solidity >=0.8.0;
 
 interface IEulerSwap {
-    /// @dev Immutable pool parameters. Passed to the instance via proxy trailing data.
-    struct Params {
-        // Entities
-        address vault0;
-        address vault1;
+    /// @dev Constant pool parameters, loaded from trailing calldata.
+    struct StaticParams {
+        address supplyVault0;
+        address supplyVault1;
+        address borrowVault0;
+        address borrowVault1;
         address eulerAccount;
-        // Curve
+        address feeRecipient;
+        address protocolFeeRecipient;
+        uint64 protocolFee;
+    }
+
+    /// @dev Reconfigurable pool parameters, loaded from storage.
+    struct DynamicParams {
         uint112 equilibriumReserve0;
         uint112 equilibriumReserve1;
-        uint256 priceX;
-        uint256 priceY;
-        uint256 concentrationX;
-        uint256 concentrationY;
-        // Fees
-        uint256 fee;
-        uint256 protocolFee;
-        address protocolFeeRecipient;
+        uint112 minReserve0;
+        uint112 minReserve1;
+        uint80 priceX;
+        uint80 priceY;
+        uint64 concentrationX;
+        uint64 concentrationY;
+        uint64 fee0;
+        uint64 fee1;
+        uint8 swapHookedOperations;
+        address swapHook;
     }
 
     /// @dev Starting configuration of pool storage.
     struct InitialState {
-        uint112 currReserve0;
-        uint112 currReserve1;
+        uint112 reserve0;
+        uint112 reserve1;
     }
 
     /// @notice Performs initial activation setup, such as approving vaults to access the
     /// EulerSwap instance's tokens, enabling vaults as collateral, setting up Uniswap
     /// hooks, etc. This should only be invoked by the factory.
-    function activate(InitialState calldata initialState) external;
+    function activate(DynamicParams calldata dynamicParams, InitialState calldata initialState) external;
 
-    /// @notice Retrieves the pool's immutable parameters.
-    function getParams() external view returns (Params memory);
+    /// @notice Retrieves the pool's static parameters.
+    function getStaticParams() external view returns (StaticParams memory);
+
+    /// @notice Retrieves the pool's dynamic parameters.
+    function getDynamicParams() external view returns (DynamicParams memory);
 
     /// @notice Retrieves the underlying assets supported by this pool.
     function getAssets() external view returns (address asset0, address asset1);

@@ -27,7 +27,7 @@ contract FeesTest is EulerSwapTestBase {
 
         // With fees: Increase input amount so that corresponding output amount matches
 
-        eulerSwap = createEulerSwap(60e18, 60e18, fee, 1e18, 1e18, 0.9e18, 0.9e18);
+        eulerSwap = createEulerSwap(60e18, 60e18, uint64(fee), 1e18, 1e18, 0.9e18, 0.9e18);
 
         uint256 amountIn = amountInNoFees * 1e18 / (1e18 - fee);
         uint256 amountOut =
@@ -79,7 +79,7 @@ contract FeesTest is EulerSwapTestBase {
 
         // With fees: Increase input amount so output amount stays same
 
-        eulerSwap = createEulerSwap(60e18, 60e18, fee, 1e18, 1e18, 0.9e18, 0.9e18);
+        eulerSwap = createEulerSwap(60e18, 60e18, uint64(fee), 1e18, 1e18, 0.9e18, 0.9e18);
 
         uint256 amountIn =
             periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);

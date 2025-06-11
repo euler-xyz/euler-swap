@@ -30,7 +30,7 @@ contract PreserveNav is EulerSwapTestBase {
 
         else fee -= 0.1e18;
 
-        eulerSwap = createEulerSwap(60e18, 60e18, fee, 1e18, 1e18, cx, cy);
+        eulerSwap = createEulerSwap(60e18, 60e18, uint64(fee), 1e18, 1e18, uint64(cx), uint64(cy));
 
         skimAll(eulerSwap, preSkimDir);
         int256 nav1 = getHolderNAV();

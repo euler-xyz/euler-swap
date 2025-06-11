@@ -11,12 +11,13 @@ library CurveLib {
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
-    function verify(IEulerSwap.Params memory p, uint256 newReserve0, uint256 newReserve1)
+    function verify(IEulerSwap.DynamicParams memory p, uint256 newReserve0, uint256 newReserve1)
         internal
         pure
         returns (bool)
     {
         if (newReserve0 > type(uint112).max || newReserve1 > type(uint112).max) return false;
+        if (newReserve0 < p.minReserve0 || newReserve1 < p.minReserve1) return false;
 
         if (newReserve0 >= p.equilibriumReserve0) {
             if (newReserve1 >= p.equilibriumReserve1) return true;

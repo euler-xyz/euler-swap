@@ -31,22 +31,30 @@ contract FactoryTest is EulerSwapTestBase {
     function getBasicParams()
         internal
         view
-        returns (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState)
+        returns (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        )
     {
-        poolParams = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, 0, address(0));
-        initialState = IEulerSwap.InitialState({currReserve0: 1e18, currReserve1: 1e18});
+        (sParams, dParams) = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, 0, address(0));
+        initialState = IEulerSwap.InitialState({reserve0: 1e18, reserve1: 1e18});
     }
 
-    function mineSalt(IEulerSwap.Params memory poolParams) internal view returns (address hookAddress, bytes32 salt) {
+    function mineSalt(IEulerSwap.StaticParams memory sParams)
+        internal
+        view
+        returns (address hookAddress, bytes32 salt)
+    {
         uint160 flags = uint160(
             Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
                 | Hooks.BEFORE_DONATE_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
         );
-        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(poolParams));
+        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
         (hookAddress, salt) = HookMiner.find(address(eulerSwapFactory), flags, creationCode);
     }
 
-    function mineBadSalt(IEulerSwap.Params memory poolParams)
+    function mineBadSalt(IEulerSwap.StaticParams memory sParams)
         internal
         view
         returns (address hookAddress, bytes32 salt)
@@ -56,18 +64,18 @@ contract FactoryTest is EulerSwapTestBase {
             Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
                 | Hooks.BEFORE_DONATE_FLAG
         );
-        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(poolParams));
+        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
         (hookAddress, salt) = HookMiner.find(address(eulerSwapFactory), flags, creationCode);
     }
 
     function testDifferingAddressesSameSalt() public view {
-        (IEulerSwap.Params memory poolParams,) = getBasicParams();
+        (IEulerSwap.StaticParams memory sParams,,) = getBasicParams();
 
-        address a1 = eulerSwapFactory.computePoolAddress(poolParams, bytes32(0));
+        address a1 = eulerSwapFactory.computePoolAddress(sParams, bytes32(0));
 
-        poolParams.eulerAccount = address(123);
+        sParams.eulerAccount = address(123);
 
-        address a2 = eulerSwapFactory.computePoolAddress(poolParams, bytes32(0));
+        address a2 = eulerSwapFactory.computePoolAddress(sParams, bytes32(0));
 
         assert(a1 != a2);
     }
@@ -77,11 +85,15 @@ contract FactoryTest is EulerSwapTestBase {
 
         // test when new pool not set as operator
 
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
 
-        (address hookAddress, bytes32 salt) = mineSalt(poolParams);
+        (address hookAddress, bytes32 salt) = mineSalt(sParams);
 
-        address predictedAddress = eulerSwapFactory.computePoolAddress(poolParams, salt);
+        address predictedAddress = eulerSwapFactory.computePoolAddress(sParams, salt);
         assertEq(hookAddress, predictedAddress);
 
         IEVC.BatchItem[] memory items = new IEVC.BatchItem[](1);
@@ -90,7 +102,7 @@ contract FactoryTest is EulerSwapTestBase {
             onBehalfOfAccount: holder,
             targetContract: address(eulerSwapFactory),
             value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, initialState, salt))
+            data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
         });
 
         vm.prank(holder);
@@ -111,7 +123,7 @@ contract FactoryTest is EulerSwapTestBase {
             onBehalfOfAccount: holder,
             targetContract: address(eulerSwapFactory),
             value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, initialState, salt))
+            data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
         });
 
         vm.prank(holder);
@@ -130,8 +142,8 @@ contract FactoryTest is EulerSwapTestBase {
         assertEq(poolsList[0], address(eulerSwap));
 
         // revert when attempting to deploy a new pool (with a different salt)
-        poolParams.fee = 1;
-        (address newHookAddress, bytes32 newSalt) = mineSalt(poolParams);
+        sParams.feeRecipient = address(1);
+        (address newHookAddress, bytes32 newSalt) = mineSalt(sParams);
         assertNotEq(newHookAddress, hookAddress);
         assertNotEq(newSalt, salt);
 
@@ -140,7 +152,7 @@ contract FactoryTest is EulerSwapTestBase {
             onBehalfOfAccount: holder,
             targetContract: address(eulerSwapFactory),
             value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, initialState, newSalt))
+            data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, newSalt))
         });
 
         vm.prank(holder);
@@ -149,15 +161,19 @@ contract FactoryTest is EulerSwapTestBase {
     }
 
     function testBadSalt() public {
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
-        (address hookAddress, bytes32 salt) = mineBadSalt(poolParams);
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
+        (address hookAddress, bytes32 salt) = mineBadSalt(sParams);
 
         vm.prank(holder);
         evc.setAccountOperator(holder, hookAddress, true);
 
         vm.expectRevert(abi.encodeWithSelector(Hooks.HookAddressNotValid.selector, hookAddress));
         vm.prank(holder);
-        eulerSwapFactory.deployPool(poolParams, initialState, salt);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
     function testInvalidPoolsSliceOutOfBounds() public {
@@ -167,60 +183,83 @@ contract FactoryTest is EulerSwapTestBase {
 
     function testDeployWithInvalidVaultImplementation() public {
         bytes32 salt = bytes32(uint256(1234));
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
 
         // Create a fake vault that's not deployed by the factory
         address fakeVault = address(0x1234);
-        poolParams.vault0 = fakeVault;
-        poolParams.vault1 = address(eTST2);
+        sParams.supplyVault0 = fakeVault;
+        sParams.borrowVault0 = fakeVault;
+        sParams.supplyVault1 = address(eTST2);
+        sParams.borrowVault1 = address(eTST2);
 
         vm.prank(holder);
         vm.expectRevert(EulerSwapFactory.InvalidVaultImplementation.selector);
-        eulerSwapFactory.deployPool(poolParams, initialState, salt);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
     function testDeployWithUnauthorizedCaller() public {
         bytes32 salt = bytes32(uint256(1234));
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
 
         // Call from a different address than the euler account
         vm.prank(address(0x1234));
         vm.expectRevert(EulerSwapFactory.Unauthorized.selector);
-        eulerSwapFactory.deployPool(poolParams, initialState, salt);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
     function testDeployWithAssetsOutOfOrderOrEqual() public {
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
-        (poolParams.vault0, poolParams.vault1) = (poolParams.vault1, poolParams.vault0);
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
+        (sParams.supplyVault0, sParams.supplyVault1) = (sParams.supplyVault1, sParams.supplyVault0);
+        (sParams.borrowVault0, sParams.borrowVault1) = (sParams.borrowVault1, sParams.borrowVault0);
 
-        (address hookAddress, bytes32 salt) = mineSalt(poolParams);
+        (address hookAddress, bytes32 salt) = mineSalt(sParams);
 
         vm.prank(holder);
         evc.setAccountOperator(holder, hookAddress, true);
 
         vm.prank(holder);
         vm.expectRevert(EulerSwap.AssetsOutOfOrderOrEqual.selector);
-        eulerSwapFactory.deployPool(poolParams, initialState, salt);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
     function testDeployWithBadFee() public {
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
-        poolParams.fee = 1e18;
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
+        dParams.fee0 = 1e18 + 1;
 
-        (address hookAddress, bytes32 salt) = mineSalt(poolParams);
+        (address hookAddress, bytes32 salt) = mineSalt(sParams);
 
         vm.prank(holder);
         evc.setAccountOperator(holder, hookAddress, true);
 
         vm.prank(holder);
-        vm.expectRevert(EulerSwap.BadParam.selector);
-        eulerSwapFactory.deployPool(poolParams, initialState, salt);
+        vm.expectRevert(EulerSwap.BadDynamicParam.selector);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
     function testPoolsByPair() public {
         // First deploy a pool
-        (IEulerSwap.Params memory poolParams, IEulerSwap.InitialState memory initialState) = getBasicParams();
-        (address hookAddress, bytes32 salt) = mineSalt(poolParams);
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
+        (address hookAddress, bytes32 salt) = mineSalt(sParams);
 
         IEVC.BatchItem[] memory items = new IEVC.BatchItem[](2);
         items[0] = IEVC.BatchItem({
@@ -233,7 +272,7 @@ contract FactoryTest is EulerSwapTestBase {
             onBehalfOfAccount: holder,
             targetContract: address(eulerSwapFactory),
             value: 0,
-            data: abi.encodeCall(EulerSwapFactory.deployPool, (poolParams, initialState, salt))
+            data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
         });
 
         vm.prank(holder);
@@ -261,23 +300,27 @@ contract FactoryTest is EulerSwapTestBase {
     address bob = makeAddr("bob");
 
     function test_multipleUninstalls() public {
-        (IEulerSwap.Params memory params, IEulerSwap.InitialState memory initialState) = getBasicParams();
+        (
+            IEulerSwap.StaticParams memory sParams,
+            IEulerSwap.DynamicParams memory dParams,
+            IEulerSwap.InitialState memory initialState
+        ) = getBasicParams();
 
         // Deploy pool for Alice
-        params.eulerAccount = holder = alice;
-        (address alicePool, bytes32 aliceSalt) = mineSalt(params);
+        sParams.eulerAccount = holder = alice;
+        (address alicePool, bytes32 aliceSalt) = mineSalt(sParams);
 
         vm.startPrank(alice);
         evc.setAccountOperator(alice, alicePool, true);
-        eulerSwapFactory.deployPool(params, initialState, aliceSalt);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, aliceSalt);
 
         // Deploy pool for Bob
-        params.eulerAccount = holder = bob;
-        (address bobPool, bytes32 bobSalt) = mineSalt(params);
+        sParams.eulerAccount = holder = bob;
+        (address bobPool, bytes32 bobSalt) = mineSalt(sParams);
 
         vm.startPrank(bob);
         evc.setAccountOperator(bob, bobPool, true);
-        eulerSwapFactory.deployPool(params, initialState, bobSalt);
+        eulerSwapFactory.deployPool(sParams, dParams, initialState, bobSalt);
 
         {
             address[] memory ps = eulerSwapFactory.pools();

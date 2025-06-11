@@ -30,7 +30,12 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     mapping(address asset0 => mapping(address asset1 => EnumerableSet.AddressSet)) internal poolMap;
 
     event PoolDeployed(address indexed asset0, address indexed asset1, address indexed eulerAccount, address pool);
-    event PoolConfig(address indexed pool, IEulerSwap.Params params, IEulerSwap.InitialState initialState);
+    event PoolConfig(
+        address indexed pool,
+        IEulerSwap.StaticParams sParams,
+        IEulerSwap.DynamicParams dParams,
+        IEulerSwap.InitialState initialState
+    );
     event PoolUninstalled(address indexed asset0, address indexed asset1, address indexed eulerAccount, address pool);
 
     error InvalidQuery();
@@ -52,32 +57,37 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         eulerSwapImpl = eulerSwapImpl_;
     }
 
+    function isValidVault(address v) private view returns (bool) {
+        return GenericFactory(evkFactory).isProxy(v);
+    }
+
     /// @inheritdoc IEulerSwapFactory
-    function deployPool(IEulerSwap.Params memory params, IEulerSwap.InitialState memory initialState, bytes32 salt)
-        external
-        returns (address)
-    {
-        require(_msgSender() == params.eulerAccount, Unauthorized());
+    function deployPool(
+        IEulerSwap.StaticParams memory sParams,
+        IEulerSwap.DynamicParams memory dParams,
+        IEulerSwap.InitialState memory initialState,
+        bytes32 salt
+    ) external returns (address) {
+        require(_msgSender() == sParams.eulerAccount, Unauthorized());
+        require(isValidVault(sParams.supplyVault0) && isValidVault(sParams.supplyVault1), InvalidVaultImplementation());
+        require(sParams.borrowVault0 == address(0) || isValidVault(sParams.borrowVault0), InvalidVaultImplementation());
+        require(sParams.borrowVault1 == address(0) || isValidVault(sParams.borrowVault1), InvalidVaultImplementation());
         require(
-            GenericFactory(evkFactory).isProxy(params.vault0) && GenericFactory(evkFactory).isProxy(params.vault1),
-            InvalidVaultImplementation()
-        );
-        require(
-            params.protocolFee == protocolFee && params.protocolFeeRecipient == protocolFeeRecipient,
+            sParams.protocolFee == protocolFee && sParams.protocolFeeRecipient == protocolFeeRecipient,
             InvalidProtocolFee()
         );
 
-        uninstall(params.eulerAccount);
+        uninstall(sParams.eulerAccount);
 
-        EulerSwap pool = EulerSwap(MetaProxyDeployer.deployMetaProxy(eulerSwapImpl, abi.encode(params), salt));
+        EulerSwap pool = EulerSwap(MetaProxyDeployer.deployMetaProxy(eulerSwapImpl, abi.encode(sParams), salt));
 
-        updateEulerAccountState(params.eulerAccount, address(pool));
+        updateEulerAccountState(sParams.eulerAccount, address(pool));
 
-        pool.activate(initialState);
+        pool.activate(dParams, initialState);
 
         (address asset0, address asset1) = pool.getAssets();
-        emit PoolDeployed(asset0, asset1, params.eulerAccount, address(pool));
-        emit PoolConfig(address(pool), params, initialState);
+        emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool));
+        emit PoolConfig(address(pool), sParams, dParams, initialState);
 
         return address(pool);
     }
@@ -88,7 +98,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     }
 
     /// @inheritdoc IEulerSwapFactory
-    function computePoolAddress(IEulerSwap.Params memory poolParams, bytes32 salt) external view returns (address) {
+    function computePoolAddress(IEulerSwap.StaticParams memory sParams, bytes32 salt) external view returns (address) {
         return address(
             uint160(
                 uint256(
@@ -97,7 +107,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
                             bytes1(0xff),
                             address(this),
                             salt,
-                            keccak256(MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(poolParams)))
+                            keccak256(MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams)))
                         )
                     )
                 )

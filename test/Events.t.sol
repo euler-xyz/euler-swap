@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
+import "forge-std/console.sol";
+
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
-import "../src/Events.sol";
+import "../src/libraries/SwapLib.sol";
 
 contract Events is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -10,7 +12,7 @@ contract Events is EulerSwapTestBase {
     function setUp() public virtual override {
         super.setUp();
 
-        uint256 myFee = 0.015e18;
+        uint64 myFee = 0.015e18;
         eulerSwap = createEulerSwap(60e18, 60e18, myFee, 1e18, 1e18, 0.4e18, 0.85e18);
     }
 
@@ -25,15 +27,17 @@ contract Events is EulerSwapTestBase {
         assetTST.transfer(address(eulerSwap), amountIn);
 
         {
-            uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getParams().fee / 1e18);
+            uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getDynamicParams().fee0 / 1e18);
             (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
             vm.expectEmit(true, true, true, true);
-            emit Swap(
+            emit SwapLib.Swap(
                 address(this),
                 amountInWithoutFee,
                 0,
                 0,
                 amountOut,
+                amountIn - amountInWithoutFee,
+                0,
                 r0 + uint112(amountInWithoutFee),
                 r1 - uint112(amountOut),
                 address(1234)
@@ -56,15 +60,17 @@ contract Events is EulerSwapTestBase {
         assetTST2.transfer(address(eulerSwap), amountIn);
 
         {
-            uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getParams().fee / 1e18);
+            uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getDynamicParams().fee1 / 1e18);
             (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
             vm.expectEmit(true, true, true, true);
-            emit Swap(
+            emit SwapLib.Swap(
                 address(this),
                 0,
                 amountInWithoutFee,
                 amountOut,
                 0,
+                0,
+                amountIn - amountInWithoutFee,
                 r0 - uint112(amountOut),
                 r1 + uint112(amountInWithoutFee),
                 address(this)

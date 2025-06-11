@@ -39,7 +39,7 @@ contract CurveLibTest is EulerSwapTestBase {
     {
         // Params
         px = 1;
-        py = bound(py, 1, 1e25);
+        py = bound(py, 1, 1e24);
         x0 = bound(x0, 1, 1e28);
         y0 = bound(y0, 0, 1e28);
         cx = bound(cx, 0, 1e18);
@@ -51,19 +51,19 @@ contract CurveLibTest is EulerSwapTestBase {
         console.log("cx", cx);
         console.log("cy", cy);
 
-        IEulerSwap.Params memory p = IEulerSwap.Params({
-            vault0: address(0),
-            vault1: address(0),
-            eulerAccount: address(0),
+        IEulerSwap.DynamicParams memory p = IEulerSwap.DynamicParams({
             equilibriumReserve0: uint112(x0),
             equilibriumReserve1: uint112(y0),
-            priceX: px,
-            priceY: py,
-            concentrationX: cx,
-            concentrationY: cy,
-            fee: 0,
-            protocolFee: 0,
-            protocolFeeRecipient: address(0)
+            minReserve0: 0,
+            minReserve1: 0,
+            priceX: uint80(px),
+            priceY: uint80(py),
+            concentrationX: uint64(cx),
+            concentrationY: uint64(cy),
+            fee0: 0,
+            fee1: 0,
+            swapHookedOperations: 0,
+            swapHook: address(0)
         });
 
         x = bound(x, 1, x0);
@@ -95,8 +95,8 @@ contract CurveLibTest is EulerSwapTestBase {
         pure
     {
         // Params
-        px = bound(px, 1, 1e25);
-        py = bound(py, 1, 1e25);
+        px = bound(px, 1, 1e24);
+        py = bound(py, 1, 1e24);
         x0 = bound(x0, 1, 1e28);
         y0 = bound(y0, 1, 1e28);
         cx = bound(cx, 0, 1e18);
@@ -112,7 +112,7 @@ contract CurveLibTest is EulerSwapTestBase {
     }
 
     /// @dev Less efficient method to compute fInverse. Useful for differential fuzzing.
-    function binarySearch(IEulerSwap.Params memory p, uint256 newReserve1, uint256 xMin, uint256 xMax)
+    function binarySearch(IEulerSwap.DynamicParams memory p, uint256 newReserve1, uint256 xMin, uint256 xMax)
         internal
         pure
         returns (uint256)

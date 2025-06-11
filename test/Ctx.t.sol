@@ -9,31 +9,38 @@ contract CtxTest is EulerSwapTestBase {
         super.setUp();
     }
 
+    function storageLoc(bytes memory name) private pure returns (bytes32) {
+        return bytes32(uint256(keccak256(name)) - 1);
+    }
+
     function test_staticCtxStorage() public pure {
-        assertEq(CtxLib.CtxStorageLocation, keccak256("eulerSwap.storage"));
+        assertEq(CtxLib.CtxStateLocation, storageLoc("eulerSwap.state"));
+        assertEq(CtxLib.CtxDynamicParamsLocation, storageLoc("eulerSwap.dynamicParams"));
     }
 
     function test_staticParamSize() public view {
-        IEulerSwap.Params memory params = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, 0, address(0));
-        assertEq(abi.encode(params).length, 384);
+        (IEulerSwap.StaticParams memory sParams,) =
+            getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, 0, address(0));
+        assertEq(abi.encode(sParams).length, 256);
     }
 
     function test_insufficientCalldata() public {
-        // Proxy appends 384 bytes of calldata, so you can't call directly without this
+        // Proxy appends calldata, so you can't call directly without this
 
         vm.expectRevert(CtxLib.InsufficientCalldata.selector);
-        EulerSwap(eulerSwapImpl).getParams();
+        EulerSwap(eulerSwapImpl).getStaticParams();
     }
 
     function test_callImplementationDirectly() public {
         // Underlying implementation is locked: must call via a proxy
 
         bool success;
+        IEulerSwap.DynamicParams memory dParams;
 
         vm.expectRevert(EulerSwap.AlreadyActivated.selector);
         (success,) = eulerSwapImpl.call(
             padCalldata(
-                abi.encodeCall(EulerSwap.activate, (IEulerSwap.InitialState({currReserve0: 1e18, currReserve1: 1e18})))
+                abi.encodeCall(EulerSwap.activate, (dParams, IEulerSwap.InitialState({reserve0: 1e18, reserve1: 1e18})))
             )
         );
 
@@ -42,7 +49,7 @@ contract CtxTest is EulerSwapTestBase {
     }
 
     function padCalldata(bytes memory inp) internal pure returns (bytes memory) {
-        IEulerSwap.Params memory params;
-        return abi.encodePacked(inp, abi.encode(params));
+        IEulerSwap.StaticParams memory sParams;
+        return abi.encodePacked(inp, abi.encode(sParams));
     }
 }

@@ -66,7 +66,7 @@ contract Basic is EulerSwapTestBase {
 
         int256 origNAV = getHolderNAV();
 
-        eulerSwap = createEulerSwap(60e18, 60e18, 0, px, py, 0.4e18, 0.85e18);
+        eulerSwap = createEulerSwap(60e18, 60e18, 0, uint80(px), uint80(py), 0.4e18, 0.85e18);
 
         uint256 amountIn = 1e18;
         uint256 amountOut =
@@ -119,7 +119,7 @@ contract Basic is EulerSwapTestBase {
             oracle.setPrice(address(eTST), unitOfAccount, price);
             oracle.setPrice(address(assetTST), unitOfAccount, price);
 
-            eulerSwap = createEulerSwap(60e18, 60e18, 0, px, py, cx, cy);
+            eulerSwap = createEulerSwap(60e18, 60e18, 0, uint80(px), uint80(py), uint64(cx), uint64(cy));
         }
 
         int256 origNAV = getHolderNAV();
@@ -163,7 +163,7 @@ contract Basic is EulerSwapTestBase {
         cy = bound(cy, 0.01e18, 0.99e18);
         fee = bound(fee, 0, 0.1e18);
 
-        eulerSwap = createEulerSwap(60e18, 60e18, fee, 1e18, 1e18, cx, cy);
+        eulerSwap = createEulerSwap(60e18, 60e18, uint64(fee), 1e18, 1e18, uint64(cx), uint64(cy));
 
         int256 origNAV = getHolderNAV();
 
@@ -181,8 +181,9 @@ contract Basic is EulerSwapTestBase {
 
             // calculate marginal price after swap
             (uint112 reserve0, uint112 reserve1,) = eulerSwap.getReserves();
-            uint256 calculatedMarginalPrice =
-                CurveExtrasLib.computeMarginalPriceAfterSwap(eulerSwap.getParams(), reserve0, reserve1, dir, amount);
+            uint256 calculatedMarginalPrice = CurveExtrasLib.computeMarginalPriceAfterSwap(
+                eulerSwap.getDynamicParams(), reserve0, reserve1, dir, amount
+            );
 
             // Try to swap out 1 extra
 
