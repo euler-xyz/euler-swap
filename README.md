@@ -160,7 +160,7 @@ Additionally, the `EulerSwapPeriphery` contract provides helper functions: [swap
 
 ### Quotes
 
-EulerSwap pools expose the [computeQuote](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwap.sol#L53) function for quoting both exact input and exact output trades. The function will revert if there is insufficient liquidity for the requested amount or if the pool has been decommissioned. If the function returns a quote, it means the trade is executable based on the pool’s current state (assuming the pool is operational—see the **Creating and Decommissioning Pools** section).
+EulerSwap pools expose the [computeQuote](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwap.sol#L53) function for quoting both exact input and exact output trades. The function will revert if there is insufficient liquidity for the requested amount or if the pool has been decommissioned. If the function returns a quote, it means the trade should be executable based on the pool’s current state, but it's not guaranteed if the pool is abandoned or not maintained properly (See the **Creating and Decommissioning Pools** section).
 
 The `EulerSwapPeriphery` contract also provides the [quoteExactInput](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwapPeriphery.sol#L32) and [quoteExactOutput](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwapPeriphery.sol#L38) helper functions
 
