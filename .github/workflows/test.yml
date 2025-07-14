@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Forge build
         run: |
-          forge build --force --skip test --sizes
+          forge build --force --skip test
         id: build
 
       - name: Run Forge tests
