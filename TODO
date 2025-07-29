@@ -1,7 +1,8 @@
+! read-only hook method, for quoting
+! expiry field, for using ES as a limit order
 ! testing
   * add test: fee of 1e18 is OK (means direction disabled
   * get hook tests working again
-* read-only hooks
 * creationCode accessor
 * isInstalled() accessor that checks whether operator has been uninstalled
 * verify storage hasn't spilled into unexpected slots
