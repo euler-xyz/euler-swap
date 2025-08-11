@@ -16,6 +16,13 @@ script/json/out/
 # Coverage file
 lcov.info
 
+# echidna
+_corpus/
+crytic-export/
+
+# VSCode files
+.vscode/
+
 # MAC files
 .DS_Store
 __MACOSX
