@@ -1,4 +1,3 @@
-// FIXME
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
@@ -46,7 +45,13 @@ contract HookSwapsTest is EulerSwapTestBase {
 
         deployEulerSwap(address(poolManager));
 
-        eulerSwap = createEulerSwapHook(60e18, 60e18, 0, 1e18, 1e18, 0.4e18, 0.85e18);
+        {
+            (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
+                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0), 0, address(0));
+            IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
+
+            eulerSwap = createEulerSwapHookFull(sParams, dParams, initialState);
+        }
 
         // confirm pool was created
         assertFalse(eulerSwap.poolKey().currency1 == CurrencyLibrary.ADDRESS_ZERO);

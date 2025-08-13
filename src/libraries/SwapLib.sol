@@ -8,13 +8,12 @@ import {IEVault} from "evk/EVault/IEVault.sol";
 import {CtxLib} from "./CtxLib.sol";
 import {CurveLib} from "./CurveLib.sol";
 import {FundsLib} from "./FundsLib.sol";
+import {QuoteLib} from "./QuoteLib.sol";
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 import {IEulerSwapHookTarget} from "../interfaces/IEulerSwapHookTarget.sol";
 
 library SwapLib {
     using SafeERC20 for IERC20;
-
-    error DepositRejected();
 
     /// @notice Emitted after every swap.
     ///   * `sender` is the initiator of the swap, or the Router when invoked via hook.
@@ -51,8 +50,6 @@ library SwapLib {
         // Internal
         uint256 amount0In; // full minus fees
         uint256 amount1In; // full minus fees
-        uint256 fees0;
-        uint256 fees1;
     }
 
     function init(address evc, address sender, address to) internal view returns (SwapContext memory ctx) {
@@ -64,6 +61,8 @@ library SwapLib {
         ctx.asset1 = IEVault(ctx.sParams.supplyVault1).asset();
         ctx.sender = sender;
         ctx.to = to;
+
+        require(ctx.dParams.expiration == 0 || ctx.dParams.expiration > block.timestamp, QuoteLib.Expired());
     }
 
     function amounts(
@@ -117,6 +116,8 @@ library SwapLib {
         );
 
         if ((ctx.dParams.swapHookedOperations & 2) != 0) {
+            s.status = 1; // Unlock the reentrancy guard during afterSwap, allowing hook to reconfigure()
+
             IEulerSwapHookTarget(ctx.dParams.swapHook).afterSwap(
                 ctx.amount0In,
                 ctx.amount1In,
@@ -129,6 +130,8 @@ library SwapLib {
                 s.reserve0,
                 s.reserve1
             );
+
+            s.status = 2;
         }
     }
 
@@ -139,27 +142,9 @@ library SwapLib {
         if (amount == 0) return;
 
         address assetInput = asset0IsInput ? ctx.asset0 : ctx.asset1;
-        address assetOutput = asset0IsInput ? ctx.asset1 : ctx.asset0;
 
-        uint256 fee;
-        if ((ctx.dParams.swapHookedOperations & 1) != 0) {
-            CtxLib.State storage s = CtxLib.getState();
-
-            fee = IEulerSwapHookTarget(ctx.dParams.swapHook).beforeSwap(
-                assetInput,
-                assetOutput,
-                amount,
-                asset0IsInput ? ctx.amount1Out : ctx.amount0Out,
-                ctx.sender,
-                ctx.to,
-                s.reserve0,
-                s.reserve1
-            );
-        } else {
-            fee = asset0IsInput ? ctx.dParams.fee0 : ctx.dParams.fee1;
-        }
-
-        require(fee < 1e18, DepositRejected());
+        uint256 fee = QuoteLib.getFee(ctx.dParams, asset0IsInput);
+        require(fee < 1e18, QuoteLib.SwapRejected());
 
         uint256 feeAmount = amount * fee / 1e18;
 

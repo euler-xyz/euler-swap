@@ -37,7 +37,7 @@ contract FactoryTest is EulerSwapTestBase {
             IEulerSwap.InitialState memory initialState
         )
     {
-        (sParams, dParams) = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, 0, address(0));
+        (sParams, dParams) = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0), 0, address(0));
         initialState = IEulerSwap.InitialState({reserve0: 1e18, reserve1: 1e18});
     }
 
@@ -50,7 +50,7 @@ contract FactoryTest is EulerSwapTestBase {
             Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
                 | Hooks.BEFORE_DONATE_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
         );
-        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
+        bytes memory creationCode = eulerSwapFactory.creationCode(sParams);
         (hookAddress, salt) = HookMiner.find(address(eulerSwapFactory), flags, creationCode);
     }
 
@@ -64,7 +64,7 @@ contract FactoryTest is EulerSwapTestBase {
             Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
                 | Hooks.BEFORE_DONATE_FLAG
         );
-        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
+        bytes memory creationCode = eulerSwapFactory.creationCode(sParams);
         (hookAddress, salt) = HookMiner.find(address(eulerSwapFactory), flags, creationCode);
     }
 
@@ -337,10 +337,14 @@ contract FactoryTest is EulerSwapTestBase {
             assertEq(ps[1], bobPool);
         }
 
+        assertTrue(EulerSwap(alicePool).isInstalled());
+
         // Uninstall pool for Alice
         vm.startPrank(alice);
         evc.setAccountOperator(alice, alicePool, false);
         eulerSwapFactory.uninstallPool();
+
+        assertFalse(EulerSwap(alicePool).isInstalled());
 
         {
             address[] memory ps = eulerSwapFactory.pools();

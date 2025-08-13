@@ -127,7 +127,7 @@ contract EulerSwapTestBase is EVaultTestBase {
         returns (EulerSwap)
     {
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, px, py, cx, cy, fee, 0, address(0));
+            getEulerSwapParams(reserve0, reserve1, px, py, cx, cy, fee, address(0), 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
         return createEulerSwapFull(sParams, dParams, initialState);
@@ -154,36 +154,14 @@ contract EulerSwapTestBase is EVaultTestBase {
         return eulerSwap;
     }
 
-    function createEulerSwapHook(
-        uint112 reserve0,
-        uint112 reserve1,
-        uint64 fee,
-        uint80 px,
-        uint80 py,
-        uint64 cx,
-        uint64 cy
-    ) internal returns (EulerSwap) {
-        return createEulerSwapHookFull(reserve0, reserve1, fee, px, py, cx, cy, 0, address(0));
-    }
-
     function createEulerSwapHookFull(
-        uint112 reserve0,
-        uint112 reserve1,
-        uint64 fee,
-        uint80 px,
-        uint80 py,
-        uint64 cx,
-        uint64 cy,
-        uint64 protocolFee,
-        address protocolFeeRecipient
+        IEulerSwap.StaticParams memory sParams,
+        IEulerSwap.DynamicParams memory dParams,
+        IEulerSwap.InitialState memory initialState
     ) internal returns (EulerSwap) {
         removeInstalledOperator();
 
-        (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, px, py, cx, cy, fee, protocolFee, protocolFeeRecipient);
-        IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
-
-        bytes memory creationCode = MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
+        bytes memory creationCode = eulerSwapFactory.creationCode(sParams);
         (address predictedAddr, bytes32 salt) = HookMiner.find(
             address(eulerSwapFactory),
             uint160(
@@ -256,6 +234,7 @@ contract EulerSwapTestBase is EVaultTestBase {
         uint64 cx,
         uint64 cy,
         uint64 fee,
+        address feeRecipient,
         uint64 protocolFee,
         address protocolFeeRecipient
     ) internal view returns (EulerSwap.StaticParams memory sParams, EulerSwap.DynamicParams memory dParams) {
@@ -265,7 +244,7 @@ contract EulerSwapTestBase is EVaultTestBase {
             supplyVault1: address(eTST2),
             borrowVault1: address(eTST2),
             eulerAccount: holder,
-            feeRecipient: address(0),
+            feeRecipient: feeRecipient,
             protocolFeeRecipient: protocolFeeRecipient,
             protocolFee: protocolFee
         });
@@ -281,9 +260,27 @@ contract EulerSwapTestBase is EVaultTestBase {
             concentrationY: cy,
             fee0: fee,
             fee1: fee,
+            expiration: 0,
             swapHookedOperations: 0,
             swapHook: address(0)
         });
+    }
+
+    struct PoolConfig {
+        EulerSwap.StaticParams sParams;
+        EulerSwap.DynamicParams dParams;
+        EulerSwap.InitialState initialState;
+    }
+
+    function getPoolConfig(EulerSwap eulerSwap) internal view returns (PoolConfig memory pc) {
+        pc.sParams = eulerSwap.getStaticParams();
+        pc.dParams = eulerSwap.getDynamicParams();
+        (pc.initialState.reserve0, pc.initialState.reserve1,) = eulerSwap.getReserves();
+    }
+
+    function reconfigurePool(EulerSwap eulerSwap, PoolConfig memory pc) internal {
+        vm.prank(pc.sParams.eulerAccount);
+        eulerSwap.reconfigure(pc.dParams, pc.initialState);
     }
 
     function logState(address ml) internal view {

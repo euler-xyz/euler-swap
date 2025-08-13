@@ -1,13 +1,17 @@
-! read-only hook method, for quoting
-! expiry field, for using ES as a limit order
-! testing
-  * add test: fee of 1e18 is OK (means direction disabled
-  * get hook tests working again
-* creationCode accessor
-* isInstalled() accessor that checks whether operator has been uninstalled
+! take 0x/matcha's code fixes for getLimits, and optimisation for fInverse
+  * test quoting when c=1
+! delegate an EOA to reconfigure (if you don't want to grant full operator privileges)
+! allow hook to return special sentinel fee value that says to use the default configured fee
 * verify storage hasn't spilled into unexpected slots
   * avoid loading of hookTarget slot if no hooks specified
-? curve verify hook -- too dangerous?
+* remove import consoles
+
+* docs
+  * hooks should authenticate msg.sender (or use msg.sender as storage key), and that after hook can reconfigure
+    * fee=1e18 means direction disabled, uint(64).max sentinel means use default
+* natspec/FIXMEs
+
+? validity bond
 
 
 

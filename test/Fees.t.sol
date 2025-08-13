@@ -117,6 +117,45 @@ contract FeesTest is EulerSwapTestBase {
         assertEq(eTST2.balanceOf(address(holder)), 10e18 - amountOut);
     }
 
+    function test_altFeeRecipient() public {
+        uint64 fee = 0.05e18;
+
+        // No fees
+
+        uint256 amountInNoFees = 1e18;
+        uint256 amountOutNoFees =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountInNoFees);
+        assertApproxEqAbs(amountOutNoFees, 0.9983e18, 0.0001e18);
+
+        // With fees: Increase input amount so that corresponding output amount matches
+
+        {
+            (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
+                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.9e18, 0.9e18, fee, address(54321), 0, address(0));
+            IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
+
+            eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
+        }
+
+        uint256 amountIn = amountInNoFees * 1e18 / (1e18 - fee);
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+        assertApproxEqAbs(amountOut, amountOutNoFees, 1); // Same except for possible rounding down by 1
+
+        // Actually execute swap
+
+        assetTST.mint(address(this), amountIn);
+        assetTST.transfer(address(eulerSwap), amountIn);
+
+        eulerSwap.swap(0, amountOut, address(this), "");
+
+        // Swapper received their quoted amount:
+        assertEq(assetTST2.balanceOf(address(this)), amountOut);
+
+        // Alt fee recipient received their fees
+        assertEq(assetTST.balanceOf(address(54321)), amountIn - amountInNoFees);
+    }
+
     function test_fuzzFeeRounding(uint256 amount, uint256 fee) public pure {
         // This test demonstrates why you don't need to round up fees required
         // when quoting an exact output swap. It's because the actual fee

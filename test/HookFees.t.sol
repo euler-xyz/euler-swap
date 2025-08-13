@@ -1,10 +1,10 @@
-// FIXME
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
 import {TestERC20} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {EulerSwap} from "../src/EulerSwap.sol";
+import {SwapLib} from "../src/libraries/SwapLib.sol";
 
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IPoolManager, PoolManagerDeployer} from "./utils/PoolManagerDeployer.sol";
@@ -14,7 +14,6 @@ import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
-import "../src/Events.sol";
 
 contract HookFeesTest is EulerSwapTestBase {
     using StateLibrary for IPoolManager;
@@ -39,7 +38,13 @@ contract HookFeesTest is EulerSwapTestBase {
         deployEulerSwap(address(poolManager));
 
         // set swap fee to 10 bips
-        eulerSwap = createEulerSwapHook(60e18, 60e18, 0.001e18, 1e18, 1e18, 0.4e18, 0.85e18);
+        {
+            (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
+                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.4e18, 0.85e18, 0.001e18, address(0), 0, address(0));
+            IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
+
+            eulerSwap = createEulerSwapHookFull(sParams, dParams, initialState);
+        }
 
         // confirm pool was created
         assertFalse(eulerSwap.poolKey().currency1 == CurrencyLibrary.ADDRESS_ZERO);
@@ -52,7 +57,7 @@ contract HookFeesTest is EulerSwapTestBase {
         (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
 
         uint256 amountIn = 1e18;
-        uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getParams().fee / 1e18);
+        uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getDynamicParams().fee0 / 1e18);
         uint256 amountOut =
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
 
@@ -62,12 +67,14 @@ contract HookFeesTest is EulerSwapTestBase {
         assetTST.approve(address(minimalRouter), amountIn);
 
         vm.expectEmit(true, true, true, true);
-        emit Swap(
+        emit SwapLib.Swap(
             address(minimalRouter),
             amountInWithoutFee,
             0,
             0,
             amountOut,
+            amountIn - amountInWithoutFee,
+            0,
             r0 + uint112(amountInWithoutFee),
             r1 - uint112(amountOut),
             address(poolManager)
@@ -102,7 +109,7 @@ contract HookFeesTest is EulerSwapTestBase {
         (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
 
         uint256 amountIn = 1e18;
-        uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getParams().fee / 1e18);
+        uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getDynamicParams().fee0 / 1e18);
         uint256 amountOut =
             periphery.quoteExactInput(address(eulerSwap), address(assetTST2), address(assetTST), amountIn);
 
@@ -112,12 +119,14 @@ contract HookFeesTest is EulerSwapTestBase {
         assetTST2.approve(address(minimalRouter), amountIn);
 
         vm.expectEmit(true, true, true, true);
-        emit Swap(
+        emit SwapLib.Swap(
             address(minimalRouter),
             0,
             amountInWithoutFee,
             amountOut,
             0,
+            0,
+            amountIn - amountInWithoutFee,
             r0 - uint112(amountOut),
             r1 + uint112(amountInWithoutFee),
             address(poolManager)
@@ -156,7 +165,7 @@ contract HookFeesTest is EulerSwapTestBase {
             periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), amountOut);
 
         // inverse of the fee math in Periphery
-        uint256 amountInWithoutFee = amountIn * (1e18 - eulerSwap.getParams().fee) / 1e18;
+        uint256 amountInWithoutFee = amountIn * (1e18 - eulerSwap.getDynamicParams().fee0) / 1e18;
 
         assetTST.mint(anyone, amountIn);
 
@@ -189,21 +198,26 @@ contract HookFeesTest is EulerSwapTestBase {
 
     function test_protocolFee() public {
         // set protocol fee to 10% of the LP fee
-        uint256 protocolFee = 0.1e18;
+        uint64 protocolFee = 0.1e18;
 
         eulerSwapFactory.setProtocolFeeRecipient(protocolFeeRecipient);
         eulerSwapFactory.setProtocolFee(protocolFee);
 
         // set swap fee to 10 bips and activate the pool
-        eulerSwap = createEulerSwapHookFull(
-            60e18, 60e18, 0.001e18, 1e18, 1e18, 0.4e18, 0.85e18, protocolFee, protocolFeeRecipient
-        );
+        {
+            (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) = getEulerSwapParams(
+                60e18, 60e18, 1e18, 1e18, 0.4e18, 0.85e18, 0.001e18, address(0), protocolFee, protocolFeeRecipient
+            );
+            IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
+
+            eulerSwap = createEulerSwapHookFull(sParams, dParams, initialState);
+        }
 
         int256 origNav = getHolderNAV();
         (uint112 r0, uint112 r1,) = eulerSwap.getReserves();
 
         uint256 amountIn = 1e18;
-        uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getParams().fee / 1e18);
+        uint256 amountInWithoutFee = amountIn - (amountIn * eulerSwap.getDynamicParams().fee0 / 1e18);
         uint256 amountOut =
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
 

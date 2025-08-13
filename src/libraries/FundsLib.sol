@@ -14,7 +14,6 @@ library FundsLib {
     using SafeERC20 for IERC20;
 
     error DepositFailure(bytes reason);
-    error DepositRejected();
 
     /// @notice Approves tokens for a given vault, supporting both standard approvals and permit2
     /// @param vault The address of the vault to approve the token for

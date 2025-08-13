@@ -29,12 +29,12 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     /// @dev Mapping from sorted pair of underlyings to set of pools
     mapping(address asset0 => mapping(address asset1 => EnumerableSet.AddressSet)) internal poolMap;
 
-    event PoolDeployed(address indexed asset0, address indexed asset1, address indexed eulerAccount, address pool);
-    event PoolConfig(
-        address indexed pool,
-        IEulerSwap.StaticParams sParams,
-        IEulerSwap.DynamicParams dParams,
-        IEulerSwap.InitialState initialState
+    event PoolDeployed(
+        address indexed asset0,
+        address indexed asset1,
+        address indexed eulerAccount,
+        address pool,
+        IEulerSwap.StaticParams sParams
     );
     event PoolUninstalled(address indexed asset0, address indexed asset1, address indexed eulerAccount, address pool);
 
@@ -83,11 +83,10 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
 
         updateEulerAccountState(sParams.eulerAccount, address(pool));
 
-        pool.activate(dParams, initialState);
-
         (address asset0, address asset1) = pool.getAssets();
-        emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool));
-        emit PoolConfig(address(pool), sParams, dParams, initialState);
+        emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool), sParams);
+
+        pool.activate(dParams, initialState);
 
         return address(pool);
     }
@@ -97,19 +96,17 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         uninstall(_msgSender());
     }
 
+    // FIXME natspec
+    function creationCode(IEulerSwap.StaticParams memory sParams) public view returns (bytes memory) {
+        return MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
+    }
+
     /// @inheritdoc IEulerSwapFactory
     function computePoolAddress(IEulerSwap.StaticParams memory sParams, bytes32 salt) external view returns (address) {
         return address(
             uint160(
                 uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xff),
-                            address(this),
-                            salt,
-                            keccak256(MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams)))
-                        )
-                    )
+                    keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(creationCode(sParams))))
                 )
             )
         );

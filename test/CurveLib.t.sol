@@ -62,6 +62,7 @@ contract CurveLibTest is EulerSwapTestBase {
             concentrationY: uint64(cy),
             fee0: 0,
             fee1: 0,
+            expiration: 0,
             swapHookedOperations: 0,
             swapHook: address(0)
         });

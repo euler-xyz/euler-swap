@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
+import "forge-std/console.sol";
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
 import {QuoteLib} from "../src/libraries/QuoteLib.sol";
 
@@ -146,5 +147,68 @@ contract LimitsTest is EulerSwapTestBase {
 
         amount = periphery.quoteExactInput(address(eulerSwap), address(assetTST2), address(assetTST), 1);
         assertApproxEqAbs(amount, 19.8e18, 0.1e18);
+    }
+
+    function test_disabledFee0() public {
+        PoolConfig memory pc = getPoolConfig(eulerSwap);
+        pc.dParams.fee0 = 1e18;
+        reconfigurePool(eulerSwap, pc);
+
+        {
+            (uint256 inLimit, uint256 outLimit) =
+                periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+            assertEq(inLimit, 0);
+            assertEq(outLimit, 0);
+        }
+
+        {
+            (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST2), address(assetTST));
+            assertEq(outLimit, 60e18);
+        }
+    }
+
+    function test_disabledFee1() public {
+        PoolConfig memory pc = getPoolConfig(eulerSwap);
+        pc.dParams.fee1 = 1e18;
+        reconfigurePool(eulerSwap, pc);
+
+        {
+            (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+            assertEq(outLimit, 60e18);
+        }
+
+        {
+            (uint256 inLimit, uint256 outLimit) =
+                periphery.getLimits(address(eulerSwap), address(assetTST2), address(assetTST));
+            assertEq(inLimit, 0);
+            assertEq(outLimit, 0);
+        }
+    }
+
+    function test_quoteMinReserves() public {
+        PoolConfig memory pc = getPoolConfig(eulerSwap);
+        pc.dParams.minReserve0 = 40e18;
+        pc.dParams.minReserve1 = 50e18;
+        reconfigurePool(eulerSwap, pc);
+
+        {
+            (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+            assertEq(outLimit, 10e18);
+        }
+
+        {
+            (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST2), address(assetTST));
+            assertEq(outLimit, 20e18);
+        }
+
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
+        periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 10e18 + 1);
+
+        periphery.quoteExactOutput(address(eulerSwap), address(assetTST), address(assetTST2), 10e18);
+
+        vm.expectRevert(QuoteLib.SwapLimitExceeded.selector);
+        periphery.quoteExactOutput(address(eulerSwap), address(assetTST2), address(assetTST), 20e18 + 1);
+
+        periphery.quoteExactOutput(address(eulerSwap), address(assetTST2), address(assetTST), 20e18);
     }
 }

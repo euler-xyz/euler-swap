@@ -40,6 +40,7 @@ library CtxLib {
         s.concentrationY = dParams.concentrationY;
         s.fee0 = dParams.fee0;
         s.fee1 = dParams.fee1;
+        s.expiration = dParams.expiration;
         s.swapHookedOperations = dParams.swapHookedOperations;
         s.swapHook = dParams.swapHook;
     }

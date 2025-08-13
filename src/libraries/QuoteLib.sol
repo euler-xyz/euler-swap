@@ -4,13 +4,45 @@ pragma solidity ^0.8.27;
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
+import {IEulerSwapHookTarget} from "../interfaces/IEulerSwapHookTarget.sol";
 import {CtxLib} from "./CtxLib.sol";
 import {CurveLib} from "./CurveLib.sol";
 
 library QuoteLib {
+    error HookError();
     error UnsupportedPair();
     error OperatorNotInstalled();
     error SwapLimitExceeded();
+    error SwapRejected();
+    error Expired();
+
+    function getFee(IEulerSwap.DynamicParams memory dParams, bool asset0IsInput) internal returns (uint256 fee) {
+        if ((dParams.swapHookedOperations & 1) != 0) {
+            CtxLib.State storage s = CtxLib.getState();
+
+            fee = IEulerSwapHookTarget(dParams.swapHook).beforeSwap(asset0IsInput, s.reserve0, s.reserve1, false);
+        } else {
+            fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
+        }
+    }
+
+    function getFeeReadOnly(IEulerSwap.DynamicParams memory dParams, bool asset0IsInput)
+        internal
+        view
+        returns (uint256 fee)
+    {
+        if ((dParams.swapHookedOperations & 1) != 0) {
+            CtxLib.State storage s = CtxLib.getState();
+
+            (bool success, bytes memory data) = dParams.swapHook.staticcall(
+                abi.encodeCall(IEulerSwapHookTarget.beforeSwap, (asset0IsInput, s.reserve0, s.reserve1, true))
+            );
+            require(success && data.length >= 32, HookError());
+            fee = abi.decode(data, (uint64));
+        } else {
+            fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
+        }
+    }
 
     /// @dev Computes the quote for a swap by applying fees and validating state conditions
     /// @param evc EVC instance
@@ -35,15 +67,18 @@ library QuoteLib {
     ) internal view returns (uint256) {
         if (amount == 0) return 0;
 
-        require(IEVC(evc).isAccountOperatorAuthorized(sParams.eulerAccount, address(this)), OperatorNotInstalled());
         require(amount <= type(uint112).max, SwapLimitExceeded());
 
-        uint256 fee = asset0IsInput ? dParams.fee0 : dParams.fee1; // FIXME: needs to call hook in read-only mode
+        require(IEVC(evc).isAccountOperatorAuthorized(sParams.eulerAccount, address(this)), OperatorNotInstalled());
+        require(dParams.expiration == 0 || dParams.expiration > block.timestamp, Expired());
+
+        uint256 fee = getFeeReadOnly(dParams, asset0IsInput);
+        require(fee < 1e18, SwapRejected());
+
+        (uint256 inLimit, uint256 outLimit) = calcLimits(sParams, dParams, asset0IsInput);
 
         // exactIn: decrease effective amountIn
         if (exactIn) amount = amount - (amount * fee / 1e18);
-
-        (uint256 inLimit, uint256 outLimit) = calcLimits(sParams, asset0IsInput);
 
         uint256 quote = findCurvePoint(dParams, amount, exactIn, asset0IsInput);
 
@@ -68,14 +103,15 @@ library QuoteLib {
     ///      3. Available cash and borrow caps for the output token
     ///      4. Account balances in the respective vaults
     /// @param sParams Static params
+    /// @param dParams Dynamic params
     /// @param asset0IsInput Boolean indicating whether asset0 (true) or asset1 (false) is the input token
     /// @return uint256 Maximum amount of input token that can be deposited
     /// @return uint256 Maximum amount of output token that can be withdrawn
-    function calcLimits(IEulerSwap.StaticParams memory sParams, bool asset0IsInput)
-        internal
-        view
-        returns (uint256, uint256)
-    {
+    function calcLimits(
+        IEulerSwap.StaticParams memory sParams,
+        IEulerSwap.DynamicParams memory dParams,
+        bool asset0IsInput
+    ) internal view returns (uint256, uint256) {
         CtxLib.State storage s = CtxLib.getState();
 
         uint256 inLimit = type(uint112).max;
@@ -93,7 +129,8 @@ library QuoteLib {
 
         // Remaining reserves of output
         {
-            uint112 reserveLimit = asset0IsInput ? s.reserve1 : s.reserve0;
+            uint112 reserveLimit =
+                asset0IsInput ? (s.reserve1 - dParams.minReserve1) : (s.reserve0 - dParams.minReserve0);
             if (reserveLimit < outLimit) outLimit = reserveLimit;
         }
 
@@ -110,7 +147,7 @@ library QuoteLib {
                     if (supplyCash < outLimit) outLimit = supplyCash;
                 } else {
                     // Sufficient cash to cover full withdrawal, so limiting factor is cash in borrowVault
-                    uint256 cashLimit = supplyCash + borrowVault.cash();
+                    uint256 cashLimit = supplyBalance + borrowVault.cash();
                     if (cashLimit < outLimit) outLimit = cashLimit;
                 }
             }

@@ -28,10 +28,8 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     error AssetsOutOfOrderOrEqual();
     error InvalidAssets();
 
-    /// @notice Emitted upon EulerSwap instance creation.
-    ///   * `asset0` and `asset1` are the underlying assets of the vaults.
-    ///     They are always in lexical order: `asset0 < asset1`.
-    event EulerSwapActivated(address indexed asset0, address indexed asset1);
+    /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
+    event EulerSwapConfigured(DynamicParams dParams, InitialState initialState);
 
     constructor(address evc_, address poolManager_) EVCUtil(evc_) UniswapHook(evc_, poolManager_) {
         CtxLib.State storage s = CtxLib.getState();
@@ -55,11 +53,15 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         _;
     }
 
-    function validateDynamicParams(DynamicParams memory dParams, InitialState memory s) internal pure {
+    function installDynamicParams(
+        CtxLib.State storage s,
+        DynamicParams memory dParams,
+        InitialState memory initialState
+    ) internal {
         require(dParams.minReserve0 <= dParams.equilibriumReserve0, BadDynamicParam());
         require(dParams.minReserve1 <= dParams.equilibriumReserve1, BadDynamicParam());
-        require(dParams.minReserve0 <= s.reserve0, BadDynamicParam());
-        require(dParams.minReserve1 <= s.reserve1, BadDynamicParam());
+        require(dParams.minReserve0 <= initialState.reserve0, BadDynamicParam());
+        require(dParams.minReserve1 <= initialState.reserve1, BadDynamicParam());
 
         require(dParams.priceX > 0 && dParams.priceY > 0, BadDynamicParam());
         require(dParams.priceX <= 1e24 && dParams.priceY <= 1e24, BadDynamicParam());
@@ -67,9 +69,13 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
 
         require(dParams.fee0 <= 1e18 && dParams.fee1 <= 1e18, BadDynamicParam());
 
-        require(CurveLib.verify(dParams, s.reserve0, s.reserve1), CurveLib.CurveViolation());
-        if (s.reserve0 != 0) require(!CurveLib.verify(dParams, s.reserve0 - 1, s.reserve1), CurveLib.CurveViolation());
-        if (s.reserve1 != 0) require(!CurveLib.verify(dParams, s.reserve0, s.reserve1 - 1), CurveLib.CurveViolation());
+        require(CurveLib.verify(dParams, initialState.reserve0, initialState.reserve1), CurveLib.CurveViolation());
+
+        CtxLib.writeDynamicParamsToStorage(dParams);
+        s.reserve0 = initialState.reserve0;
+        s.reserve1 = initialState.reserve1;
+
+        emit EulerSwapConfigured(dParams, initialState);
     }
 
     /// @inheritdoc IEulerSwap
@@ -97,18 +103,24 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
 
             require(asset0Addr != address(0) && asset1Addr != address(0), InvalidAssets());
             require(asset0Addr < asset1Addr, AssetsOutOfOrderOrEqual());
-            emit EulerSwapActivated(asset0Addr, asset1Addr);
         }
 
         require(sParams.eulerAccount != sParams.feeRecipient, BadStaticParam()); // set feeRecipient to 0 instead
 
         // Dynamic parameters
 
-        validateDynamicParams(dParams, initialState);
+        if (initialState.reserve0 != 0) {
+            require(
+                !CurveLib.verify(dParams, initialState.reserve0 - 1, initialState.reserve1), CurveLib.CurveViolation()
+            );
+        }
+        if (initialState.reserve1 != 0) {
+            require(
+                !CurveLib.verify(dParams, initialState.reserve0, initialState.reserve1 - 1), CurveLib.CurveViolation()
+            );
+        }
 
-        CtxLib.writeDynamicParamsToStorage(dParams);
-        s.reserve0 = initialState.reserve0;
-        s.reserve1 = initialState.reserve1;
+        installDynamicParams(s, dParams, initialState);
 
         // Configure external contracts
 
@@ -134,14 +146,14 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     function reconfigure(DynamicParams calldata dParams, InitialState calldata initialState) external nonReentrant {
         CtxLib.State storage s = CtxLib.getState();
         StaticParams memory sParams = CtxLib.getStaticParams();
+        DynamicParams memory oldDParams = CtxLib.getDynamicParams();
 
-        require(_msgSender() == sParams.eulerAccount, Unauthorized());
+        {
+            address sender = _msgSender();
+            require(sender == sParams.eulerAccount || sender == oldDParams.swapHook, Unauthorized());
+        }
 
-        validateDynamicParams(dParams, initialState);
-
-        CtxLib.writeDynamicParamsToStorage(dParams);
-        s.reserve0 = initialState.reserve0;
-        s.reserve1 = initialState.reserve1;
+        installDynamicParams(s, dParams, initialState);
     }
 
     /// @inheritdoc IEulerSwap
@@ -169,6 +181,13 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         return (s.reserve0, s.reserve1, s.status);
     }
 
+    // FIXME natspec
+    function isInstalled() external view nonReentrantView returns (bool) {
+        StaticParams memory sParams = CtxLib.getStaticParams();
+
+        return IEVC(evc).isAccountOperatorAuthorized(sParams.eulerAccount, address(this));
+    }
+
     /// @inheritdoc IEulerSwap
     function computeQuote(address tokenIn, address tokenOut, uint256 amount, bool exactIn)
         external
@@ -185,12 +204,23 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     }
 
     /// @inheritdoc IEulerSwap
-    function getLimits(address tokenIn, address tokenOut) external view nonReentrantView returns (uint256, uint256) {
+    function getLimits(address tokenIn, address tokenOut)
+        external
+        view
+        nonReentrantView
+        returns (uint256 inLimit, uint256 outLimit)
+    {
         StaticParams memory sParams = CtxLib.getStaticParams();
+        DynamicParams memory dParams = CtxLib.getDynamicParams();
 
         if (!evc.isAccountOperatorAuthorized(sParams.eulerAccount, address(this))) return (0, 0);
+        if (dParams.expiration != 0 && dParams.expiration <= block.timestamp) return (0, 0);
 
-        return QuoteLib.calcLimits(sParams, QuoteLib.checkTokens(sParams, tokenIn, tokenOut));
+        bool asset0IsInput = QuoteLib.checkTokens(sParams, tokenIn, tokenOut);
+
+        if (QuoteLib.getFeeReadOnly(dParams, asset0IsInput) >= 1e18) return (0, 0);
+
+        return QuoteLib.calcLimits(sParams, dParams, asset0IsInput);
     }
 
     /// @inheritdoc IEulerSwap

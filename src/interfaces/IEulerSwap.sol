@@ -26,6 +26,7 @@ interface IEulerSwap {
         uint64 concentrationY;
         uint64 fee0;
         uint64 fee1;
+        uint40 expiration;
         uint8 swapHookedOperations;
         address swapHook;
     }

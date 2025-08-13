@@ -20,7 +20,7 @@ contract CtxTest is EulerSwapTestBase {
 
     function test_staticParamSize() public view {
         (IEulerSwap.StaticParams memory sParams,) =
-            getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, 0, address(0));
+            getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0), 0, address(0));
         assertEq(abi.encode(sParams).length, 256);
     }
 
