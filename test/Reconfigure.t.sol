@@ -48,5 +48,40 @@ contract Reconfigure is EulerSwapTestBase {
             EulerSwap.DynamicParams memory p2 = eulerSwap.getDynamicParams();
             assertEq(p2.priceX, 3e18);
         }
+
+        p.priceX = 4e18;
+
+        // Manager
+
+        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.prank(address(987654));
+        eulerSwap.reconfigure(p, initial);
+
+        vm.prank(sp.eulerAccount);
+        eulerSwap.setManager(address(987654), true);
+
+        vm.prank(address(987654));
+        eulerSwap.reconfigure(p, initial);
+
+        {
+            EulerSwap.DynamicParams memory p2 = eulerSwap.getDynamicParams();
+            assertEq(p2.priceX, 4e18);
+        }
+
+        vm.prank(sp.eulerAccount);
+        eulerSwap.setManager(address(987654), false);
+
+        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.prank(address(987654));
+        eulerSwap.reconfigure(p, initial);
+
+        // Only eulerAccount owner can set managers
+
+        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        eulerSwap.setManager(address(987654), true);
+
+        vm.prank(address(1234));
+        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        eulerSwap.setManager(address(987654), true);
     }
 }

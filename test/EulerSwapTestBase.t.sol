@@ -13,7 +13,7 @@ import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {MetaProxyDeployer} from "../src/utils/MetaProxyDeployer.sol";
 
 contract EulerSwapTestBase is EVaultTestBase {
-    uint256 public constant MAX_QUOTE_ERROR = 2;
+    uint256 public constant MAX_QUOTE_ERROR = 1;
 
     address public depositor = makeAddr("depositor");
     address public holder = makeAddr("holder");
@@ -295,5 +295,51 @@ contract EulerSwapTestBase is EVaultTestBase {
         console.log("  eTST2 Vault debt:   ", eTST2.debtOf(holder));
         console.log("  reserve0:           ", reserve0);
         console.log("  reserve1:           ", reserve1);
+    }
+
+    function verifyInLimitSwappable(EulerSwap es, TestERC20 t1, TestERC20 t2) internal {
+        uint256 snapshot = vm.snapshotState();
+
+        (uint256 inLimit,) = periphery.getLimits(address(es), address(t1), address(t2));
+
+        uint256 amountOut = periphery.quoteExactInput(address(es), address(t1), address(t2), inLimit);
+
+        t1.mint(address(this), inLimit);
+        t1.transfer(address(es), inLimit);
+
+        if (t1 == assetTST) es.swap(0, amountOut, address(this), "");
+        else es.swap(amountOut, 0, address(this), "");
+
+        if (inLimit > 0) {
+            inLimit = inLimit * 1.01e18 / 1e18;
+
+            vm.expectRevert();
+            periphery.quoteExactInput(address(es), address(t1), address(t2), inLimit);
+        }
+
+        vm.revertToState(snapshot);
+    }
+
+    function verifyOutLimitSwappable(EulerSwap es, TestERC20 t1, TestERC20 t2) internal {
+        uint256 snapshot = vm.snapshotState();
+
+        (, uint256 outLimit) = periphery.getLimits(address(es), address(t1), address(t2));
+
+        uint256 amountIn = periphery.quoteExactOutput(address(es), address(t1), address(t2), outLimit);
+
+        t1.mint(address(this), amountIn);
+        t1.transfer(address(es), amountIn);
+
+        if (t1 == assetTST) es.swap(0, outLimit, address(this), "");
+        else es.swap(outLimit, 0, address(this), "");
+
+        if (outLimit > 0) {
+            outLimit = outLimit * 1.01e18 / 1e18;
+
+            vm.expectRevert();
+            periphery.quoteExactOutput(address(es), address(t1), address(t2), outLimit);
+        }
+
+        vm.revertToState(snapshot);
     }
 }

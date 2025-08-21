@@ -52,7 +52,15 @@ contract SplitVaults is EulerSwapTestBase {
         eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
     }
 
-    function test_splitVault_swap() public {
+    modifier isSwappable() {
+        _;
+        verifyInLimitSwappable(eulerSwap, assetTST, assetTST2);
+        verifyInLimitSwappable(eulerSwap, assetTST2, assetTST);
+        verifyOutLimitSwappable(eulerSwap, assetTST, assetTST2);
+        verifyOutLimitSwappable(eulerSwap, assetTST2, assetTST);
+    }
+
+    function test_splitVault_swap() public isSwappable {
         assertEq(eTST.balanceOf(holder), 10e18);
         assertEq(eTST2.balanceOf(holder), 10e18);
 
@@ -96,7 +104,10 @@ contract SplitVaults is EulerSwapTestBase {
         reconfigurePool(eulerSwap, pc);
     }
 
-    function validateOutputSwapPossible(TestERC20 assetIn, TestERC20 assetOut, uint256 amountOut) internal {
+    function validateOutputSwapPossible(TestERC20 assetIn, TestERC20 assetOut, uint256 amountOut)
+        internal
+        isSwappable
+    {
         uint256 amountIn =
             periphery.quoteExactOutput(address(eulerSwap), address(assetIn), address(assetOut), amountOut);
 
@@ -107,27 +118,27 @@ contract SplitVaults is EulerSwapTestBase {
         assertEq(assetOut.balanceOf(address(this)), amountOut);
     }
 
-    function test_splitVault_limits() public {
+    function test_splitVault_limits() public isSwappable {
         expandReserves();
 
-        (uint256 inLimit, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
-        assertEq(outLimit, 60e18); // 10 deposited in eTST2, 50 borrowable in eTST2_alt
+        (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+        assertEq(outLimit, 60e18 - 1); // 10 deposited in eTST2, 50 borrowable in eTST2_alt
 
         validateOutputSwapPossible(assetTST, assetTST2, 60e18);
     }
 
-    function test_splitVault_borrowCap() public {
+    function test_splitVault_borrowCap() public isSwappable {
         expandReserves();
 
         eTST2_alt.setCaps(0, uint16(6.0e2 << 6) | 18);
 
-        (uint256 inLimit, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
-        assertEq(outLimit, 16e18); // 10 to withdraw from TST2, 6 available in eTST2_alt to borrow
+        (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+        assertEq(outLimit, 16e18 - 1); // 10 to withdraw from TST2, 6 available in eTST2_alt to borrow
 
         validateOutputSwapPossible(assetTST, assetTST2, 3e18);
     }
 
-    function test_splitVault_supplyVaultCashLimited() public {
+    function test_splitVault_supplyVaultCashLimited() public isSwappable {
         expandReserves();
 
         {
@@ -139,9 +150,9 @@ contract SplitVaults is EulerSwapTestBase {
             vm.stopPrank();
         }
 
-        (uint256 inLimit, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
-        assertEq(outLimit, 3e18); // not enough cash for holder to withdraw balance in TST2
+        (, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+        assertEq(outLimit, 3e18 - 1); // not enough cash for holder to withdraw balance in TST2
 
-        validateOutputSwapPossible(assetTST, assetTST2, 3e18);
+        validateOutputSwapPossible(assetTST, assetTST2, 3e18 - 1);
     }
 }

@@ -80,10 +80,15 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         uninstall(sParams.eulerAccount);
 
         EulerSwap pool = EulerSwap(MetaProxyDeployer.deployMetaProxy(eulerSwapImpl, abi.encode(sParams), salt));
-
-        updateEulerAccountState(sParams.eulerAccount, address(pool));
+        require(evc.isAccountOperatorAuthorized(sParams.eulerAccount, address(pool)), OperatorNotInstalled());
 
         (address asset0, address asset1) = pool.getAssets();
+
+        installedPools[sParams.eulerAccount] = address(pool);
+
+        allPools.add(address(pool));
+        poolMap[asset0][asset1].add(address(pool));
+
         emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool), sParams);
 
         pool.activate(dParams, initialState);
@@ -149,20 +154,6 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     /// @inheritdoc IEulerSwapFactory
     function poolsByPair(address asset0, address asset1) external view returns (address[] memory) {
         return poolMap[asset0][asset1].values();
-    }
-
-    /// @notice Validates operator authorization for euler account and update the relevant EulerAccountState.
-    /// @param eulerAccount The address of the euler account.
-    /// @param newOperator The address of the new pool.
-    function updateEulerAccountState(address eulerAccount, address newOperator) internal {
-        require(evc.isAccountOperatorAuthorized(eulerAccount, newOperator), OperatorNotInstalled());
-
-        (address asset0, address asset1) = IEulerSwap(newOperator).getAssets();
-
-        installedPools[eulerAccount] = newOperator;
-
-        allPools.add(newOperator);
-        poolMap[asset0][asset1].add(newOperator);
     }
 
     /// @notice Uninstalls the pool associated with the given Euler account

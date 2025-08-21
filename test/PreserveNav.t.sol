@@ -10,7 +10,7 @@ contract PreserveNav is EulerSwapTestBase {
         super.setUp();
     }
 
-    function test_preserve_nav(
+    function test_preserveNav(
         uint256 cx,
         uint256 cy,
         uint256 fee,
@@ -20,8 +20,8 @@ contract PreserveNav is EulerSwapTestBase {
         bool dir2,
         uint256 amount2
     ) public {
-        cx = bound(cx, 0.1e18, 0.99e18);
-        cy = bound(cy, 0.1e18, 0.99e18);
+        cx = bound(cx, 0e18, 1e18);
+        cy = bound(cx, 0e18, 1e18);
         fee = bound(fee, 0, 0.2e18);
         amount1 = bound(amount1, 0.00001e18, 25e18);
         amount2 = bound(amount2, 0.00001e18, 25e18);

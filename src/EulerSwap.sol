@@ -28,8 +28,13 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     error AssetsOutOfOrderOrEqual();
     error InvalidAssets();
 
+    /// FIXME: natspec
+    mapping(address manager => bool installed) public managers;
+
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
     event EulerSwapConfigured(DynamicParams dParams, InitialState initialState);
+    /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
+    event EulerSwapManagerSet(address indexed manager, bool installed);
 
     constructor(address evc_, address poolManager_) EVCUtil(evc_) UniswapHook(evc_, poolManager_) {
         CtxLib.State storage s = CtxLib.getState();
@@ -143,6 +148,16 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     }
 
     /// FIXME natspec
+    function setManager(address manager, bool installed) external {
+        StaticParams memory sParams = CtxLib.getStaticParams();
+
+        require(_msgSender() == sParams.eulerAccount, Unauthorized());
+        managers[manager] = installed;
+
+        emit EulerSwapManagerSet(manager, installed);
+    }
+
+    /// FIXME natspec
     function reconfigure(DynamicParams calldata dParams, InitialState calldata initialState) external nonReentrant {
         CtxLib.State storage s = CtxLib.getState();
         StaticParams memory sParams = CtxLib.getStaticParams();
@@ -150,7 +165,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
 
         {
             address sender = _msgSender();
-            require(sender == sParams.eulerAccount || sender == oldDParams.swapHook, Unauthorized());
+            require(sender == sParams.eulerAccount || managers[sender] || sender == oldDParams.swapHook, Unauthorized());
         }
 
         installDynamicParams(s, dParams, initialState);
@@ -218,9 +233,11 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
 
         bool asset0IsInput = QuoteLib.checkTokens(sParams, tokenIn, tokenOut);
 
-        if (QuoteLib.getFeeReadOnly(dParams, asset0IsInput) >= 1e18) return (0, 0);
+        uint256 fee = QuoteLib.getFeeReadOnly(dParams, asset0IsInput);
+        if (fee >= 1e18) return (0, 0);
 
-        return QuoteLib.calcLimits(sParams, dParams, asset0IsInput);
+        (inLimit, outLimit) = QuoteLib.calcLimits(sParams, dParams, asset0IsInput, fee);
+        if (outLimit > 0) outLimit--; // Compensate for rounding up of exact output quotes
     }
 
     /// @inheritdoc IEulerSwap

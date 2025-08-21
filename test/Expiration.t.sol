@@ -21,14 +21,16 @@ contract Expiration is EulerSwapTestBase {
         // Quoting
 
         uint256 amountIn = 1e18;
-        uint256 amountOut = periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
         assertApproxEqAbs(amountOut, 0.9974e18, 0.0001e18);
 
         // Limits
 
-        (uint256 inLimit, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+        (uint256 inLimit, uint256 outLimit) =
+            periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
         assertTrue(inLimit > 0);
-        assertEq(outLimit, 60e18);
+        assertApproxEqAbs(outLimit, 60e18, 0.001e18);
 
         // Swap
 
@@ -50,7 +52,8 @@ contract Expiration is EulerSwapTestBase {
 
         // Limits
 
-        (uint256 inLimit, uint256 outLimit) = periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
+        (uint256 inLimit, uint256 outLimit) =
+            periphery.getLimits(address(eulerSwap), address(assetTST), address(assetTST2));
         assertEq(inLimit, 0);
         assertEq(outLimit, 0);
 

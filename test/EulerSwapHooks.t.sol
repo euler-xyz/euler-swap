@@ -197,6 +197,20 @@ contract EulerSwapHooks is EulerSwapTestBase {
         doSwap(true, assetTST2, assetTST, 1e18, 0.9875e18); // 1% fee
     }
 
+    // Hooks, but hook returns sentinel value, indicating to use default fee
+
+    function test_beforeSwapHookDefault1() public {
+        setHook(1, 0.01e18, 1e18);
+        fee0 = type(uint64).max;
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9875e18); // 1% fee
+    }
+
+    function test_beforeSwapHookDefault2() public {
+        setHook(1, 1e18, 0.01e18);
+        fee1 = type(uint64).max;
+        doSwap(true, assetTST2, assetTST, 1e18, 0.9875e18); // 1% fee
+    }
+
     // Swaps rejected
 
     function test_swapRejected1() public {

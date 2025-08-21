@@ -16,21 +16,25 @@ library QuoteLib {
     error SwapRejected();
     error Expired();
 
-    function getFee(IEulerSwap.DynamicParams memory dParams, bool asset0IsInput) internal returns (uint256 fee) {
+    function getFee(IEulerSwap.DynamicParams memory dParams, bool asset0IsInput) internal returns (uint64 fee) {
+        fee = type(uint64).max;
+
         if ((dParams.swapHookedOperations & 1) != 0) {
             CtxLib.State storage s = CtxLib.getState();
 
             fee = IEulerSwapHookTarget(dParams.swapHook).beforeSwap(asset0IsInput, s.reserve0, s.reserve1, false);
-        } else {
-            fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
         }
+
+        if (fee == type(uint64).max) fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
     }
 
     function getFeeReadOnly(IEulerSwap.DynamicParams memory dParams, bool asset0IsInput)
         internal
         view
-        returns (uint256 fee)
+        returns (uint64 fee)
     {
+        fee = type(uint64).max;
+
         if ((dParams.swapHookedOperations & 1) != 0) {
             CtxLib.State storage s = CtxLib.getState();
 
@@ -39,9 +43,9 @@ library QuoteLib {
             );
             require(success && data.length >= 32, HookError());
             fee = abi.decode(data, (uint64));
-        } else {
-            fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
         }
+
+        if (fee == type(uint64).max) fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
     }
 
     /// @dev Computes the quote for a swap by applying fees and validating state conditions
@@ -75,7 +79,7 @@ library QuoteLib {
         uint256 fee = getFeeReadOnly(dParams, asset0IsInput);
         require(fee < 1e18, SwapRejected());
 
-        (uint256 inLimit, uint256 outLimit) = calcLimits(sParams, dParams, asset0IsInput);
+        (uint256 inLimit, uint256 outLimit) = calcLimits(sParams, dParams, asset0IsInput, fee);
 
         // exactIn: decrease effective amountIn
         if (exactIn) amount = amount - (amount * fee / 1e18);
@@ -105,12 +109,14 @@ library QuoteLib {
     /// @param sParams Static params
     /// @param dParams Dynamic params
     /// @param asset0IsInput Boolean indicating whether asset0 (true) or asset1 (false) is the input token
+    /// @param fee Amount of fee required for this swap
     /// @return uint256 Maximum amount of input token that can be deposited
     /// @return uint256 Maximum amount of output token that can be withdrawn
     function calcLimits(
         IEulerSwap.StaticParams memory sParams,
         IEulerSwap.DynamicParams memory dParams,
-        bool asset0IsInput
+        bool asset0IsInput,
+        uint256 fee
     ) internal view returns (uint256, uint256) {
         CtxLib.State storage s = CtxLib.getState();
 
@@ -159,6 +165,21 @@ library QuoteLib {
                     uint256 totalBorrows = borrowVault.totalBorrows();
                     uint256 maxWithdraw = supplyBalance + (totalBorrows > borrowCap ? 0 : borrowCap - totalBorrows);
                     if (maxWithdraw < outLimit) outLimit = maxWithdraw;
+                }
+            }
+        }
+
+        {
+            uint256 inLimit2 = findCurvePoint(dParams, outLimit, false, asset0IsInput);
+
+            if (inLimit2 <= type(uint112).max) {
+                if (inLimit2 < inLimit) inLimit = inLimit2 * 1e18 / (1e18 - fee);
+            } else {
+                uint256 outLimit2 = findCurvePoint(dParams, inLimit * (1e18 - fee) / 1e18, true, asset0IsInput);
+                if (outLimit2 < outLimit) {
+                    outLimit = outLimit2;
+                    inLimit2 = findCurvePoint(dParams, outLimit, false, asset0IsInput) * 1e18 / (1e18 - fee);
+                    if (inLimit2 < inLimit) inLimit = inLimit2;
                 }
             }
         }
@@ -254,7 +275,7 @@ library QuoteLib {
             // exact out
             if (asset0IsInput) {
                 // swap Y out and X in
-                require(reserve1 > amount, SwapLimitExceeded());
+                if (reserve1 <= amount) return type(uint256).max;
                 yNew = reserve1 - amount;
                 if (yNew <= y0) {
                     // remain on g()
@@ -266,7 +287,7 @@ library QuoteLib {
                 output = xNew > reserve0 ? xNew - reserve0 : 0;
             } else {
                 // swap X out and Y in
-                require(reserve0 > amount, SwapLimitExceeded());
+                if (reserve0 <= amount) return type(uint256).max;
                 xNew = reserve0 - amount;
                 if (xNew <= x0) {
                     // remain on f()
