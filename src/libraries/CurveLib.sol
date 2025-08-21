@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {Math} from "openzeppelin-contracts/utils/math/Math.sol";
+import {Ternary} from "../utils/Ternary.sol";
+import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
+import {FullMath} from "../utils/FullMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
+import {Clz} from "../utils/Clz.sol";
+import {Sqrt} from "../utils/Sqrt.sol";
 
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 
 library CurveLib {
+    using Ternary for bool;
+    using UnsafeMath for uint256;
+    using UnsafeMath for int256;
+    using Math for uint256;
+    using FullMath for uint256;
+    using Clz for uint256;
+    using Sqrt for uint256;
+    using FastLogic for bool;
+
     error Overflow();
     error CurveViolation();
 
@@ -40,91 +54,117 @@ library CurveLib {
     /// @param c (0 <= c <= 1e18).
     /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
+        uint256 output;
+
         unchecked {
-            uint256 v = Math.mulDiv(px * (x0 - x), c * x + (1e18 - c) * x0, x * 1e18, Math.Rounding.Ceil);
-            require(v <= type(uint248).max, Overflow());
-            return y0 + (v + (py - 1)) / py;
+            if (c == 1e18) {
+                // `c == 1e18` indicates that this is a constant-sum curve. Convert `x` into `y`
+                // using `px` and `py`
+                uint256 v = ((x0 - x) * px).unsafeDivUp(py); // scale: 1; units: token Y
+                output = y0 + v;
+            } else {
+                uint256 a = px * (x0 - x); // scale: 1e18; units: none; range: 196 bits
+                uint256 b = c * x + (1e18 - c) * x0; // scale: 1e18; units: token X; range: 172 bits
+                uint256 d = 1e18 * x * py; // scale: 1e36; units: token X / token Y; range: 255 bits
+                uint256 v = a.saturatingMulDivUp(b, d); // scale: 1; units: token Y
+                output = y0.saturatingAdd(v);
+            }
+
+            if (output > type(uint112).max) return type(uint256).max;
         }
+
+        return output;
     }
 
     /// @dev EulerSwap inverse curve
+    /// @dev Implements equations 23 through 27 from the whitepaper.
     /// @notice Computes the output `x` for a given input `y`.
-    /// @param y The input reserve value, constrained to y0 <= y <= 2^112 - 1.
-    /// @param px (1 <= px <= 1e25).
-    /// @param py (1 <= py <= 1e25).
-    /// @param x0 (1 <= x0 <= 2^112 - 1).
-    /// @param y0 (0 <= y0 <= 2^112 - 1).
-    /// @param c (0 <= c <= 1e18).
-    /// @return x The output reserve value corresponding to input `y`, guaranteed to satisfy `1 <= x <= x0`.
-    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c)
+    /// @notice The combination `x0 == 0 && cx < 1e18` is invalid.
+    /// @param y The input reserve value, constrained to `y0 <= y <= 2^112 - 1`. (An amount of tokens in base units.)
+    /// @param px (1 <= px <= 1e25). A fixnum with a basis of 1e18.
+    /// @param py (1 <= py <= 1e25). A fixnum with a basis of 1e18.
+    /// @param x0 (0 <= x0 <= 2^112 - 1). An amount of tokens in base units.
+    /// @param y0 (0 <= y0 <= 2^112 - 1). An amount of tokens in base units.
+    /// @param cx (0 <= cx <= 1e18). A fixnum with a basis of 1e18.
+    /// @return x The output reserve value corresponding to input `y`, guaranteed to satisfy `0 <= x <= x0`. (An amount of tokens in base units.)
+    /// @dev The maximum possible error (overestimate only) in `x` from the smallest such value that will still pass `verify` is 1 wei.
+    function fInverse(uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx)
         internal
         pure
         returns (uint256)
     {
-        // components of quadratic equation
-        int256 B;
-        uint256 C;
-        uint256 fourAC;
-
         unchecked {
-            int256 term1 = int256(Math.mulDiv(py * 1e18, y - y0, px, Math.Rounding.Ceil)); // scale: 1e36
-            int256 term2 = (2 * int256(c) - int256(1e18)) * int256(x0); // scale: 1e36
-            B = (term1 - term2) / int256(1e18); // scale: 1e18
-            C = Math.mulDiv(1e18 - c, x0 * x0, 1e18, Math.Rounding.Ceil); // scale: 1e36
-            fourAC = Math.mulDiv(4 * c, C, 1e18, Math.Rounding.Ceil); // scale: 1e36
-        }
+            // The value `B` is implicitly computed as:
+            //     [(y - y0) * py * 1e18 - (cx * 2 - 1e18) * x0 * px] / px
+            // We only care about the absolute value of `B` for use later, so we separately extract
+            // the sign of `B` and its absolute value
+            bool sign; // `true` when `B` is negative
+            uint256 absB; // scale: 1e18; units: token X; range: 255 bits
+            {
+                uint256 term1 = 1e18 * ((y - y0) * py + x0 * px); // scale: 1e36; units: none; range: 256 bits
+                uint256 term2 = (cx << 1) * x0 * px; // scale: 1e36; units: none; range: 256 bits
 
-        uint256 absB = uint256(B >= 0 ? B : -B);
-        uint256 squaredB;
-        uint256 discriminant;
-        uint256 sqrt;
-        if (absB < 1e36) {
-            // B^2 can be calculated directly at 1e18 scale without overflowing
-            unchecked {
-                squaredB = absB * absB; // scale: 1e36
-                discriminant = squaredB + fourAC; // scale: 1e36
-                sqrt = Math.sqrt(discriminant, Math.Rounding.Ceil); // scale: 1e18
+                // Ensure that the result will be positive
+                uint256 difference; // scale: 1e36; units: none; range: 256 bits
+                (difference, sign) = term1.absDiff(term2);
+
+                // If `sign` is true, then we want to round up. Compute the carry bit
+                bool carry = (0 < difference.unsafeMod(px)).and(sign);
+                absB = difference.unsafeDiv(px).unsafeInc(carry);
             }
-        } else {
-            // B^2 cannot be calculated directly at 1e18 scale without overflowing
-            uint256 scale = computeScale(absB); // calculate the scaling factor such that B^2 can be calculated without overflowing
-            squaredB = Math.mulDiv(absB / scale, absB, scale, Math.Rounding.Ceil);
-            discriminant = squaredB + fourAC / (scale * scale);
-            sqrt = Math.sqrt(discriminant, Math.Rounding.Ceil);
-            sqrt = sqrt * scale;
-        }
 
-        uint256 x;
-        if (B <= 0) {
-            // use the regular quadratic formula solution (-b + sqrt(b^2 - 4ac)) / 2a
-            x = Math.mulDiv(absB + sqrt, 1e18, 2 * c, Math.Rounding.Ceil) + 1;
-        } else {
-            // use the "citardauq" quadratic formula solution 2c / (-b - sqrt(b^2 - 4ac))
-            x = Math.ceilDiv(2 * C, absB + sqrt) + 1;
-        }
+            // `twoShift` is how much we need to shift right (the log of the scaling factor) to
+            // prevent overflow when computing `squaredB`, `fourAC`, or `discriminant`. `shift` is
+            // half that; the amount we have to shift left by after taking the square root of
+            // `discriminant` to get back to a basis of 1e18
+            uint256 shift;
+            {
+                uint256 shiftSquaredB = absB.bitLength().saturatingSub(127);
+                // 3814697265625 is 5e17 with all the trailing zero bits removed to make the
+                // constant smaller. The argument of `saturatingSub` is reduced to compensate
+                uint256 shiftFourAc = (x0 * 3814697265625).bitLength().saturatingSub(109);
+                shift = (shiftSquaredB < shiftFourAc).ternary(shiftFourAc, shiftSquaredB);
+            }
+            uint256 twoShift = shift << 1;
 
-        if (x >= x0) {
-            return x0;
-        } else {
-            return x;
-        }
-    }
+            uint256 x; // scale: 1; units: token X; range: 113 bits
+            if (sign) {
+                // `B` is negative; use the regular quadratic formula; everything rounds up.
+                //     (-b + sqrt(b^2 - 4ac)) / 2a
+                // Because `B` is negative, `absB == -B`; we can avoid negation.
 
-    /// @dev Utility to derive optimal scale for computations in fInverse
-    function computeScale(uint256 x) internal pure returns (uint256 scale) {
-        // calculate number of bits in x
-        uint256 bits = 0;
-        while (x > 0) {
-            x >>= 1;
-            bits++;
-        }
+                // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
+                // constant function to its quadratic form. Computing it like this means we can
+                // avoid subtraction (and potential underflow)
+                uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShiftUp(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
 
-        // 2^excessBits is how much we need to scale down to prevent overflow when squaring x
-        if (bits > 128) {
-            uint256 excessBits = bits - 128;
-            scale = 1 << excessBits;
-        } else {
-            scale = 1;
+                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 172 bits
+
+                x = (absB + sqrt).unsafeDivUp(cx << 1);
+            } else {
+                // `B` is nonnegative; use the "citardauq" quadratic formula; everything except the
+                // final division rounds down.
+                //     2c / (-b - sqrt(b^2 - 4ac))
+
+                // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
+                // constant function to its quadratic form. Therefore, we can avoid negation of
+                // `absB` and both subtractions
+                uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShift(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+
+                uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
+                uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 255 bits
+
+                // If `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. This
+                // just so happens to be the correct answer
+                x = ((1e18 - cx) << 1).unsafeMulDivUpAlt(x0 * x0, absB + sqrt);
+            }
+
+            // Handle any rounding error that could produce a value out of the bounds established by
+            // the NatSpec
+            return x.unsafeDec(x > x0);
         }
     }
 }
