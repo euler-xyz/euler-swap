@@ -65,6 +65,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     error SliceOutOfBounds();
     error InvalidProtocolFee();
     error InsufficientValidityBond();
+    error ChallengeNoBondAvailable();
     error ChallengeBadAssets();
     error ChallengeLiquidityDeferred();
     error ChallengeMissingBond();
@@ -166,6 +167,8 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         IEulerSwap pool = IEulerSwap(poolAddr);
         address eulerAccount = pool.getStaticParams().eulerAccount;
         bool asset0IsInput;
+
+        require(validityBonds[poolAddr] > 0, ChallengeNoBondAvailable());
 
         {
             (address asset0, address asset1) = pool.getAssets();
