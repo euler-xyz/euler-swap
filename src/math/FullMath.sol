@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
-import {Panic} from "../utils/Panic.sol";
+import {UnsafeMath, Math} from "./UnsafeMath.sol";
+import {Panic} from "./Panic.sol";
 
 /// @title Contains 512-bit math functions
 /// @notice Facilitates multiplication and division that can have overflow of an intermediate value without any loss of precision

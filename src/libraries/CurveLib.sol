@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {Ternary} from "../utils/Ternary.sol";
-import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
-import {FullMath} from "../utils/FullMath.sol";
-import {FastLogic} from "../utils/FastLogic.sol";
-import {Clz} from "../utils/Clz.sol";
-import {Sqrt} from "../utils/Sqrt.sol";
+import {Ternary} from "../math/Ternary.sol";
+import {UnsafeMath, Math} from "../math/UnsafeMath.sol";
+import {FullMath} from "../math/FullMath.sol";
+import {FastLogic} from "../math/FastLogic.sol";
+import {Clz} from "../math/Clz.sol";
+import {Sqrt} from "../math/Sqrt.sol";
 
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 
