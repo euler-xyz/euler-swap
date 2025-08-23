@@ -27,7 +27,7 @@ contract DeployProtocol is ScriptUtil {
         vm.startBroadcast(deployerAddress);
 
         address eulerSwapImpl = address(new EulerSwap(evc, poolManager));
-        new EulerSwapFactory(evc, evkFactory, eulerSwapImpl, feeOwner, feeRecipientSetter);
+        new EulerSwapFactory(evc, evkFactory, eulerSwapImpl, feeOwner, feeRecipientSetter, feeOwner);
         new EulerSwapPeriphery();
         vm.stopBroadcast();
     }

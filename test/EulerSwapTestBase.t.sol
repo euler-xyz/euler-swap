@@ -38,8 +38,9 @@ contract EulerSwapTestBase is EVaultTestBase {
 
     function deployEulerSwap(address poolManager_) public {
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
-        eulerSwapFactory =
-            new EulerSwapFactory(address(evc), address(factory), eulerSwapImpl, address(this), address(this));
+        eulerSwapFactory = new EulerSwapFactory(
+            address(evc), address(factory), eulerSwapImpl, address(this), address(this), address(this)
+        );
         periphery = new EulerSwapPeriphery();
     }
 
@@ -148,8 +149,10 @@ contract EulerSwapTestBase is EVaultTestBase {
         evc.setAccountOperator(holder, predictedAddr, true);
         installedOperator = predictedAddr;
 
+        uint256 ethBalance = holder.balance;
         vm.prank(holder);
-        EulerSwap eulerSwap = EulerSwap(eulerSwapFactory.deployPool(sParams, dParams, initialState, salt));
+        EulerSwap eulerSwap =
+            EulerSwap(eulerSwapFactory.deployPool{value: ethBalance}(sParams, dParams, initialState, salt));
 
         return eulerSwap;
     }

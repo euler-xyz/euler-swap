@@ -18,7 +18,7 @@ interface IEulerSwapFactory {
         IEulerSwap.DynamicParams memory dParams,
         IEulerSwap.InitialState memory initialState,
         bytes32 salt
-    ) external returns (address);
+    ) external payable returns (address);
 
     /// @notice Uninstalls the pool associated with the Euler account
     /// @dev This function removes the pool from the factory's tracking and emits a PoolUninstalled event

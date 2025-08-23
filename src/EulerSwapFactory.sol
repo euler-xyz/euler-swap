@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {EnumerableSet} from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
+import {SafeERC20, IERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IEulerSwapFactory, IEulerSwap} from "./interfaces/IEulerSwapFactory.sol";
 import {EVCUtil} from "ethereum-vault-connector/utils/EVCUtil.sol";
@@ -16,14 +17,21 @@ import {MetaProxyDeployer} from "./utils/MetaProxyDeployer.sol";
 /// @author Euler Labs (https://www.eulerlabs.com/)
 contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using SafeERC20 for IERC20;
 
     /// @dev Vaults must be deployed by this factory
     address public immutable evkFactory;
     /// @dev The EulerSwap code instance that will be proxied to
     address public immutable eulerSwapImpl;
+    /// @dev Custodian who can set the minimum validity bond, and remove pools from the factory lists
+    address public custodian;
+    /// @dev Minimum size of validity bond, in native token
+    uint256 public minimumValidityBond;
 
     /// @dev Mapping from euler account to pool, if installed
     mapping(address eulerAccount => address) internal installedPools;
+    /// @dev Mapping from pool to validity bond amount
+    mapping(address pool => uint256) internal validityBonds;
     /// @dev Set of all pool addresses
     EnumerableSet.AddressSet internal allPools;
     /// @dev Mapping from sorted pair of underlyings to set of pools
@@ -34,9 +42,20 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         address indexed asset1,
         address indexed eulerAccount,
         address pool,
-        IEulerSwap.StaticParams sParams
+        IEulerSwap.StaticParams sParams,
+        uint256 validityBond
     );
     event PoolUninstalled(address indexed asset0, address indexed asset1, address indexed eulerAccount, address pool);
+    event PoolChallenged(
+        address indexed challenger,
+        address indexed pool,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        bool exactIn,
+        uint256 bondAmount,
+        address recipient
+    );
 
     error InvalidQuery();
     error Unauthorized();
@@ -45,16 +64,27 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     error InvalidVaultImplementation();
     error SliceOutOfBounds();
     error InvalidProtocolFee();
+    error InsufficientValidityBond();
+    error ChallengeBadAssets();
+    error ChallengeLiquidityDeferred();
+    error ChallengeMissingBond();
+    error ChallengeUnauthorized();
+    error ChallengeSwapSucceeded();
+    error ChallengeSwapNotLiquidityFailure();
+
+    error E_AccountLiquidity(); // From EVK
 
     constructor(
         address evc,
         address evkFactory_,
         address eulerSwapImpl_,
         address feeOwner_,
-        address feeRecipientSetter_
+        address feeRecipientSetter_,
+        address custodian_
     ) EVCUtil(evc) ProtocolFee(feeOwner_, feeRecipientSetter_) {
         evkFactory = evkFactory_;
         eulerSwapImpl = eulerSwapImpl_;
+        custodian = custodian_;
     }
 
     function isValidVault(address v) private view returns (bool) {
@@ -67,7 +97,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         IEulerSwap.DynamicParams memory dParams,
         IEulerSwap.InitialState memory initialState,
         bytes32 salt
-    ) external returns (address) {
+    ) external payable returns (address) {
         require(_msgSender() == sParams.eulerAccount, Unauthorized());
         require(isValidVault(sParams.supplyVault0) && isValidVault(sParams.supplyVault1), InvalidVaultImplementation());
         require(sParams.borrowVault0 == address(0) || isValidVault(sParams.borrowVault0), InvalidVaultImplementation());
@@ -76,8 +106,9 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
             sParams.protocolFee == protocolFee && sParams.protocolFeeRecipient == protocolFeeRecipient,
             InvalidProtocolFee()
         );
+        require(msg.value >= minimumValidityBond, InsufficientValidityBond());
 
-        uninstall(sParams.eulerAccount);
+        uninstall(sParams.eulerAccount, false);
 
         EulerSwap pool = EulerSwap(MetaProxyDeployer.deployMetaProxy(eulerSwapImpl, abi.encode(sParams), salt));
         require(evc.isAccountOperatorAuthorized(sParams.eulerAccount, address(pool)), OperatorNotInstalled());
@@ -85,11 +116,12 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         (address asset0, address asset1) = pool.getAssets();
 
         installedPools[sParams.eulerAccount] = address(pool);
+        validityBonds[address(pool)] = msg.value;
 
         allPools.add(address(pool));
         poolMap[asset0][asset1].add(address(pool));
 
-        emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool), sParams);
+        emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool), sParams, msg.value);
 
         pool.activate(dParams, initialState);
 
@@ -98,7 +130,96 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
 
     /// @inheritdoc IEulerSwapFactory
     function uninstallPool() external {
-        uninstall(_msgSender());
+        uninstall(_msgSender(), false);
+    }
+
+    modifier onlyCustodian() {
+        require(_msgSender() == custodian, Unauthorized());
+        _;
+    }
+
+    // FIXME natspec
+    function custodianUninstallPool(address pool) external onlyCustodian {
+        address eulerAccount = IEulerSwap(pool).getStaticParams().eulerAccount;
+        uninstall(eulerAccount, true);
+    }
+
+    // FIXME natspec
+    function transferCustodian(address newCustodian) external onlyCustodian {
+        custodian = newCustodian;
+    }
+
+    // FIXME natspec
+    function setMinimumValidityBond(uint256 newMinimum) external onlyCustodian {
+        minimumValidityBond = newMinimum;
+    }
+
+    // FIXME natspec
+    function challengePool(
+        address poolAddr,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        bool exactIn,
+        address recipient
+    ) external {
+        IEulerSwap pool = IEulerSwap(poolAddr);
+        address eulerAccount = pool.getStaticParams().eulerAccount;
+        bool asset0IsInput;
+
+        {
+            (address asset0, address asset1) = pool.getAssets();
+            require(
+                (asset0 == tokenIn && asset1 == tokenOut) || (asset0 == tokenOut && asset1 == tokenIn),
+                ChallengeBadAssets()
+            );
+            asset0IsInput = asset0 == tokenIn;
+        }
+
+        require(!evc.isAccountStatusCheckDeferred(eulerAccount), ChallengeLiquidityDeferred());
+
+        uint256 quote = pool.computeQuote(tokenIn, tokenOut, amount, exactIn);
+
+        {
+            (bool success, bytes memory error) = address(this).call(
+                abi.encodeWithSelector(
+                    this.challengePoolAttempt.selector,
+                    msg.sender,
+                    poolAddr,
+                    asset0IsInput,
+                    tokenIn,
+                    exactIn ? amount : quote,
+                    exactIn ? quote : amount
+                )
+            );
+            require(!success, ChallengeSwapSucceeded());
+            require(bytes4(error) == E_AccountLiquidity.selector, ChallengeSwapNotLiquidityFailure());
+        }
+
+        uint256 bondAmount = validityBonds[poolAddr];
+        (bool successEther,) = recipient.call{value: bondAmount}("");
+        require(successEther, ChallengeMissingBond());
+        validityBonds[poolAddr] = 0;
+
+        emit PoolChallenged(msg.sender, poolAddr, tokenIn, tokenOut, amount, exactIn, bondAmount, recipient);
+
+        uninstall(eulerAccount, true);
+    }
+
+    function challengePoolAttempt(
+        address challenger,
+        address poolAddr,
+        bool asset0IsInput,
+        address tokenIn,
+        uint256 amountIn,
+        uint256 amountOut
+    ) external {
+        require(msg.sender == address(this), ChallengeUnauthorized());
+
+        IERC20(tokenIn).safeTransferFrom(challenger, poolAddr, amountIn);
+
+        if (asset0IsInput) IEulerSwap(poolAddr).swap(0, amountOut, challenger, "");
+        else IEulerSwap(poolAddr).swap(amountOut, 0, challenger, "");
     }
 
     // FIXME natspec
@@ -120,6 +241,11 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     /// @inheritdoc IEulerSwapFactory
     function poolByEulerAccount(address eulerAccount) external view returns (address) {
         return installedPools[eulerAccount];
+    }
+
+    // FIXME natspec
+    function validityBond(address pool) external view returns (uint256) {
+        return validityBonds[pool];
     }
 
     /// @inheritdoc IEulerSwapFactory
@@ -161,19 +287,27 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
     /// @dev The function checks if the operator is still installed and reverts if it is
     /// @dev If no pool exists for the account, the function returns without any action
     /// @param eulerAccount The address of the Euler account whose pool should be uninstalled
-    function uninstall(address eulerAccount) internal {
+    /// @param forced Whether this is a forced uninstall, vs a user-requested uninstall
+    function uninstall(address eulerAccount, bool forced) internal {
         address pool = installedPools[eulerAccount];
-
         if (pool == address(0)) return;
 
-        require(!evc.isAccountOperatorAuthorized(eulerAccount, pool), OldOperatorStillInstalled());
+        if (!forced) {
+            require(!evc.isAccountOperatorAuthorized(eulerAccount, pool), OldOperatorStillInstalled());
+            delete installedPools[eulerAccount];
+        }
 
         (address asset0, address asset1) = IEulerSwap(pool).getAssets();
 
         allPools.remove(pool);
         poolMap[asset0][asset1].remove(pool);
 
-        delete installedPools[eulerAccount];
+        if (validityBonds[pool] != 0) {
+            (bool success,) = eulerAccount.call{value: validityBonds[pool]}("");
+            require(success, ChallengeMissingBond());
+
+            validityBonds[pool] = 0;
+        }
 
         emit PoolUninstalled(asset0, asset1, eulerAccount, pool);
     }
