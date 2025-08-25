@@ -40,9 +40,8 @@ contract EulerSwapTestBase is EVaultTestBase {
 
     function deployEulerSwap(address poolManager_) public {
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
-        eulerSwapFactory = new EulerSwapFactory(
-            address(evc), address(factory), eulerSwapImpl, address(this), address(this), custodian
-        );
+        eulerSwapFactory =
+            new EulerSwapFactory(address(evc), address(factory), eulerSwapImpl, address(this), address(this), custodian);
         periphery = new EulerSwapPeriphery();
     }
 

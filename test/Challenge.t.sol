@@ -26,13 +26,11 @@ contract ChallengeTest is EulerSwapTestBase {
 
         if (exactIn) {
             amountIn = 500e18;
-            amountOut =
-                periphery.quoteExactInput(address(eulerSwap), address(t1), address(t2), amountIn);
+            amountOut = periphery.quoteExactInput(address(eulerSwap), address(t1), address(t2), amountIn);
             assertApproxEqAbs(amountOut, 499.95e18, 0.01e18);
         } else {
             amountOut = 500e18;
-            amountIn =
-                periphery.quoteExactOutput(address(eulerSwap), address(t1), address(t2), amountOut);
+            amountIn = periphery.quoteExactOutput(address(eulerSwap), address(t1), address(t2), amountOut);
             assertApproxEqAbs(amountIn, 500.05e18, 0.01e18);
         }
 

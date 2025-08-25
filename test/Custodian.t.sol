@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapFactory, TestERC20} from "./EulerSwapTestBase.t.sol";
+import {
+    IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapFactory, TestERC20
+} from "./EulerSwapTestBase.t.sol";
 
 contract CustodianTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
