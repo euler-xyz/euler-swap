@@ -1,4 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: MIT
+
+// Copyright (c) 2024-2025 Euler Labs Ltd
+// Copyright (c) 2024-2025 ZeroEx Inc
+
+// The routines in this file were optimised and improved by Duncan Townsend
+// and Lazaro Raul Iglesias Vera from ZeroEx.
+
 pragma solidity ^0.8.27;
 
 import {Ternary} from "../math/Ternary.sol";
