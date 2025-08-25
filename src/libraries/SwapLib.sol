@@ -18,6 +18,7 @@ library SwapLib {
     /// @notice Emitted after every swap.
     ///   * `sender` is the initiator of the swap, or the Router when invoked via hook.
     ///   * `amount0In` and `amount1In` are after fees have been subtracted.
+    ///   * `fee0` and `fee1` are the amount of input tokens received fees.
     ///   * `reserve0` and `reserve1` are the pool's new reserves (after the swap).
     ///   * `to` is the specified recipient of the funds, or the PoolManager when invoked via hook.
     event Swap(
