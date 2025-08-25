@@ -19,6 +19,7 @@ contract EulerSwapTestBase is EVaultTestBase {
     address public holder = makeAddr("holder");
     address public recipient = makeAddr("recipient");
     address public anyone = makeAddr("anyone");
+    address public custodian = makeAddr("custodian");
 
     TestERC20 assetTST3;
     IEVault public eTST3;
@@ -29,6 +30,7 @@ contract EulerSwapTestBase is EVaultTestBase {
 
     uint256 currSalt = 0;
     address installedOperator;
+    bool expectInsufficientValidityBondRevert = false;
 
     modifier monotonicHolderNAV() {
         int256 orig = getHolderNAV();
@@ -39,7 +41,7 @@ contract EulerSwapTestBase is EVaultTestBase {
     function deployEulerSwap(address poolManager_) public {
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
         eulerSwapFactory = new EulerSwapFactory(
-            address(evc), address(factory), eulerSwapImpl, address(this), address(this), address(this)
+            address(evc), address(factory), eulerSwapImpl, address(this), address(this), custodian
         );
         periphery = new EulerSwapPeriphery();
     }
@@ -151,6 +153,7 @@ contract EulerSwapTestBase is EVaultTestBase {
 
         uint256 ethBalance = holder.balance;
         vm.prank(holder);
+        if (expectInsufficientValidityBondRevert) vm.expectRevert(EulerSwapFactory.InsufficientValidityBond.selector);
         EulerSwap eulerSwap =
             EulerSwap(eulerSwapFactory.deployPool{value: ethBalance}(sParams, dParams, initialState, salt));
 

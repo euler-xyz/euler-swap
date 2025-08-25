@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
-import {QuoteLib} from "../src/libraries/QuoteLib.sol";
 
 contract ChallengeTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -20,24 +18,35 @@ contract ChallengeTest is EulerSwapTestBase {
         eulerSwap = createEulerSwap(1000e18, 1000e18, 0, 1e18, 1e18, 0.9999e18, 0.9999e18);
     }
 
-    function test_basicChallenge() public monotonicHolderNAV {
+    function challengeAux(TestERC20 t1, TestERC20 t2, bool exactIn) internal {
         // Quotes OK:
 
-        uint256 amountIn = 500e18;
-        uint256 amountOut =
-            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
-        assertApproxEqAbs(amountOut, 499.95e18, 0.01e18);
+        uint256 amountIn;
+        uint256 amountOut;
+
+        if (exactIn) {
+            amountIn = 500e18;
+            amountOut =
+                periphery.quoteExactInput(address(eulerSwap), address(t1), address(t2), amountIn);
+            assertApproxEqAbs(amountOut, 499.95e18, 0.01e18);
+        } else {
+            amountOut = 500e18;
+            amountIn =
+                periphery.quoteExactOutput(address(eulerSwap), address(t1), address(t2), amountOut);
+            assertApproxEqAbs(amountIn, 500.05e18, 0.01e18);
+        }
 
         // But swap fails due to E_AccountLiquidity
 
         {
             uint256 snapshot = vm.snapshotState();
 
-            assetTST.mint(address(this), amountIn);
-            assetTST.transfer(address(eulerSwap), amountIn);
+            t1.mint(address(this), amountIn);
+            t1.transfer(address(eulerSwap), amountIn);
 
             vm.expectRevert(E_AccountLiquidity.selector);
-            eulerSwap.swap(0, amountOut, address(this), "");
+            if (t1 == assetTST) eulerSwap.swap(0, amountOut, address(this), "");
+            else eulerSwap.swap(amountOut, 0, address(this), "");
 
             vm.revertToState(snapshot);
         }
@@ -46,15 +55,15 @@ contract ChallengeTest is EulerSwapTestBase {
 
         // So let's challenge it:
 
-        assetTST.mint(address(this), amountIn); // challenge funds
-        assetTST.approve(address(eulerSwapFactory), amountIn);
-        assertEq(assetTST.balanceOf(address(this)), amountIn);
+        t1.mint(address(this), amountIn); // challenge funds
+        t1.approve(address(eulerSwapFactory), amountIn);
+        assertEq(t1.balanceOf(address(this)), amountIn);
 
         eulerSwapFactory.challengePool(
-            address(eulerSwap), address(assetTST), address(assetTST2), amountIn, true, address(5555)
+            address(eulerSwap), address(t1), address(t2), exactIn ? amountIn : amountOut, exactIn, address(5555)
         );
 
-        assertEq(assetTST.balanceOf(address(this)), amountIn); // funds didn't move
+        assertEq(t1.balanceOf(address(this)), amountIn); // funds didn't move
         assertEq(eulerSwapFactory.poolsLength(), 0); // removed from lists
         assertEq(address(5555).balance, 0.123e18); // recipient received bond
 
@@ -64,5 +73,32 @@ contract ChallengeTest is EulerSwapTestBase {
         evc.setAccountOperator(holder, address(eulerSwap), false);
         vm.prank(holder);
         eulerSwapFactory.uninstallPool();
+    }
+
+    function test_basicChallenge12in() public {
+        challengeAux(assetTST, assetTST2, true);
+    }
+
+    function test_basicChallenge21in() public {
+        challengeAux(assetTST2, assetTST, true);
+    }
+
+    function test_basicChallenge12out() public {
+        challengeAux(assetTST, assetTST2, false);
+    }
+
+    function test_basicChallenge21out() public {
+        challengeAux(assetTST2, assetTST, false);
+    }
+
+    function test_bondReturnedOnUninstall() public {
+        assertEq(holder.balance, 0);
+
+        vm.prank(holder);
+        evc.setAccountOperator(holder, address(eulerSwap), false);
+        vm.prank(holder);
+        eulerSwapFactory.uninstallPool();
+
+        assertEq(holder.balance, 0.123e18);
     }
 }
