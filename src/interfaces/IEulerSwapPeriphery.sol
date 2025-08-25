@@ -40,6 +40,11 @@ interface IEulerSwapPeriphery {
         view
         returns (uint256);
 
-    /// @notice Upper-bound on the max amount that can be sold of tokenIn and bought of tokenOut
-    function getLimits(address eulerSwap, address tokenIn, address tokenOut) external view returns (uint256, uint256);
+    /// @notice Upper-bounds on the amounts of each token that this pool can currently support swaps for.
+    /// @return limitIn Max amount of `tokenIn` that can be sold.
+    /// @return limitOut Max amount of `tokenOut` that can be bought.
+    function getLimits(address eulerSwap, address tokenIn, address tokenOut)
+        external
+        view
+        returns (uint256 limitIn, uint256 limitOut);
 }

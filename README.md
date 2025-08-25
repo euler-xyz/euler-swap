@@ -48,22 +48,43 @@ forge coverage
 forge doc --serve --port 4000
 ```
 
-## Deployments
+## Deployment Addresses
 
-### Mainnet
+On networks where Uniswap v4 is deployed, EulerSwap is deployed using a factory variant that creates Uniswap v4 hook compatible instances. Elsewhere, the original 'OG' version of EulerSwap factory is deployed. The deployed addresses can be found in [Contract Addresses](https://docs.euler.finance/developers/contract-addresses) section of Euler docs. To check which version is deployed, call `poolManager` on the EulerSwap implementation contract (`eulerSwapV1Implementation`). If it returns zero-address then 'OG' version is deployed.
 
-Uniswap4 Hook Compatible:
+## Getting Started
 
-- EulerSwapFactory: `0xb013be1D0D380C13B58e889f412895970A2Cf228`
-- EulerSwapPeriphery: `0x208fF5Eb543814789321DaA1B5Eb551881D16b06`
+The `script` folder contains scripts for deploying pools, as well as executing test trades on them. See the dedicated [README](./script/README.md)
 
-### Unichain
+## For Solvers
 
-Uniswap4 Hook Compatible:
+### Swaps
 
-- EulerSwapFactory: `0x45b146BC07c9985589B52df651310e75C6BE066A`
-- EulerSwapPeriphery: `0xdAAF468d84DD8945521Ea40297ce6c5EEfc7003a`
+There are two ways to swap directly on EulerSwap: via a Uniswap V4 hook or by calling the pool’s [swap](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwap.sol#L65) function, which has the same ABI and behaviour as Uniswap V2 pools.
 
+Additionally, the `EulerSwapPeriphery` contract provides helper functions: [swapExactIn](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwapPeriphery.sol#L8) and [swapExactOut](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwapPeriphery.sol#L21)
+
+### Quotes
+
+EulerSwap pools expose the [computeQuote](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwap.sol#L53) function for quoting both exact input and exact output trades. The function will revert if there is insufficient liquidity for the requested amount or if the pool has been decommissioned. If the function returns a quote, it means the trade should be executable based on the pool’s current state, but it's not guaranteed if the pool is abandoned or not maintained properly (See the **Creating and Decommissioning Pools** section).
+
+The `EulerSwapPeriphery` contract also provides the [quoteExactInput](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwapPeriphery.sol#L32) and [quoteExactOutput](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwapPeriphery.sol#L38) helper functions
+
+### Liquidity
+
+Unlike traditional AMMs, EulerSwap pools do not hold token reserves directly. Instead, liquidity is provided just-in-time from the underlying Euler lending vaults. The amount that can be deposited to or withdrawn from the lending vaults depends on the current state of the EulerSwap account and various factors, such as supply and borrow caps, vault utilization, etc. This means there may be limits at any given moment on how much can be sold or bought in a trade.
+
+These limits are directional, resulting in four distinct parameters: input and output limits for trades in each direction. The [getLimits](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/interfaces/IEulerSwap.sol#L59) function can be used to fetch the current liquidity limits available for swapping and is also available via `EulerSwapPeriphery`.
+
+Note that these limits are enforced by the quoting functions, which will revert if a trade exceeds them.
+
+### Creating and Decomissioning Pools
+
+The EulerSwap pools are created by the `EulerSwapFactory` contract, which emits a [PoolDeployed](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/EulerSwapFactory.sol#L32) event and provides functions to list existing instances.
+
+Pools can also be uninstalled by LPs, for example during rebalancing, in which case the factory emits a [PoolUninstalled](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/EulerSwapFactory.sol#L34) event.
+
+However, note that EulerSwap instances are installed on top of regular accounts within the Euler lending platform—they do not control these accounts. This means an LP can abandon an EulerSwap instance simply by withdrawing their position from the lending vaults. In such cases, the factory has no indication that the pool is no longer operational, but quoting functions or swap simulations will start reverting. If a pool continually fails to return quotes or reverts in simulation, it should likely be blacklisted.
 
 ## Safety
 
