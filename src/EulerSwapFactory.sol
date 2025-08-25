@@ -88,7 +88,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         custodian = custodian_;
     }
 
-    function isValidVault(address v) private view returns (bool) {
+    function isValidVault(address v) internal view returns (bool) {
         return GenericFactory(evkFactory).isProxy(v);
     }
 
@@ -199,10 +199,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
             require(bytes4(error) == E_AccountLiquidity.selector, ChallengeSwapNotLiquidityFailure());
         }
 
-        uint256 bondAmount = validityBonds[poolAddr];
-        (bool successEther,) = recipient.call{value: bondAmount}("");
-        require(successEther, ChallengeMissingBond());
-        validityBonds[poolAddr] = 0;
+        uint256 bondAmount = redeemValidityBond(poolAddr, recipient);
 
         emit PoolChallenged(msg.sender, poolAddr, tokenIn, tokenOut, amount, exactIn, bondAmount, recipient);
 
@@ -305,14 +302,19 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         allPools.remove(pool);
         poolMap[asset0][asset1].remove(pool);
 
-        if (validityBonds[pool] != 0) {
-            (bool success,) = eulerAccount.call{value: validityBonds[pool]}("");
-            require(success, ChallengeMissingBond());
-
-            validityBonds[pool] = 0;
-        }
+        redeemValidityBond(pool, eulerAccount);
 
         emit PoolUninstalled(asset0, asset1, eulerAccount, pool);
+    }
+
+    function redeemValidityBond(address pool, address recipient) internal returns (uint256 bondAmount) {
+        bondAmount = validityBonds[pool];
+
+        if (bondAmount != 0) {
+            (bool success,) = recipient.call{value: bondAmount}("");
+            require(success, ChallengeMissingBond());
+            validityBonds[pool] = 0;
+        }
     }
 
     /// @notice Returns a slice of an array of addresses
