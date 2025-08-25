@@ -42,6 +42,16 @@ interface IEulerSwap {
     /// hooks, etc. This should only be invoked by the factory.
     function activate(DynamicParams calldata dynamicParams, InitialState calldata initialState) external;
 
+    /// @notice Installs or uninstalls a manager. Managers can reconfigure the dynamic EulerSwap parameters.
+    /// Only callable by the owner (eulerAccount).
+    /// @param manager Address to install/uninstall
+    /// @param installed Whether the manager should be installed or uninstalled
+    function setManager(address manager, bool installed) external;
+
+    /// @notice Reconfigured the pool's parameters. Only callable by the owner (eulerAccount)
+    /// or a manager.
+    function reconfigure(DynamicParams calldata dParams, InitialState calldata initialState) external;
+
     /// @notice Retrieves the pool's static parameters.
     function getStaticParams() external view returns (StaticParams memory);
 
@@ -56,6 +66,10 @@ interface IEulerSwap {
     /// @return reserve1 The amount of asset1 in the pool
     /// @return status The status of the pool (0 = unactivated, 1 = unlocked, 2 = locked)
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 status);
+
+    /// @notice Whether or not this EulerSwap instance is installed as an operator of
+    /// the eulerAccount in the EVC.
+    function isInstalled() external view returns (bool installed);
 
     /// @notice Generates a quote for how much a given size swap will cost.
     /// @param tokenIn The input token that the swapper SENDS

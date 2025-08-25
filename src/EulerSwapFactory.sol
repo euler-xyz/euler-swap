@@ -139,23 +139,23 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         _;
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwapFactory
     function custodianUninstallPool(address pool) external onlyCustodian {
         address eulerAccount = IEulerSwap(pool).getStaticParams().eulerAccount;
         uninstall(eulerAccount, true);
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwapFactory
     function transferCustodian(address newCustodian) external onlyCustodian {
         custodian = newCustodian;
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwapFactory
     function setMinimumValidityBond(uint256 newMinimum) external onlyCustodian {
         minimumValidityBond = newMinimum;
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwapFactory
     function challengePool(
         address poolAddr,
         address tokenIn,
@@ -222,7 +222,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         else IEulerSwap(poolAddr).swap(amountOut, 0, challenger, "");
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwapFactory
     function creationCode(IEulerSwap.StaticParams memory sParams) public view returns (bytes memory) {
         return MetaProxyDeployer.creationCodeMetaProxy(eulerSwapImpl, abi.encode(sParams));
     }
@@ -243,7 +243,7 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         return installedPools[eulerAccount];
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwapFactory
     function validityBond(address pool) external view returns (uint256) {
         return validityBonds[pool];
     }

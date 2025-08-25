@@ -28,7 +28,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     error AssetsOutOfOrderOrEqual();
     error InvalidAssets();
 
-    /// FIXME: natspec
+    /// @notice Addresses configured as managers. Managers can reconfigure the pool parameters.
     mapping(address manager => bool installed) public managers;
 
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
@@ -147,7 +147,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         if (address(poolManager) != address(0)) activateHook(sParams);
     }
 
-    /// FIXME natspec
+    /// @inheritdoc IEulerSwap
     function setManager(address manager, bool installed) external {
         StaticParams memory sParams = CtxLib.getStaticParams();
 
@@ -157,7 +157,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         emit EulerSwapManagerSet(manager, installed);
     }
 
-    /// FIXME natspec
+    /// @inheritdoc IEulerSwap
     function reconfigure(DynamicParams calldata dParams, InitialState calldata initialState) external nonReentrant {
         CtxLib.State storage s = CtxLib.getState();
         StaticParams memory sParams = CtxLib.getStaticParams();
@@ -196,7 +196,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         return (s.reserve0, s.reserve1, s.status);
     }
 
-    // FIXME natspec
+    /// @inheritdoc IEulerSwap
     function isInstalled() external view nonReentrantView returns (bool) {
         StaticParams memory sParams = CtxLib.getStaticParams();
 
