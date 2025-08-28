@@ -11,6 +11,7 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
 
     error AmountOutLessThanMin();
     error AmountInMoreThanMax();
+    error UnexpectedAmountOut();
     error DeadlineExpired();
 
     /// @inheritdoc IEulerSwapPeriphery
@@ -28,7 +29,6 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 amountOut = IEulerSwap(eulerSwap).computeQuote(tokenIn, tokenOut, amountIn, true);
 
         require(amountOut >= amountOutMin, AmountOutLessThanMin());
-
         swap(IEulerSwap(eulerSwap), tokenIn, tokenOut, amountIn, amountOut, receiver);
     }
 
@@ -89,9 +89,13 @@ contract EulerSwapPeriphery is IEulerSwapPeriphery {
         uint256 amountOut,
         address receiver
     ) internal {
+        uint256 balanceBefore = IERC20(tokenOut).balanceOf(receiver);
+
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(eulerSwap), amountIn);
 
         bool isAsset0In = tokenIn < tokenOut;
         (isAsset0In) ? eulerSwap.swap(0, amountOut, receiver, "") : eulerSwap.swap(amountOut, 0, receiver, "");
+
+        require(IERC20(tokenOut).balanceOf(receiver) == balanceBefore + amountOut, UnexpectedAmountOut());
     }
 }
