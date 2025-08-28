@@ -5,7 +5,7 @@ import {
     IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapRegistry, TestERC20
 } from "./EulerSwapTestBase.t.sol";
 
-contract CustodianTest is EulerSwapTestBase {
+contract CuratorTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
 
     function setUp() public virtual override {
@@ -15,15 +15,15 @@ contract CustodianTest is EulerSwapTestBase {
         eulerSwap = createEulerSwap(1000e18, 1000e18, 0, 1e18, 1e18, 0.9999e18, 0.9999e18);
     }
 
-    function test_custodianUnregisterPool() public {
+    function test_curatorUnregisterPool() public {
         assertEq(holder.balance, 0);
         assertEq(eulerSwapRegistry.poolsLength(), 1);
 
         vm.expectRevert(EulerSwapRegistry.Unauthorized.selector);
-        eulerSwapRegistry.custodianUnregisterPool(address(eulerSwap));
+        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap));
 
-        vm.prank(custodian);
-        eulerSwapRegistry.custodianUnregisterPool(address(eulerSwap));
+        vm.prank(curator);
+        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap));
 
         assertEq(holder.balance, 0.123e18);
         assertEq(eulerSwapRegistry.poolsLength(), 0);
@@ -36,16 +36,16 @@ contract CustodianTest is EulerSwapTestBase {
         eulerSwapRegistry.unregisterPool();
     }
 
-    function test_transferCustodian() public {
-        assertEq(eulerSwapRegistry.custodian(), custodian);
+    function test_transferCurator() public {
+        assertEq(eulerSwapRegistry.curator(), curator);
 
         vm.expectRevert(EulerSwapRegistry.Unauthorized.selector);
-        eulerSwapRegistry.transferCustodian(address(6666));
+        eulerSwapRegistry.transferCurator(address(6666));
 
-        vm.prank(custodian);
-        eulerSwapRegistry.transferCustodian(address(7777));
+        vm.prank(curator);
+        eulerSwapRegistry.transferCurator(address(7777));
 
-        assertEq(eulerSwapRegistry.custodian(), address(7777));
+        assertEq(eulerSwapRegistry.curator(), address(7777));
     }
 
     function test_minimumValidityBond() public {
@@ -55,7 +55,7 @@ contract CustodianTest is EulerSwapTestBase {
         vm.expectRevert(EulerSwapRegistry.Unauthorized.selector);
         eulerSwapRegistry.setMinimumValidityBond(0.1e18);
 
-        vm.prank(custodian);
+        vm.prank(curator);
         eulerSwapRegistry.setMinimumValidityBond(0.2e18);
 
         assertEq(eulerSwapRegistry.minimumValidityBond(), 0.2e18);

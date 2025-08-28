@@ -226,7 +226,7 @@ contract FactoryTest is EulerSwapTestBase {
         // Switch to a new perspective where it's not blacklisted
 
         address newPerspective = address(new PerspectiveMock());
-        vm.prank(custodian);
+        vm.prank(curator);
         eulerSwapRegistry.setValidVaultPerspective(newPerspective);
 
         vm.prank(holder);

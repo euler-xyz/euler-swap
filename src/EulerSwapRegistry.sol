@@ -21,8 +21,9 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
     address public immutable eulerSwapFactory;
     /// @dev Perspective that checks whether vaults used by a pool are permitted by this registry
     address public validVaultPerspective;
-    /// @dev Custodian who can set the minimum validity bond, and remove pools from the factory lists
-    address public custodian;
+    /// @dev Curator can set the minimum validity bond, update the valid vault perspective,
+    /// and remove pools from the factory lists
+    address public curator;
     /// @dev Minimum size of validity bond, in native token
     uint256 public minimumValidityBond;
 
@@ -72,12 +73,12 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
 
     error E_AccountLiquidity(); // From EVK
 
-    constructor(address evc, address eulerSwapFactory_, address validVaultPerspective_, address custodian_)
+    constructor(address evc, address eulerSwapFactory_, address validVaultPerspective_, address curator_)
         EVCUtil(evc)
     {
         eulerSwapFactory = eulerSwapFactory_;
         validVaultPerspective = validVaultPerspective_;
-        custodian = custodian_;
+        curator = curator_;
     }
 
     /// @inheritdoc IEulerSwapRegistry
@@ -114,29 +115,29 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         uninstall(_msgSender(), false);
     }
 
-    modifier onlyCustodian() {
-        require(_msgSender() == custodian, Unauthorized());
+    modifier onlyCurator() {
+        require(_msgSender() == curator, Unauthorized());
         _;
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function custodianUnregisterPool(address pool) external onlyCustodian {
+    function curatorUnregisterPool(address pool) external onlyCurator {
         address eulerAccount = IEulerSwap(pool).getStaticParams().eulerAccount;
         uninstall(eulerAccount, true);
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function transferCustodian(address newCustodian) external onlyCustodian {
-        custodian = newCustodian;
+    function transferCurator(address newCurator) external onlyCurator {
+        curator = newCurator;
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function setMinimumValidityBond(uint256 newMinimum) external onlyCustodian {
+    function setMinimumValidityBond(uint256 newMinimum) external onlyCurator {
         minimumValidityBond = newMinimum;
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function setValidVaultPerspective(address newPerspective) external onlyCustodian {
+    function setValidVaultPerspective(address newPerspective) external onlyCurator {
         validVaultPerspective = newPerspective;
     }
 

@@ -25,13 +25,13 @@ contract DeployProtocol is ScriptUtil {
         address feeOwner = vm.parseJsonAddress(json, ".feeOwner");
         address feeRecipientSetter = vm.parseJsonAddress(json, ".feeRecipientSetter");
         address validVaultPerspective = vm.parseJsonAddress(json, ".validVaultPerspective");
-        address custodian = vm.parseJsonAddress(json, ".custodian");
+        address curator = vm.parseJsonAddress(json, ".curator");
 
         vm.startBroadcast(deployerAddress);
 
         address eulerSwapImpl = address(new EulerSwap(evc, poolManager));
         address eulerSwapFactory = address(new EulerSwapFactory(evc, eulerSwapImpl, feeOwner, feeRecipientSetter));
-        new EulerSwapRegistry(evc, eulerSwapFactory, validVaultPerspective, custodian);
+        new EulerSwapRegistry(evc, eulerSwapFactory, validVaultPerspective, curator);
         new EulerSwapPeriphery();
         vm.stopBroadcast();
     }

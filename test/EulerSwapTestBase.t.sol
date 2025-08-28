@@ -21,7 +21,7 @@ contract EulerSwapTestBase is EVaultTestBase {
     address public holder = makeAddr("holder");
     address public recipient = makeAddr("recipient");
     address public anyone = makeAddr("anyone");
-    address public custodian = makeAddr("custodian");
+    address public curator = makeAddr("curator");
 
     TestERC20 assetTST3;
     IEVault public eTST3;
@@ -47,7 +47,7 @@ contract EulerSwapTestBase is EVaultTestBase {
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
         eulerSwapFactory = new EulerSwapFactory(address(evc), eulerSwapImpl, address(this), address(this));
         eulerSwapRegistry =
-            new EulerSwapRegistry(address(evc), address(eulerSwapFactory), address(validVaultPerspective), custodian);
+            new EulerSwapRegistry(address(evc), address(eulerSwapFactory), address(validVaultPerspective), curator);
         periphery = new EulerSwapPeriphery();
     }
 

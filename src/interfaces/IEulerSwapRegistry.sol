@@ -15,13 +15,13 @@ interface IEulerSwapRegistry {
     function unregisterPool() external;
 
     /// @notice Remove a pool from the pools and poolsByPair lists. This can be used to
-    /// clean-up incorrectly configured pools. Only callable by the custodian.
+    /// clean-up incorrectly configured pools. Only callable by the curator.
     /// @param pool Address of the EulerSwap instance to remove.
-    function custodianUnregisterPool(address pool) external;
+    function curatorUnregisterPool(address pool) external;
 
-    /// @notice Changes the address with custodian privileges. Only callable by the custodian.
-    /// @param newCustodian New address to give custodian privileges. Caller gives up the privileges.
-    function transferCustodian(address newCustodian) external;
+    /// @notice Changes the address with curator privileges. Only callable by the curator.
+    /// @param newCurator New address to give curator privileges. Caller gives up the privileges.
+    function transferCurator(address newCurator) external;
 
     /// @notice Updates the minimum validity bond required to create new pools. Validity bonds
     /// are in native token (ie ETH).
