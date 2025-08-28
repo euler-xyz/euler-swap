@@ -1,12 +1,6 @@
-split factory and registry
-allow registry to support any perspective
-  * make periphery validate post-swap balance changes
-make bonds seizeable by custodian
-rename custodian
-relicense all BUSL
-
 ! testing
   * more tests needed for c=1
+  * case where borrow vault is address(0). Are quoting/limits correct? Is it challengeable?
 ! docs
   * hooks should authenticate msg.sender (or use msg.sender as storage key), and that after hook can reconfigure
     * fee=1e18 means direction disabled, uint(64).max sentinel means use default

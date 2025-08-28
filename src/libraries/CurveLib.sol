@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 
 // Copyright (c) 2024-2025 Euler Labs Ltd
 // Copyright (c) 2024-2025 ZeroEx Inc
 
 // The routines in this file were optimised and improved by Duncan Townsend
-// and Lazaro Raul Iglesias Vera from ZeroEx.
+// and Lazaro Raul Iglesias Vera from ZeroEx Inc. Their work is MIT licensed
+// and is used here with their permission.
 
 pragma solidity ^0.8.27;
 
