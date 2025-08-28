@@ -5,8 +5,10 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolManagerDeployer} from "./utils/PoolManagerDeployer.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
+import {PerspectiveMock} from "./utils/PerspectiveMock.sol";
 import {EulerSwapTestBase, IEulerSwap, IEVC, EulerSwap} from "./EulerSwapTestBase.t.sol";
 import {EulerSwapFactory, IEulerSwapFactory} from "../src/EulerSwapFactory.sol";
+import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwap} from "../src/EulerSwap.sol";
 import {MetaProxyDeployer} from "../src/utils/MetaProxyDeployer.sol";
 import {ProtocolFee} from "../src/utils/ProtocolFee.sol";
@@ -81,7 +83,7 @@ contract FactoryTest is EulerSwapTestBase {
     }
 
     function testDeployPool() public {
-        uint256 allPoolsLengthBefore = eulerSwapFactory.poolsLength();
+        uint256 allPoolsLengthBefore = eulerSwapRegistry.poolsLength();
 
         // test when new pool not set as operator
 
@@ -106,12 +108,12 @@ contract FactoryTest is EulerSwapTestBase {
         });
 
         vm.prank(holder);
-        vm.expectRevert(EulerSwapFactory.OperatorNotInstalled.selector);
+        vm.expectRevert(EulerSwapRegistry.OperatorNotInstalled.selector);
         evc.batch(items);
 
         // success test
 
-        items = new IEVC.BatchItem[](2);
+        items = new IEVC.BatchItem[](3);
 
         items[0] = IEVC.BatchItem({
             onBehalfOfAccount: address(0),
@@ -125,38 +127,56 @@ contract FactoryTest is EulerSwapTestBase {
             value: 0,
             data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
         });
+        items[2] = IEVC.BatchItem({
+            onBehalfOfAccount: holder,
+            targetContract: address(eulerSwapRegistry),
+            value: 0,
+            data: abi.encodeCall(EulerSwapRegistry.registerPool, (predictedAddress))
+        });
 
         vm.prank(holder);
         evc.batch(items);
 
-        address eulerSwap = eulerSwapFactory.poolByEulerAccount(holder);
+        address eulerSwap = eulerSwapRegistry.poolByEulerAccount(holder);
 
         assertEq(address(EulerSwap(eulerSwap).poolManager()), address(poolManager));
 
-        uint256 allPoolsLengthAfter = eulerSwapFactory.poolsLength();
+        uint256 allPoolsLengthAfter = eulerSwapRegistry.poolsLength();
         assertEq(allPoolsLengthAfter - allPoolsLengthBefore, 1);
 
-        address[] memory poolsList = eulerSwapFactory.pools();
+        address[] memory poolsList = eulerSwapRegistry.pools();
         assertEq(poolsList.length, 1);
         assertEq(poolsList[0], eulerSwap);
         assertEq(poolsList[0], address(eulerSwap));
 
-        // revert when attempting to deploy a new pool (with a different salt)
+        // revert when attempting to register a new pool (with a different salt)
         sParams.feeRecipient = address(1);
         (address newHookAddress, bytes32 newSalt) = mineSalt(sParams);
         assertNotEq(newHookAddress, hookAddress);
         assertNotEq(newSalt, salt);
 
-        items = new IEVC.BatchItem[](1);
+        items = new IEVC.BatchItem[](3);
         items[0] = IEVC.BatchItem({
+            onBehalfOfAccount: address(0),
+            targetContract: address(evc),
+            value: 0,
+            data: abi.encodeCall(evc.setAccountOperator, (holder, newHookAddress, true))
+        });
+        items[1] = IEVC.BatchItem({
             onBehalfOfAccount: holder,
             targetContract: address(eulerSwapFactory),
             value: 0,
             data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, newSalt))
         });
+        items[2] = IEVC.BatchItem({
+            onBehalfOfAccount: holder,
+            targetContract: address(eulerSwapRegistry),
+            value: 0,
+            data: abi.encodeCall(EulerSwapRegistry.registerPool, (newHookAddress))
+        });
 
         vm.prank(holder);
-        vm.expectRevert(EulerSwapFactory.OldOperatorStillInstalled.selector);
+        vm.expectRevert(EulerSwapRegistry.OldOperatorStillInstalled.selector);
         evc.batch(items);
     }
 
@@ -177,28 +197,40 @@ contract FactoryTest is EulerSwapTestBase {
     }
 
     function testInvalidPoolsSliceOutOfBounds() public {
-        vm.expectRevert(EulerSwapFactory.SliceOutOfBounds.selector);
-        eulerSwapFactory.poolsSlice(1, 0);
+        vm.expectRevert(EulerSwapRegistry.SliceOutOfBounds.selector);
+        eulerSwapRegistry.poolsSlice(1, 0);
     }
 
     function testDeployWithInvalidVaultImplementation() public {
-        bytes32 salt = bytes32(uint256(1234));
         (
             IEulerSwap.StaticParams memory sParams,
             IEulerSwap.DynamicParams memory dParams,
             IEulerSwap.InitialState memory initialState
         ) = getBasicParams();
 
-        // Create a fake vault that's not deployed by the factory
-        address fakeVault = address(0x1234);
-        sParams.supplyVault0 = fakeVault;
-        sParams.borrowVault0 = fakeVault;
-        sParams.supplyVault1 = address(eTST2);
-        sParams.borrowVault1 = address(eTST2);
+        (address hookAddress, bytes32 salt) = mineSalt(sParams);
+
+        // Blacklist one of the vaults
+        validVaultPerspective.setBlacklist(address(eTST), true);
 
         vm.prank(holder);
-        vm.expectRevert(EulerSwapFactory.InvalidVaultImplementation.selector);
+        evc.setAccountOperator(holder, hookAddress, true);
+
+        vm.prank(holder);
         eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
+
+        vm.prank(holder);
+        vm.expectRevert(EulerSwapRegistry.InvalidVaultImplementation.selector);
+        eulerSwapRegistry.registerPool(hookAddress);
+
+        // Switch to a new perspective where it's not blacklisted
+
+        address newPerspective = address(new PerspectiveMock());
+        vm.prank(custodian);
+        eulerSwapRegistry.setValidVaultPerspective(newPerspective);
+
+        vm.prank(holder);
+        eulerSwapRegistry.registerPool(hookAddress);
     }
 
     function testDeployWithUnauthorizedCaller() public {
@@ -252,6 +284,11 @@ contract FactoryTest is EulerSwapTestBase {
         eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
+    function testRegisterInvalidPool() public {
+        vm.expectRevert(EulerSwapRegistry.NotEulerSwapPool.selector);
+        eulerSwapRegistry.registerPool(address(9999));
+    }
+
     function testPoolsByPair() public {
         // First deploy a pool
         (
@@ -261,7 +298,7 @@ contract FactoryTest is EulerSwapTestBase {
         ) = getBasicParams();
         (address hookAddress, bytes32 salt) = mineSalt(sParams);
 
-        IEVC.BatchItem[] memory items = new IEVC.BatchItem[](2);
+        IEVC.BatchItem[] memory items = new IEVC.BatchItem[](3);
         items[0] = IEVC.BatchItem({
             onBehalfOfAccount: address(0),
             targetContract: address(evc),
@@ -274,24 +311,30 @@ contract FactoryTest is EulerSwapTestBase {
             value: 0,
             data: abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
         });
+        items[2] = IEVC.BatchItem({
+            onBehalfOfAccount: holder,
+            targetContract: address(eulerSwapRegistry),
+            value: 0,
+            data: abi.encodeCall(EulerSwapRegistry.registerPool, (hookAddress))
+        });
 
         vm.prank(holder);
         evc.batch(items);
 
         // Get the deployed pool and its assets
-        address pool = eulerSwapFactory.poolByEulerAccount(holder);
+        address pool = eulerSwapRegistry.poolByEulerAccount(holder);
         (address asset0, address asset1) = EulerSwap(pool).getAssets();
 
         // Test poolsByPairLength
-        assertEq(eulerSwapFactory.poolsByPairLength(asset0, asset1), 1);
+        assertEq(eulerSwapRegistry.poolsByPairLength(asset0, asset1), 1);
 
         // Test poolsByPairSlice
-        address[] memory slice = eulerSwapFactory.poolsByPairSlice(asset0, asset1, 0, 1);
+        address[] memory slice = eulerSwapRegistry.poolsByPairSlice(asset0, asset1, 0, 1);
         assertEq(slice.length, 1);
         assertEq(slice[0], hookAddress);
 
         // Test poolsByPair
-        address[] memory pools = eulerSwapFactory.poolsByPair(asset0, asset1);
+        address[] memory pools = eulerSwapRegistry.poolsByPair(asset0, asset1);
         assertEq(pools.length, 1);
         assertEq(pools[0], hookAddress);
     }
@@ -313,6 +356,7 @@ contract FactoryTest is EulerSwapTestBase {
         vm.startPrank(alice);
         evc.setAccountOperator(alice, alicePool, true);
         eulerSwapFactory.deployPool(sParams, dParams, initialState, aliceSalt);
+        eulerSwapRegistry.registerPool(alicePool);
 
         // Deploy pool for Bob
         sParams.eulerAccount = holder = bob;
@@ -321,9 +365,10 @@ contract FactoryTest is EulerSwapTestBase {
         vm.startPrank(bob);
         evc.setAccountOperator(bob, bobPool, true);
         eulerSwapFactory.deployPool(sParams, dParams, initialState, bobSalt);
+        eulerSwapRegistry.registerPool(bobPool);
 
         {
-            address[] memory ps = eulerSwapFactory.pools();
+            address[] memory ps = eulerSwapRegistry.pools();
             assertEq(ps.length, 2);
             assertEq(ps[0], alicePool);
             assertEq(ps[1], bobPool);
@@ -331,7 +376,7 @@ contract FactoryTest is EulerSwapTestBase {
 
         {
             (address asset0, address asset1) = EulerSwap(alicePool).getAssets();
-            address[] memory ps = eulerSwapFactory.poolsByPair(asset0, asset1);
+            address[] memory ps = eulerSwapRegistry.poolsByPair(asset0, asset1);
             assertEq(ps.length, 2);
             assertEq(ps[0], alicePool);
             assertEq(ps[1], bobPool);
@@ -339,39 +384,39 @@ contract FactoryTest is EulerSwapTestBase {
 
         assertTrue(EulerSwap(alicePool).isInstalled());
 
-        // Uninstall pool for Alice
+        // Unregister pool for Alice
         vm.startPrank(alice);
         evc.setAccountOperator(alice, alicePool, false);
-        eulerSwapFactory.uninstallPool();
+        eulerSwapRegistry.unregisterPool();
 
         assertFalse(EulerSwap(alicePool).isInstalled());
 
         {
-            address[] memory ps = eulerSwapFactory.pools();
+            address[] memory ps = eulerSwapRegistry.pools();
             assertEq(ps.length, 1);
             assertEq(ps[0], bobPool);
         }
 
         {
             (address asset0, address asset1) = EulerSwap(alicePool).getAssets();
-            address[] memory ps = eulerSwapFactory.poolsByPair(asset0, asset1);
+            address[] memory ps = eulerSwapRegistry.poolsByPair(asset0, asset1);
             assertEq(ps.length, 1);
             assertEq(ps[0], bobPool);
         }
 
-        // Uninstalling pool for Bob reverts due to an OOB access of the allPools array
+        // Unregistering pool for Bob reverts due to an OOB access of the allPools array
         vm.startPrank(bob);
         evc.setAccountOperator(bob, bobPool, false);
-        eulerSwapFactory.uninstallPool();
+        eulerSwapRegistry.unregisterPool();
 
         {
-            address[] memory ps = eulerSwapFactory.pools();
+            address[] memory ps = eulerSwapRegistry.pools();
             assertEq(ps.length, 0);
         }
 
         {
             (address asset0, address asset1) = EulerSwap(alicePool).getAssets();
-            address[] memory ps = eulerSwapFactory.poolsByPair(asset0, asset1);
+            address[] memory ps = eulerSwapRegistry.poolsByPair(asset0, asset1);
             assertEq(ps.length, 0);
         }
     }

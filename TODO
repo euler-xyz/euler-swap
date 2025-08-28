@@ -1,3 +1,10 @@
+split factory and registry
+allow registry to support any perspective
+  * make periphery validate post-swap balance changes
+make bonds seizeable by custodian
+rename custodian
+relicense all BUSL
+
 ! testing
   * more tests needed for c=1
 ! docs

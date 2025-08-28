@@ -5,10 +5,12 @@ import {Test, console} from "forge-std/Test.sol";
 import {EVaultTestBase, TestERC20, IRMTestDefault} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap, IEVC, EulerSwap} from "../src/EulerSwap.sol";
+import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwapFactory} from "../src/EulerSwapFactory.sol";
 import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
+import {PerspectiveMock} from "./utils/PerspectiveMock.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {MetaProxyDeployer} from "../src/utils/MetaProxyDeployer.sol";
 
@@ -25,7 +27,9 @@ contract EulerSwapTestBase is EVaultTestBase {
     IEVault public eTST3;
 
     address public eulerSwapImpl;
+    PerspectiveMock public validVaultPerspective;
     EulerSwapFactory public eulerSwapFactory;
+    EulerSwapRegistry public eulerSwapRegistry;
     EulerSwapPeriphery public periphery;
 
     uint256 currSalt = 0;
@@ -39,9 +43,11 @@ contract EulerSwapTestBase is EVaultTestBase {
     }
 
     function deployEulerSwap(address poolManager_) public {
+        validVaultPerspective = new PerspectiveMock();
         eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
-        eulerSwapFactory =
-            new EulerSwapFactory(address(evc), address(factory), eulerSwapImpl, address(this), address(this), custodian);
+        eulerSwapFactory = new EulerSwapFactory(address(evc), eulerSwapImpl, address(this), address(this));
+        eulerSwapRegistry =
+            new EulerSwapRegistry(address(evc), address(eulerSwapFactory), address(validVaultPerspective), custodian);
         periphery = new EulerSwapPeriphery();
     }
 
@@ -152,9 +158,11 @@ contract EulerSwapTestBase is EVaultTestBase {
 
         uint256 ethBalance = holder.balance;
         vm.prank(holder);
-        if (expectInsufficientValidityBondRevert) vm.expectRevert(EulerSwapFactory.InsufficientValidityBond.selector);
-        EulerSwap eulerSwap =
-            EulerSwap(eulerSwapFactory.deployPool{value: ethBalance}(sParams, dParams, initialState, salt));
+        EulerSwap eulerSwap = EulerSwap(eulerSwapFactory.deployPool(sParams, dParams, initialState, salt));
+
+        vm.prank(holder);
+        if (expectInsufficientValidityBondRevert) vm.expectRevert(EulerSwapRegistry.InsufficientValidityBond.selector);
+        eulerSwapRegistry.registerPool{value: ethBalance}(address(eulerSwap));
 
         return eulerSwap;
     }

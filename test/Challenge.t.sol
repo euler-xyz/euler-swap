@@ -49,28 +49,28 @@ contract ChallengeTest is EulerSwapTestBase {
             vm.revertToState(snapshot);
         }
 
-        assertEq(eulerSwapFactory.poolsLength(), 1);
+        assertEq(eulerSwapRegistry.poolsLength(), 1);
 
         // So let's challenge it:
 
         t1.mint(address(this), amountIn); // challenge funds
-        t1.approve(address(eulerSwapFactory), amountIn);
+        t1.approve(address(eulerSwapRegistry), amountIn);
         assertEq(t1.balanceOf(address(this)), amountIn);
 
-        eulerSwapFactory.challengePool(
+        eulerSwapRegistry.challengePool(
             address(eulerSwap), address(t1), address(t2), exactIn ? amountIn : amountOut, exactIn, address(5555)
         );
 
         assertEq(t1.balanceOf(address(this)), amountIn); // funds didn't move
-        assertEq(eulerSwapFactory.poolsLength(), 0); // removed from lists
+        assertEq(eulerSwapRegistry.poolsLength(), 0); // removed from lists
         assertEq(address(5555).balance, 0.123e18); // recipient received bond
 
-        // Verify that uninstall still works:
+        // Verify that unregister still works:
 
         vm.prank(holder);
         evc.setAccountOperator(holder, address(eulerSwap), false);
         vm.prank(holder);
-        eulerSwapFactory.uninstallPool();
+        eulerSwapRegistry.unregisterPool();
     }
 
     function test_basicChallenge12in() public {
@@ -95,7 +95,7 @@ contract ChallengeTest is EulerSwapTestBase {
         vm.prank(holder);
         evc.setAccountOperator(holder, address(eulerSwap), false);
         vm.prank(holder);
-        eulerSwapFactory.uninstallPool();
+        eulerSwapRegistry.unregisterPool();
 
         assertEq(holder.balance, 0.123e18);
     }
