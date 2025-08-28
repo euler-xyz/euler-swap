@@ -17,7 +17,8 @@ interface IEulerSwapRegistry {
     /// @notice Remove a pool from the pools and poolsByPair lists. This can be used to
     /// clean-up incorrectly configured pools. Only callable by the curator.
     /// @param pool Address of the EulerSwap instance to remove.
-    function curatorUnregisterPool(address pool) external;
+    /// @param bondReceiver Where to send the validity bond. If address(0), it is returned to pool creator.
+    function curatorUnregisterPool(address pool, address bondReceiver) external;
 
     /// @notice Changes the address with curator privileges. Only callable by the curator.
     /// @param newCurator New address to give curator privileges. Caller gives up the privileges.

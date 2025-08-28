@@ -20,10 +20,10 @@ contract CuratorTest is EulerSwapTestBase {
         assertEq(eulerSwapRegistry.poolsLength(), 1);
 
         vm.expectRevert(EulerSwapRegistry.Unauthorized.selector);
-        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap));
+        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap), address(0));
 
         vm.prank(curator);
-        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap));
+        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap), address(0));
 
         assertEq(holder.balance, 0.123e18);
         assertEq(eulerSwapRegistry.poolsLength(), 0);
@@ -34,6 +34,15 @@ contract CuratorTest is EulerSwapTestBase {
         evc.setAccountOperator(holder, address(eulerSwap), false);
         vm.prank(holder);
         eulerSwapRegistry.unregisterPool();
+    }
+
+    function test_curatorUnregisterPoolSeize() public {
+        vm.prank(curator);
+        eulerSwapRegistry.curatorUnregisterPool(address(eulerSwap), address(6543));
+
+        assertEq(holder.balance, 0);
+        assertEq(address(6543).balance, 0.123e18);
+        assertEq(eulerSwapRegistry.poolsLength(), 0);
     }
 
     function test_transferCurator() public {

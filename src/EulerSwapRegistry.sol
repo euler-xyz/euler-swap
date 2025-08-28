@@ -95,7 +95,7 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
 
         require(msg.value >= minimumValidityBond, InsufficientValidityBond());
 
-        uninstall(sParams.eulerAccount, false);
+        uninstall(sParams.eulerAccount, sParams.eulerAccount, false);
 
         require(evc.isAccountOperatorAuthorized(sParams.eulerAccount, address(pool)), OperatorNotInstalled());
 
@@ -112,7 +112,8 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
 
     /// @inheritdoc IEulerSwapRegistry
     function unregisterPool() external {
-        uninstall(_msgSender(), false);
+        address eulerAccount = _msgSender();
+        uninstall(eulerAccount, eulerAccount, false);
     }
 
     modifier onlyCurator() {
@@ -121,9 +122,10 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function curatorUnregisterPool(address pool) external onlyCurator {
+    function curatorUnregisterPool(address pool, address bondReceiver) external onlyCurator {
         address eulerAccount = IEulerSwap(pool).getStaticParams().eulerAccount;
-        uninstall(eulerAccount, true);
+        if (bondReceiver == address(0)) bondReceiver = eulerAccount;
+        uninstall(eulerAccount, bondReceiver, true);
     }
 
     /// @inheritdoc IEulerSwapRegistry
@@ -189,7 +191,7 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
 
         emit PoolChallenged(msg.sender, poolAddr, tokenIn, tokenOut, amount, exactIn, bondAmount, recipient);
 
-        uninstall(eulerAccount, true);
+        uninstall(eulerAccount, eulerAccount, true);
     }
 
     /// @dev Function invoked by challengePool so that errors can be caught. Not intended
@@ -265,8 +267,9 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
     /// @dev The function checks if the operator is still installed and reverts if it is
     /// @dev If no pool exists for the account, the function returns without any action
     /// @param eulerAccount The address of the Euler account whose pool should be uninstalled
+    /// @param bondRecipient Where the bond should be sent.
     /// @param forced Whether this is a forced uninstall, vs a user-requested uninstall
-    function uninstall(address eulerAccount, bool forced) internal {
+    function uninstall(address eulerAccount, address bondRecipient, bool forced) internal {
         address pool = installedPools[eulerAccount];
         if (pool == address(0)) return;
 
@@ -280,7 +283,7 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         allPools.remove(pool);
         poolMap[asset0][asset1].remove(pool);
 
-        redeemValidityBond(pool, eulerAccount);
+        redeemValidityBond(pool, bondRecipient);
 
         emit PoolUnregistered(asset0, asset1, eulerAccount, pool);
     }
