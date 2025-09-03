@@ -10,7 +10,7 @@ import {CurveLib} from "./CurveLib.sol";
 import {FundsLib} from "./FundsLib.sol";
 import {QuoteLib} from "./QuoteLib.sol";
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
-import {IEulerSwapHookTarget} from "../interfaces/IEulerSwapHookTarget.sol";
+import "../interfaces/IEulerSwapHookTarget.sol";
 
 library SwapLib {
     using SafeERC20 for IERC20;
@@ -72,11 +72,17 @@ library SwapLib {
         uint256 amount1InFull,
         uint256 amount0Out,
         uint256 amount1Out
-    ) internal pure {
+    ) internal {
         ctx.amount0InFull = amount0InFull;
         ctx.amount1InFull = amount1InFull;
         ctx.amount0Out = amount0Out;
         ctx.amount1Out = amount1Out;
+
+        if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_BEFORE_SWAP) != 0) {
+            IEulerSwapHookTarget(ctx.dParams.swapHook).beforeSwap(
+                amount0InFull, amount1InFull, amount0Out, amount1Out, ctx.sender, ctx.to
+            );
+        }
     }
 
     function doDeposits(SwapContext memory ctx) internal {
@@ -116,7 +122,7 @@ library SwapLib {
             ctx.to
         );
 
-        if ((ctx.dParams.swapHookedOperations & 2) != 0) {
+        if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_AFTER_SWAP) != 0) {
             s.status = 1; // Unlock the reentrancy guard during afterSwap, allowing hook to reconfigure()
 
             IEulerSwapHookTarget(ctx.dParams.swapHook).afterSwap(
