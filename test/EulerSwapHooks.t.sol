@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
 import {QuoteLib} from "../src/libraries/QuoteLib.sol";
 import {SwapLib} from "../src/libraries/SwapLib.sol";
+import "../src/interfaces/IEulerSwapHookTarget.sol";
 
 contract EulerSwapHooks is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -31,18 +32,45 @@ contract EulerSwapHooks is EulerSwapTestBase {
     }
 
     uint64 beforeSwapCounter = 0;
-    uint112 bs_reserve0;
-    uint112 bs_reserve1;
 
-    function beforeSwap(bool asset0IsInput, uint112 reserve0, uint112 reserve1, bool readOnly)
+    uint256 bs_amount0InFull;
+    uint256 bs_amount1InFull;
+    uint256 bs_amount0Out;
+    uint256 bs_amount1Out;
+    address bs_msgSender;
+    address bs_to;
+
+    function beforeSwap(
+        uint256 amount0InFull,
+        uint256 amount1InFull,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address msgSender,
+        address to
+    ) external {
+        beforeSwapCounter++;
+
+        bs_amount0InFull = amount0InFull;
+        bs_amount1InFull = amount1InFull;
+        bs_amount0Out = amount0Out;
+        bs_amount1Out = amount1Out;
+        bs_msgSender = msgSender;
+        bs_to = to;
+    }
+
+    uint64 getFeeCounter = 0;
+    uint112 gf_reserve0;
+    uint112 gf_reserve1;
+
+    function getFee(bool asset0IsInput, uint112 reserve0, uint112 reserve1, bool readOnly)
         external
         returns (uint64 fee)
     {
         if (!readOnly) {
-            beforeSwapCounter++;
+            getFeeCounter++;
 
-            bs_reserve0 = reserve0;
-            bs_reserve1 = reserve1;
+            gf_reserve0 = reserve0;
+            gf_reserve1 = reserve1;
         }
 
         if (asset0IsInput) return fee0;
@@ -145,7 +173,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
         fee0 = fee1 = 1e18; // ignored
         doSwap(true, assetTST, assetTST2, 1e18, 0.9875e18); // 1% fee from TST->TST2
 
-        assertEq(beforeSwapCounter, 0); // didn't change
+        assertEq(getFeeCounter, 0); // didn't change
     }
 
     function test_noHookAsymmetricFees2() public {
@@ -163,50 +191,89 @@ contract EulerSwapHooks is EulerSwapTestBase {
         doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18); // 0% fee from TST2->TST
     }
 
-    // Before swap hooks
+    // beforeSwap hook
 
     function test_beforeSwapHook1() public {
+        setHook(EULER_SWAP_HOOK_BEFORE_SWAP, 0, 0);
+        toOverride = address(54321);
+
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9975e18); // 0% fee
+
+        assertEq(beforeSwapCounter, 1);
+        assertEq(getFeeCounter, 0); // didn't change
+        assertEq(afterSwapCounter, 0); // didn't change
+
+        assertEq(bs_amount0InFull, 1e18);
+        assertEq(bs_amount1InFull, 0);
+        assertEq(bs_amount0Out, 0);
+        assertApproxEqAbs(bs_amount1Out, 0.9975e18, 0.0001e18);
+        assertEq(bs_msgSender, address(this));
+        assertEq(bs_to, toOverride);
+    }
+
+    function test_beforeSwapHook2() public {
+        setHook(EULER_SWAP_HOOK_BEFORE_SWAP, 0.02e18, 0.02e18);
+        toOverride = address(54321);
+
+        doSwap(true, assetTST2, assetTST, 1e18, 0.9776e18); // 2% fee
+
+        assertEq(beforeSwapCounter, 1);
+        assertEq(getFeeCounter, 0); // didn't change
+        assertEq(afterSwapCounter, 0); // didn't change
+
+        assertEq(bs_amount0InFull, 0);
+        assertEq(bs_amount1InFull, 1e18);
+        assertApproxEqAbs(bs_amount0Out, 0.9776e18, 0.0001e18);
+        assertEq(bs_amount1Out, 0);
+        assertEq(bs_msgSender, address(this));
+        assertEq(bs_to, toOverride);
+    }
+
+    // getFee hook
+
+    function test_getFeeHook1() public {
         (uint112 origReserve0, uint112 origReserve1,) = eulerSwap.getReserves();
 
-        setHook(1, 1e18, 1e18); // these fees are ignored
+        setHook(EULER_SWAP_HOOK_GET_FEE, 1e18, 1e18); // these fees are ignored
         fee0 = 0.01e18;
 
         doSwap(true, assetTST, assetTST2, 1e18, 0.9875e18); // 1% fee
 
-        assertEq(beforeSwapCounter, 1);
+        assertEq(beforeSwapCounter, 0); // didn't change
+        assertEq(getFeeCounter, 1);
         assertEq(afterSwapCounter, 0); // didn't change
-        assertEq(bs_reserve0, origReserve0);
-        assertEq(bs_reserve1, origReserve1);
+        assertEq(gf_reserve0, origReserve0);
+        assertEq(gf_reserve1, origReserve1);
     }
 
-    function test_beforeSwapHook2() public {
-        setHook(1, 1e18, 1e18);
+    function test_getFeeHook2() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE, 1e18, 1e18);
         fee0 = 0.01e18;
         doSwap(true, assetTST2, assetTST, 1e18, 0.9974e18); // 0% fee (only other direction)
     }
 
-    function test_beforeSwapHook3() public {
-        setHook(1, 1e18, 1e18);
+    function test_getFeeHook3() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE, 1e18, 1e18);
         fee1 = 0.01e18;
         doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18); // 0% fee (only other direction)
     }
 
-    function test_beforeSwapHook4() public {
-        setHook(1, 1e18, 1e18);
+    function test_getFeeHook4() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE, 1e18, 1e18);
         fee1 = 0.01e18;
         doSwap(true, assetTST2, assetTST, 1e18, 0.9875e18); // 1% fee
     }
 
     // Hooks, but hook returns sentinel value, indicating to use default fee
 
-    function test_beforeSwapHookDefault1() public {
-        setHook(1, 0.01e18, 1e18);
+    function test_getFeeHookDefault1() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE, 0.01e18, 1e18);
         fee0 = type(uint64).max;
         doSwap(true, assetTST, assetTST2, 1e18, 0.9875e18); // 1% fee
     }
 
-    function test_beforeSwapHookDefault2() public {
-        setHook(1, 1e18, 0.01e18);
+    function test_getFeeHookDefault2() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE, 1e18, 0.01e18);
         fee1 = type(uint64).max;
         doSwap(true, assetTST2, assetTST, 1e18, 0.9875e18); // 1% fee
     }
@@ -225,14 +292,14 @@ contract EulerSwapHooks is EulerSwapTestBase {
     }
 
     function test_swapRejected3() public {
-        setHook(1, 0, 0);
+        setHook(EULER_SWAP_HOOK_GET_FEE, 0, 0);
         fee0 = 1e18;
         expectRejectedError = true;
         doSwap(true, assetTST, assetTST2, 1e18, 1e18);
     }
 
     function test_swapRejected4() public {
-        setHook(1, 0, 0);
+        setHook(EULER_SWAP_HOOK_GET_FEE, 0, 0);
         fee1 = 1e18;
         expectRejectedError = true;
         doSwap(true, assetTST2, assetTST, 1e18, 1e18);
@@ -243,12 +310,12 @@ contract EulerSwapHooks is EulerSwapTestBase {
     function test_swapAfterhook() public {
         uint256 inpQuote = 6e18;
         uint64 fee = 0.05e18;
-        setHook(2, fee, 1e18);
+        setHook(EULER_SWAP_HOOK_AFTER_SWAP, fee, 1e18);
         toOverride = address(5678);
 
         assertEq(afterSwapCounter, 0);
         doSwap(true, assetTST, assetTST2, inpQuote, 5.6131e18);
-        assertEq(beforeSwapCounter, 0); // only the after hook installed
+        assertEq(getFeeCounter, 0); // only the after hook installed
         assertEq(afterSwapCounter, 1);
 
         (uint112 newReserve0, uint112 newReserve1,) = eulerSwap.getReserves();
@@ -267,23 +334,35 @@ contract EulerSwapHooks is EulerSwapTestBase {
         assertEq(as_reserve1, newReserve1);
     }
 
-    function test_swapBothHooks() public {
-        setHook(3, 0, 0);
-
-        assertEq(beforeSwapCounter, 0);
-        assertEq(afterSwapCounter, 0);
-        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
-        assertEq(beforeSwapCounter, 1);
-        assertEq(afterSwapCounter, 1);
-    }
-
     function test_afterSwapReconfigure() public {
-        setHook(2, 0, 0);
+        setHook(EULER_SWAP_HOOK_AFTER_SWAP, 0, 0);
         as_reconfigure_fee0 = 0.077e18;
 
         doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
 
         EulerSwap.DynamicParams memory p = eulerSwap.getDynamicParams();
         assertEq(p.fee0, 0.077e18);
+    }
+
+    // Multiple hooks
+
+    function test_multipleHooks1() public {
+        setHook(EULER_SWAP_HOOK_BEFORE_SWAP | EULER_SWAP_HOOK_AFTER_SWAP, 0, 0);
+
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
+
+        assertEq(beforeSwapCounter, 1);
+        assertEq(getFeeCounter, 0);
+        assertEq(afterSwapCounter, 1);
+    }
+
+    function test_multipleHooks2() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE | EULER_SWAP_HOOK_AFTER_SWAP, 0, 0);
+
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
+
+        assertEq(beforeSwapCounter, 0);
+        assertEq(getFeeCounter, 1);
+        assertEq(afterSwapCounter, 1);
     }
 }

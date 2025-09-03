@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
-import {IEulerSwapHookTarget} from "../interfaces/IEulerSwapHookTarget.sol";
+import "../interfaces/IEulerSwapHookTarget.sol";
 import {CtxLib} from "./CtxLib.sol";
 import {CurveLib} from "./CurveLib.sol";
 
@@ -19,10 +19,10 @@ library QuoteLib {
     function getFee(IEulerSwap.DynamicParams memory dParams, bool asset0IsInput) internal returns (uint64 fee) {
         fee = type(uint64).max;
 
-        if ((dParams.swapHookedOperations & 1) != 0) {
+        if ((dParams.swapHookedOperations & EULER_SWAP_HOOK_GET_FEE) != 0) {
             CtxLib.State storage s = CtxLib.getState();
 
-            fee = IEulerSwapHookTarget(dParams.swapHook).beforeSwap(asset0IsInput, s.reserve0, s.reserve1, false);
+            fee = IEulerSwapHookTarget(dParams.swapHook).getFee(asset0IsInput, s.reserve0, s.reserve1, false);
         }
 
         if (fee == type(uint64).max) fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
@@ -35,11 +35,11 @@ library QuoteLib {
     {
         fee = type(uint64).max;
 
-        if ((dParams.swapHookedOperations & 1) != 0) {
+        if ((dParams.swapHookedOperations & EULER_SWAP_HOOK_GET_FEE) != 0) {
             CtxLib.State storage s = CtxLib.getState();
 
             (bool success, bytes memory data) = dParams.swapHook.staticcall(
-                abi.encodeCall(IEulerSwapHookTarget.beforeSwap, (asset0IsInput, s.reserve0, s.reserve1, true))
+                abi.encodeCall(IEulerSwapHookTarget.getFee, (asset0IsInput, s.reserve0, s.reserve1, true))
             );
             require(success && data.length >= 32, HookError());
             fee = abi.decode(data, (uint64));
