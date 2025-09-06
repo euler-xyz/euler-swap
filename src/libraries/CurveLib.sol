@@ -60,7 +60,7 @@ library CurveLib {
     /// @param x0 (1 <= x0 <= 2^112 - 1).
     /// @param y0 (0 <= y0 <= 2^112 - 1).
     /// @param c (0 <= c <= 1e18).
-    /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`.
+    /// @return y The output reserve value corresponding to input `x`, guaranteed to satisfy `y0 <= y <= 2^112 - 1`, or `type(uint256).max` on overflow.
     function f(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 c) internal pure returns (uint256) {
         uint256 output;
 
