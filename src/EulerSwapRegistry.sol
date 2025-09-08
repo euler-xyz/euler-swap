@@ -19,6 +19,8 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
 
     /// @dev Pool instances must be deployed by this factory
     address public immutable eulerSwapFactory;
+    /// @dev Reentrancy guard, shares a storage slot with validVaultPerspective
+    bool locked;
     /// @dev Perspective that checks whether vaults used by a pool are permitted by this registry
     address public validVaultPerspective;
     /// @dev Curator can set the minimum validity bond, update the valid vault perspective,
@@ -56,6 +58,7 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         address recipient
     );
 
+    error Locked();
     error Unauthorized();
     error NotEulerSwapPool();
     error OldOperatorStillInstalled();
@@ -81,8 +84,15 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         curator = curator_;
     }
 
+    modifier nonReentrant() {
+        require(!locked, Locked());
+        locked = true;
+        _;
+        locked = false;
+    }
+
     /// @inheritdoc IEulerSwapRegistry
-    function registerPool(address poolAddr) external payable {
+    function registerPool(address poolAddr) external payable nonReentrant {
         require(IEulerSwapFactory(eulerSwapFactory).deployedPools(poolAddr), NotEulerSwapPool());
         IEulerSwap pool = IEulerSwap(poolAddr);
         IEulerSwap.StaticParams memory sParams = pool.getStaticParams();
@@ -111,7 +121,7 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function unregisterPool() external {
+    function unregisterPool() external nonReentrant {
         address eulerAccount = _msgSender();
         uninstall(eulerAccount, eulerAccount, false);
     }
@@ -122,24 +132,24 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function curatorUnregisterPool(address pool, address bondReceiver) external onlyCurator {
+    function curatorUnregisterPool(address pool, address bondReceiver) external onlyCurator nonReentrant {
         address eulerAccount = IEulerSwap(pool).getStaticParams().eulerAccount;
         if (bondReceiver == address(0)) bondReceiver = eulerAccount;
         uninstall(eulerAccount, bondReceiver, true);
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function transferCurator(address newCurator) external onlyCurator {
+    function transferCurator(address newCurator) external onlyCurator nonReentrant {
         curator = newCurator;
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function setMinimumValidityBond(uint256 newMinimum) external onlyCurator {
+    function setMinimumValidityBond(uint256 newMinimum) external onlyCurator nonReentrant {
         minimumValidityBond = newMinimum;
     }
 
     /// @inheritdoc IEulerSwapRegistry
-    function setValidVaultPerspective(address newPerspective) external onlyCurator {
+    function setValidVaultPerspective(address newPerspective) external onlyCurator nonReentrant {
         validVaultPerspective = newPerspective;
     }
 
@@ -151,7 +161,7 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         uint256 amount,
         bool exactIn,
         address recipient
-    ) external {
+    ) external nonReentrant {
         IEulerSwap pool = IEulerSwap(poolAddr);
         address eulerAccount = pool.getStaticParams().eulerAccount;
         bool asset0IsInput;
@@ -295,9 +305,9 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         bondAmount = validityBonds[pool];
 
         if (bondAmount != 0) {
+            validityBonds[pool] = 0;
             (bool success,) = recipient.call{value: bondAmount}("");
             require(success, ChallengeMissingBond());
-            validityBonds[pool] = 0;
         }
     }
 
