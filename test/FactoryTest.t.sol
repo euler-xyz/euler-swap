@@ -404,7 +404,6 @@ contract FactoryTest is EulerSwapTestBase {
             assertEq(ps[0], bobPool);
         }
 
-        // Unregistering pool for Bob reverts due to an OOB access of the allPools array
         vm.startPrank(bob);
         evc.setAccountOperator(bob, bobPool, false);
         eulerSwapRegistry.unregisterPool();
@@ -418,6 +417,18 @@ contract FactoryTest is EulerSwapTestBase {
             (address asset0, address asset1) = EulerSwap(alicePool).getAssets();
             address[] memory ps = eulerSwapRegistry.poolsByPair(asset0, asset1);
             assertEq(ps.length, 0);
+        }
+
+        // Register Bob's pool again
+
+        vm.startPrank(bob);
+        evc.setAccountOperator(bob, bobPool, true);
+        eulerSwapRegistry.registerPool(bobPool);
+
+        {
+            address[] memory ps = eulerSwapRegistry.pools();
+            assertEq(ps.length, 1);
+            assertEq(ps[0], bobPool);
         }
     }
 
