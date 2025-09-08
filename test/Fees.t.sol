@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
-import {CurveLib} from "../src/libraries/CurveLib.sol";
+import {SwapLib} from "../src/libraries/SwapLib.sol";
 
 contract FeesTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -41,7 +41,7 @@ contract FeesTest is EulerSwapTestBase {
 
         // Pulling out one extra reverts...
 
-        vm.expectRevert(CurveLib.CurveViolation.selector);
+        vm.expectRevert(SwapLib.CurveViolation.selector);
         eulerSwap.swap(0, amountOut + MAX_QUOTE_ERROR + 1, address(this), "");
 
         // Just right:
@@ -92,7 +92,7 @@ contract FeesTest is EulerSwapTestBase {
 
         // Pulling out one extra reverts...
 
-        vm.expectRevert(CurveLib.CurveViolation.selector);
+        vm.expectRevert(SwapLib.CurveViolation.selector);
         eulerSwap.swap(0, amountOut + MAX_QUOTE_ERROR + 1, address(this), "");
 
         // Just right:

@@ -34,6 +34,8 @@ library SwapLib {
         address indexed to
     );
 
+    error CurveViolation();
+
     struct SwapContext {
         // Populated by init
         address evc;
@@ -98,7 +100,7 @@ library SwapLib {
         uint256 newReserve0 = s.reserve0 + ctx.amount0In - ctx.amount0Out;
         uint256 newReserve1 = s.reserve1 + ctx.amount1In - ctx.amount1Out;
 
-        require(CurveLib.verify(ctx.dParams, newReserve0, newReserve1), CurveLib.CurveViolation());
+        require(CurveLib.verify(ctx.dParams, newReserve0, newReserve1), CurveViolation());
 
         s.reserve0 = uint112(newReserve0);
         s.reserve1 = uint112(newReserve1);

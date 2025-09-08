@@ -28,9 +28,6 @@ library CurveLib {
     using Sqrt for uint256;
     using FastLogic for bool;
 
-    error Overflow();
-    error CurveViolation();
-
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
     function verify(IEulerSwap.DynamicParams memory p, uint256 newReserve0, uint256 newReserve1)
