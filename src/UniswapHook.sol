@@ -93,8 +93,15 @@ contract UniswapHook is BaseHook {
             amountIn = QuoteLib.computeQuote(evc, ctx.sParams, ctx.dParams, params.zeroForOne, amountOut, false);
         }
 
-        if (params.zeroForOne) SwapLib.amounts(ctx, amountIn, 0, 0, amountOut);
-        else SwapLib.amounts(ctx, 0, amountIn, amountOut, 0);
+        if (params.zeroForOne) {
+            SwapLib.setAmountsOut(ctx, 0, amountOut);
+            SwapLib.setAmountsIn(ctx, amountIn, 0);
+        } else {
+            SwapLib.setAmountsOut(ctx, amountOut, 0);
+            SwapLib.setAmountsIn(ctx, 0, amountIn);
+        }
+
+        SwapLib.invokeBeforeSwapHook(ctx);
 
         // return the delta to the PoolManager, so it can process the accounting
         // exact input:

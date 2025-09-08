@@ -6,14 +6,7 @@ uint8 constant EULER_SWAP_HOOK_GET_FEE = 1 << 1;
 uint8 constant EULER_SWAP_HOOK_AFTER_SWAP = 1 << 2;
 
 interface IEulerSwapHookTarget {
-    function beforeSwap(
-        uint256 amount0InFull,
-        uint256 amount1InFull,
-        uint256 amount0Out,
-        uint256 amount1Out,
-        address msgSender,
-        address to
-    ) external;
+    function beforeSwap(uint256 amount0Out, uint256 amount1Out, address msgSender, address to) external;
 
     function getFee(bool asset0IsInput, uint112 reserve0, uint112 reserve1, bool readOnly)
         external

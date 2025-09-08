@@ -66,22 +66,19 @@ library SwapLib {
         require(ctx.dParams.expiration == 0 || ctx.dParams.expiration > block.timestamp, QuoteLib.Expired());
     }
 
-    function amounts(
-        SwapContext memory ctx,
-        uint256 amount0InFull,
-        uint256 amount1InFull,
-        uint256 amount0Out,
-        uint256 amount1Out
-    ) internal {
-        ctx.amount0InFull = amount0InFull;
-        ctx.amount1InFull = amount1InFull;
+    function setAmountsOut(SwapContext memory ctx, uint256 amount0Out, uint256 amount1Out) internal pure {
         ctx.amount0Out = amount0Out;
         ctx.amount1Out = amount1Out;
+    }
 
+    function setAmountsIn(SwapContext memory ctx, uint256 amount0InFull, uint256 amount1InFull) internal pure {
+        ctx.amount0InFull = amount0InFull;
+        ctx.amount1InFull = amount1InFull;
+    }
+
+    function invokeBeforeSwapHook(SwapContext memory ctx) internal {
         if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_BEFORE_SWAP) != 0) {
-            IEulerSwapHookTarget(ctx.dParams.swapHook).beforeSwap(
-                amount0InFull, amount1InFull, amount0Out, amount1Out, ctx.sender, ctx.to
-            );
+            IEulerSwapHookTarget(ctx.dParams.swapHook).beforeSwap(ctx.amount0Out, ctx.amount1Out, ctx.sender, ctx.to);
         }
     }
 

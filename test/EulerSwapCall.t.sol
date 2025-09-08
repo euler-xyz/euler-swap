@@ -22,12 +22,9 @@ contract EulerSwapCallTest is EulerSwapTestBase {
             periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
         assertApproxEqAbs(amountOut, 0.9974e18, 0.0001e18);
 
-        assetTST.mint(address(this), amountIn);
-        assetTST.transfer(address(eulerSwap), amountIn);
-
         uint256 randomBalance = 3e18;
         vm.prank(anyone);
-        swapCallback.executeSwap(eulerSwap, 0, amountOut, abi.encode(randomBalance));
+        swapCallback.executeSwap(eulerSwap, assetTST, assetTST2, amountIn, 0, 0, amountOut, abi.encode(randomBalance));
         assertEq(assetTST2.balanceOf(address(swapCallback)), amountOut);
         assertEq(swapCallback.callbackSender(), address(swapCallback));
         assertEq(swapCallback.callbackAmount0(), 0);
@@ -37,13 +34,31 @@ contract EulerSwapCallTest is EulerSwapTestBase {
 }
 
 contract SwapCallbackTest is IEulerSwapCallee {
+    uint256 amountIn0;
+    uint256 amountIn1;
+    TestERC20 assetTST;
+    TestERC20 assetTST2;
     address public callbackSender;
     uint256 public callbackAmount0;
     uint256 public callbackAmount1;
     uint256 public randomBalance;
 
-    function executeSwap(EulerSwap eulerSwap, uint256 amountIn, uint256 amountOut, bytes calldata data) external {
-        eulerSwap.swap(amountIn, amountOut, address(this), data);
+    function executeSwap(
+        EulerSwap eulerSwap,
+        TestERC20 assetTST_,
+        TestERC20 assetTST2_,
+        uint256 amountIn0_,
+        uint256 amountIn1_,
+        uint256 amountOut0,
+        uint256 amountOut1,
+        bytes calldata data
+    ) external {
+        assetTST = assetTST_;
+        assetTST2 = assetTST2_;
+        amountIn0 = amountIn0_;
+        amountIn1 = amountIn1_;
+
+        eulerSwap.swap(amountOut0, amountOut1, address(this), data);
     }
 
     function eulerSwapCall(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
@@ -52,6 +67,14 @@ contract SwapCallbackTest is IEulerSwapCallee {
         callbackSender = sender;
         callbackAmount0 = amount0;
         callbackAmount1 = amount1;
+
+        if (amountIn0 > 0) {
+            assetTST.mint(address(msg.sender), amountIn0);
+        }
+
+        if (amountIn1 > 0) {
+            assetTST2.mint(address(msg.sender), amountIn1);
+        }
     }
 
     function test_avoid_coverage() public pure {

@@ -251,14 +251,8 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         // Setup context
 
         SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), _msgSender(), to);
-
-        SwapLib.amounts(
-            ctx,
-            IERC20(ctx.asset0).balanceOf(address(this)),
-            IERC20(ctx.asset1).balanceOf(address(this)),
-            amount0Out,
-            amount1Out
-        );
+        SwapLib.setAmountsOut(ctx, amount0Out, amount1Out);
+        SwapLib.invokeBeforeSwapHook(ctx);
 
         // Optimistically send tokens
 
@@ -268,8 +262,11 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
 
         if (data.length > 0) IEulerSwapCallee(to).eulerSwapCall(_msgSender(), amount0Out, amount1Out, data);
 
-        // Deposit all available funds, adjust received amounts downward to collect fees
+        // Deposit all available funds
 
+        SwapLib.setAmountsIn(
+            ctx, IERC20(ctx.asset0).balanceOf(address(this)), IERC20(ctx.asset1).balanceOf(address(this))
+        );
         SwapLib.doDeposits(ctx);
 
         // Verify curve invariant is satisfied

@@ -33,25 +33,14 @@ contract EulerSwapHooks is EulerSwapTestBase {
 
     uint64 beforeSwapCounter = 0;
 
-    uint256 bs_amount0InFull;
-    uint256 bs_amount1InFull;
     uint256 bs_amount0Out;
     uint256 bs_amount1Out;
     address bs_msgSender;
     address bs_to;
 
-    function beforeSwap(
-        uint256 amount0InFull,
-        uint256 amount1InFull,
-        uint256 amount0Out,
-        uint256 amount1Out,
-        address msgSender,
-        address to
-    ) external {
+    function beforeSwap(uint256 amount0Out, uint256 amount1Out, address msgSender, address to) external {
         beforeSwapCounter++;
 
-        bs_amount0InFull = amount0InFull;
-        bs_amount1InFull = amount1InFull;
         bs_amount0Out = amount0Out;
         bs_amount1Out = amount1Out;
         bs_msgSender = msgSender;
@@ -203,8 +192,6 @@ contract EulerSwapHooks is EulerSwapTestBase {
         assertEq(getFeeCounter, 0); // didn't change
         assertEq(afterSwapCounter, 0); // didn't change
 
-        assertEq(bs_amount0InFull, 1e18);
-        assertEq(bs_amount1InFull, 0);
         assertEq(bs_amount0Out, 0);
         assertApproxEqAbs(bs_amount1Out, 0.9975e18, 0.0001e18);
         assertEq(bs_msgSender, address(this));
@@ -221,8 +208,6 @@ contract EulerSwapHooks is EulerSwapTestBase {
         assertEq(getFeeCounter, 0); // didn't change
         assertEq(afterSwapCounter, 0); // didn't change
 
-        assertEq(bs_amount0InFull, 0);
-        assertEq(bs_amount1InFull, 1e18);
         assertApproxEqAbs(bs_amount0Out, 0.9776e18, 0.0001e18);
         assertEq(bs_amount1Out, 0);
         assertEq(bs_msgSender, address(this));
