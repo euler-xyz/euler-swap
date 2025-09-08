@@ -9,7 +9,6 @@
 
 pragma solidity ^0.8.27;
 
-import {Ternary} from "../math/Ternary.sol";
 import {UnsafeMath, Math} from "../math/UnsafeMath.sol";
 import {FullMath} from "../math/FullMath.sol";
 import {FastLogic} from "../math/FastLogic.sol";
@@ -19,7 +18,6 @@ import {Sqrt} from "../math/Sqrt.sol";
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 
 library CurveLib {
-    using Ternary for bool;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using Math for uint256;
@@ -128,7 +126,7 @@ library CurveLib {
                 // 3814697265625 is 5e17 with all the trailing zero bits removed to make the
                 // constant smaller. The argument of `saturatingSub` is reduced to compensate
                 uint256 shiftFourAc = (x0 * 3814697265625).bitLength().saturatingSub(109);
-                shift = (shiftSquaredB < shiftFourAc).ternary(shiftFourAc, shiftSquaredB);
+                shift = shiftSquaredB < shiftFourAc ? shiftFourAc : shiftSquaredB;
             }
             uint256 twoShift = shift << 1;
 
