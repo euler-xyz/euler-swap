@@ -167,7 +167,7 @@ library SwapLib {
 
         // Slice off separate LP fee recipient
 
-        if (ctx.sParams.feeRecipient != address(0)) {
+        if (ctx.sParams.feeRecipient != address(0) && feeAmount != 0) {
             IERC20(assetInput).safeTransfer(ctx.sParams.feeRecipient, feeAmount);
 
             amount -= feeAmount;
