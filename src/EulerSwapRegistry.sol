@@ -57,6 +57,9 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         uint256 bondAmount,
         address recipient
     );
+    event CuratorTransferred(address indexed oldCurator, address indexed newCurator);
+    event MinimumValidityBondUpdated(uint256 oldValue, uint256 newValue);
+    event ValidVaultPerspectiveUpdated(address indexed oldPerspective, address indexed newPerspective);
 
     error Locked();
     error Unauthorized();
@@ -140,16 +143,19 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
 
     /// @inheritdoc IEulerSwapRegistry
     function transferCurator(address newCurator) external onlyCurator nonReentrant {
+        emit CuratorTransferred(curator, newCurator);
         curator = newCurator;
     }
 
     /// @inheritdoc IEulerSwapRegistry
     function setMinimumValidityBond(uint256 newMinimum) external onlyCurator nonReentrant {
+        emit MinimumValidityBondUpdated(minimumValidityBond, newMinimum);
         minimumValidityBond = newMinimum;
     }
 
     /// @inheritdoc IEulerSwapRegistry
     function setValidVaultPerspective(address newPerspective) external onlyCurator nonReentrant {
+        emit ValidVaultPerspectiveUpdated(validVaultPerspective, newPerspective);
         validVaultPerspective = newPerspective;
     }
 
