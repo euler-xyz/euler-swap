@@ -203,11 +203,10 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
             require(bytes4(error) == E_AccountLiquidity.selector, ChallengeSwapNotLiquidityFailure());
         }
 
-        uint256 bondAmount = redeemValidityBond(poolAddr, recipient);
-
+        uint256 bondAmount = validityBonds[poolAddr];
         emit PoolChallenged(msg.sender, poolAddr, tokenIn, tokenOut, amount, exactIn, bondAmount, recipient);
 
-        uninstall(eulerAccount, eulerAccount, true);
+        uninstall(eulerAccount, recipient, true);
     }
 
     /// @dev Function invoked by challengePool so that errors can be caught. Not intended
