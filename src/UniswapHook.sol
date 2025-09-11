@@ -62,7 +62,7 @@ contract UniswapHook is BaseHook {
     /// in activateHook().
     function validateHookAddress(BaseHook _this) internal pure override {}
 
-    modifier nonReentrantHook() {
+    modifier nonReentrant() {
         CtxLib.State storage s = CtxLib.getState();
         require(s.status == 1, LockedHook());
         s.status = 2;
@@ -75,7 +75,7 @@ contract UniswapHook is BaseHook {
     function _beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata params, bytes calldata)
         internal
         override
-        nonReentrantHook
+        nonReentrant
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), sender, msg.sender);

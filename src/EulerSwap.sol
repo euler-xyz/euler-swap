@@ -42,15 +42,6 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
         s.status = 2; // can only be used via delegatecall proxy
     }
 
-    modifier nonReentrant() {
-        CtxLib.State storage s = CtxLib.getState();
-
-        require(s.status == 1, Locked());
-        s.status = 2;
-        _;
-        s.status = 1;
-    }
-
     modifier nonReentrantView() {
         CtxLib.State storage s = CtxLib.getState();
         require(s.status != 2, Locked());
