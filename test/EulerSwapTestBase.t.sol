@@ -35,6 +35,9 @@ contract EulerSwapTestBase is EVaultTestBase {
     uint256 currSalt = 0;
     address installedOperator;
     bool expectInsufficientValidityBondRevert = false;
+    bool expectAccountLiquidityRevert = false;
+
+    error E_AccountLiquidity();
 
     modifier monotonicHolderNAV() {
         int256 orig = getHolderNAV();
@@ -158,7 +161,9 @@ contract EulerSwapTestBase is EVaultTestBase {
 
         uint256 ethBalance = holder.balance;
         vm.prank(holder);
+        if (expectAccountLiquidityRevert) vm.expectRevert(E_AccountLiquidity.selector);
         EulerSwap eulerSwap = EulerSwap(eulerSwapFactory.deployPool(sParams, dParams, initialState, salt));
+        if (expectAccountLiquidityRevert) return eulerSwap;
 
         vm.prank(holder);
         if (expectInsufficientValidityBondRevert) vm.expectRevert(EulerSwapRegistry.InsufficientValidityBond.selector);

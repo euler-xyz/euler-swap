@@ -6,8 +6,6 @@ import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./Eu
 contract ChallengeTest is EulerSwapTestBase {
     EulerSwap public eulerSwap;
 
-    error E_AccountLiquidity();
-
     function setUp() public virtual override {
         super.setUp();
 

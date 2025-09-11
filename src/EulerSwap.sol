@@ -139,8 +139,18 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
             FundsLib.approveVault(sParams.borrowVault1);
         }
 
-        IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault0);
-        IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault1);
+        if (
+            !IEVC(evc).isCollateralEnabled(sParams.eulerAccount, sParams.supplyVault0)
+                && sParams.borrowVault1 != address(0)
+        ) {
+            IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault0);
+        }
+        if (
+            !IEVC(evc).isCollateralEnabled(sParams.eulerAccount, sParams.supplyVault1)
+                && sParams.borrowVault0 != address(0)
+        ) {
+            IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault1);
+        }
 
         // Uniswap hook activation
 
