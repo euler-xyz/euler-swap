@@ -92,10 +92,10 @@ library QuoteLib {
         } else {
             // if `!exactIn`, `amount` is the amount of assets to buy from the AMM
             require(amount <= outLimit && quote <= inLimit, SwapLimitExceeded());
-        }
 
-        // exactOut: inflate required amountIn
-        if (!exactIn) quote = (quote * 1e18) / (1e18 - fee);
+            // exactOut: inflate required amountIn
+            quote = (quote * 1e18) / (1e18 - fee);
+        }
 
         return quote;
     }
