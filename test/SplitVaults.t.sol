@@ -38,6 +38,10 @@ contract SplitVaults is EulerSwapTestBase {
         mintAndDeposit(depositor, eTST_alt, 50e18);
         mintAndDeposit(depositor, eTST2_alt, 50e18);
 
+        installAltBorrowVaults(eTST_alt, eTST2_alt);
+    }
+
+    function installAltBorrowVaults(IEVault bv0, IEVault bv1) internal {
         // Setup EulerSwap
         uint112 reserve0 = 60e18;
         uint112 reserve1 = 60e18;
@@ -46,8 +50,8 @@ contract SplitVaults is EulerSwapTestBase {
             getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
-        sParams.borrowVault0 = address(eTST_alt);
-        sParams.borrowVault1 = address(eTST2_alt);
+        sParams.borrowVault0 = address(bv0);
+        sParams.borrowVault1 = address(bv1);
 
         eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
     }
@@ -154,5 +158,17 @@ contract SplitVaults is EulerSwapTestBase {
         assertEq(outLimit, 3e18 - 1); // not enough cash for holder to withdraw balance in TST2
 
         validateOutputSwapPossible(assetTST, assetTST2, 3e18 - 1);
+    }
+
+    function test_splitVault_nullBorrowVault0() public isSwappable {
+        installAltBorrowVaults(IEVault(address(0)), eTST2_alt);
+    }
+
+    function test_splitVault_nullBorrowVault1() public isSwappable {
+        installAltBorrowVaults(eTST_alt, IEVault(address(0)));
+    }
+
+    function test_splitVault_nullBorrowVaultBoth() public isSwappable {
+        installAltBorrowVaults(IEVault(address(0)), IEVault(address(0)));
     }
 }

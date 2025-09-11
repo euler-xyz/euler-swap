@@ -129,7 +129,8 @@ library QuoteLib {
         {
             IEVault supplyVault = IEVault(asset0IsInput ? sParams.supplyVault0 : sParams.supplyVault1);
             IEVault borrowVault = IEVault(asset0IsInput ? sParams.borrowVault0 : sParams.borrowVault1);
-            uint256 maxDeposit = borrowVault.debtOf(eulerAccount) + supplyVault.maxDeposit(eulerAccount);
+            uint256 maxDeposit = supplyVault.maxDeposit(eulerAccount);
+            if (address(borrowVault) != address(0)) maxDeposit += borrowVault.debtOf(eulerAccount);
             if (maxDeposit < inLimit) inLimit = maxDeposit;
         }
 
@@ -153,12 +154,13 @@ library QuoteLib {
                     if (supplyCash < outLimit) outLimit = supplyCash;
                 } else {
                     // Sufficient cash to cover full withdrawal, so limiting factor is cash in borrowVault
-                    uint256 cashLimit = supplyBalance + borrowVault.cash();
+                    uint256 cashLimit = supplyBalance;
+                    if (address(borrowVault) != address(0)) cashLimit += borrowVault.cash();
                     if (cashLimit < outLimit) outLimit = cashLimit;
                 }
             }
 
-            {
+            if (address(borrowVault) != address(0)) {
                 (, uint16 borrowCapEncoded) = borrowVault.caps();
                 uint256 borrowCap = decodeCap(uint256(borrowCapEncoded));
                 if (borrowCap != type(uint256).max) {
