@@ -19,6 +19,9 @@ contract EulerSwapHooks is EulerSwapTestBase {
     uint64 fee1 = 0;
     bool expectRejectedError = false;
     address toOverride;
+    address swapHookOverride;
+    bool setSwapHookOverride = false;
+    bool expectBadDynamicParamError = false;
 
     function setHook(uint8 hookedOps, uint64 fee0Param, uint64 fee1Param) internal {
         PoolConfig memory pc = getPoolConfig(eulerSwap);
@@ -28,6 +31,9 @@ contract EulerSwapHooks is EulerSwapTestBase {
         pc.dParams.swapHookedOperations = hookedOps;
         pc.dParams.swapHook = address(this);
 
+        if (setSwapHookOverride) pc.dParams.swapHook = swapHookOverride;
+
+        if (expectBadDynamicParamError) vm.expectRevert(EulerSwap.BadDynamicParam.selector);
         reconfigurePool(eulerSwap, pc);
     }
 
@@ -349,5 +355,27 @@ contract EulerSwapHooks is EulerSwapTestBase {
         assertEq(beforeSwapCounter, 0);
         assertEq(getFeeCounter, 1);
         assertEq(afterSwapCounter, 1);
+    }
+
+    function test_multipleHooks3() public {
+        setHook(EULER_SWAP_HOOK_BEFORE_SWAP | EULER_SWAP_HOOK_GET_FEE | EULER_SWAP_HOOK_AFTER_SWAP, 0, 0);
+
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
+
+        assertEq(beforeSwapCounter, 1);
+        assertEq(getFeeCounter, 1);
+        assertEq(afterSwapCounter, 1);
+    }
+
+    function test_invalidHook1() public {
+        expectBadDynamicParamError = true;
+        setHook(uint8(8), 0, 0);
+    }
+
+    function test_invalidHook2() public {
+        setSwapHookOverride = true;
+        swapHookOverride = address(0);
+        expectBadDynamicParamError = true;
+        setHook(EULER_SWAP_HOOK_BEFORE_SWAP, 0, 0);
     }
 }

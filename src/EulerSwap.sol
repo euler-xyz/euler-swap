@@ -65,6 +65,9 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
 
         require(dParams.fee0 <= 1e18 && dParams.fee1 <= 1e18, BadDynamicParam());
 
+        require(dParams.swapHookedOperations <= 7, BadDynamicParam());
+        require(dParams.swapHookedOperations == 0 || dParams.swapHook != address(0), BadDynamicParam());
+
         require(CurveLib.verify(dParams, initialState.reserve0, initialState.reserve1), SwapLib.CurveViolation());
 
         CtxLib.writeDynamicParamsToStorage(dParams);
