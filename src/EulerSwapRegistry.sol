@@ -8,6 +8,7 @@ import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
 import {IEulerSwapFactory} from "./interfaces/IEulerSwapFactory.sol";
 import {IEulerSwapRegistry} from "./interfaces/IEulerSwapRegistry.sol";
 import {IPerspective} from "./interfaces/IPerspective.sol";
+import {SwapLib} from "./libraries/SwapLib.sol";
 import {EVCUtil} from "ethereum-vault-connector/utils/EVCUtil.sol";
 
 /// @title EulerSwapRegistry contract
@@ -200,7 +201,10 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
                 )
             );
             require(!success, ChallengeSwapSucceeded());
-            require(bytes4(error) == E_AccountLiquidity.selector, ChallengeSwapNotLiquidityFailure());
+            require(
+                bytes4(error) == E_AccountLiquidity.selector || bytes4(error) == SwapLib.HookError.selector,
+                ChallengeSwapNotLiquidityFailure()
+            );
         }
 
         uint256 bondAmount = validityBonds[poolAddr];

@@ -35,6 +35,7 @@ library SwapLib {
     );
 
     error CurveViolation();
+    error HookError(uint8 hookFlag, bytes wrappedError);
 
     struct SwapContext {
         // Populated by init
@@ -79,9 +80,39 @@ library SwapLib {
     }
 
     function invokeBeforeSwapHook(SwapContext memory ctx) internal {
-        if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_BEFORE_SWAP) != 0) {
-            IEulerSwapHookTarget(ctx.dParams.swapHook).beforeSwap(ctx.amount0Out, ctx.amount1Out, ctx.sender, ctx.to);
-        }
+        if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_BEFORE_SWAP) == 0) return;
+
+        (bool success, bytes memory data) = ctx.dParams.swapHook.call(
+            abi.encodeCall(IEulerSwapHookTarget.beforeSwap, (ctx.amount0Out, ctx.amount1Out, ctx.sender, ctx.to))
+        );
+        require(success, HookError(EULER_SWAP_HOOK_BEFORE_SWAP, data));
+    }
+
+    function invokeAfterSwapHook(SwapContext memory ctx, CtxLib.State storage s, uint256 fee0, uint256 fee1) internal {
+        if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_AFTER_SWAP) == 0) return;
+
+        s.status = 1; // Unlock the reentrancy guard during afterSwap, allowing hook to reconfigure()
+
+        (bool success, bytes memory data) = ctx.dParams.swapHook.call(
+            abi.encodeCall(
+                IEulerSwapHookTarget.afterSwap,
+                (
+                    ctx.amount0In,
+                    ctx.amount1In,
+                    ctx.amount0Out,
+                    ctx.amount1Out,
+                    fee0,
+                    fee1,
+                    ctx.sender,
+                    ctx.to,
+                    s.reserve0,
+                    s.reserve1
+                )
+            )
+        );
+        require(success, HookError(EULER_SWAP_HOOK_AFTER_SWAP, data));
+
+        s.status = 2;
     }
 
     function doDeposits(SwapContext memory ctx) internal {
@@ -121,24 +152,7 @@ library SwapLib {
             ctx.to
         );
 
-        if ((ctx.dParams.swapHookedOperations & EULER_SWAP_HOOK_AFTER_SWAP) != 0) {
-            s.status = 1; // Unlock the reentrancy guard during afterSwap, allowing hook to reconfigure()
-
-            IEulerSwapHookTarget(ctx.dParams.swapHook).afterSwap(
-                ctx.amount0In,
-                ctx.amount1In,
-                ctx.amount0Out,
-                ctx.amount1Out,
-                fee0,
-                fee1,
-                ctx.sender,
-                ctx.to,
-                s.reserve0,
-                s.reserve1
-            );
-
-            s.status = 2;
-        }
+        invokeAfterSwapHook(ctx, s, fee0, fee1);
     }
 
     // Private

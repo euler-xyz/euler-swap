@@ -84,4 +84,18 @@ contract Reconfigure is EulerSwapTestBase {
         vm.expectRevert(EulerSwap.Unauthorized.selector);
         eulerSwap.setManager(address(987654), true);
     }
+
+    function test_reconfigureErrors() public {
+        EulerSwap.InitialState memory initial;
+        (initial.reserve0, initial.reserve1,) = eulerSwap.getReserves();
+
+        EulerSwap.StaticParams memory sp = eulerSwap.getStaticParams();
+        EulerSwap.DynamicParams memory p = eulerSwap.getDynamicParams();
+
+        p.swapHookedOperations = 100;
+
+        vm.expectRevert(EulerSwap.BadDynamicParam.selector);
+        vm.prank(sp.eulerAccount);
+        eulerSwap.reconfigure(p, initial);
+    }
 }

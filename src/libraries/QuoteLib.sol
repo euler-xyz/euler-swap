@@ -7,6 +7,7 @@ import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 import "../interfaces/IEulerSwapHookTarget.sol";
 import {CtxLib} from "./CtxLib.sol";
 import {CurveLib} from "./CurveLib.sol";
+import {SwapLib} from "./SwapLib.sol";
 
 library QuoteLib {
     error HookError();
@@ -22,7 +23,11 @@ library QuoteLib {
         if ((dParams.swapHookedOperations & EULER_SWAP_HOOK_GET_FEE) != 0) {
             CtxLib.State storage s = CtxLib.getState();
 
-            fee = IEulerSwapHookTarget(dParams.swapHook).getFee(asset0IsInput, s.reserve0, s.reserve1, false);
+            (bool success, bytes memory data) = dParams.swapHook.call(
+                abi.encodeCall(IEulerSwapHookTarget.getFee, (asset0IsInput, s.reserve0, s.reserve1, false))
+            );
+            require(success && data.length >= 32, SwapLib.HookError(EULER_SWAP_HOOK_GET_FEE, data));
+            fee = abi.decode(data, (uint64));
         }
 
         if (fee == type(uint64).max) fee = asset0IsInput ? dParams.fee0 : dParams.fee1;
@@ -41,7 +46,7 @@ library QuoteLib {
             (bool success, bytes memory data) = dParams.swapHook.staticcall(
                 abi.encodeCall(IEulerSwapHookTarget.getFee, (asset0IsInput, s.reserve0, s.reserve1, true))
             );
-            require(success && data.length >= 32, HookError());
+            require(success && data.length >= 32, SwapLib.HookError(EULER_SWAP_HOOK_GET_FEE, data));
             fee = abi.decode(data, (uint64));
         }
 

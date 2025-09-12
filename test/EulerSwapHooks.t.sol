@@ -5,6 +5,7 @@ import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./Eu
 import {QuoteLib} from "../src/libraries/QuoteLib.sol";
 import {SwapLib} from "../src/libraries/SwapLib.sol";
 import "../src/interfaces/IEulerSwapHookTarget.sol";
+import "evk/EVault/shared/lib/RevertBytes.sol";
 
 contract EulerSwapHooks is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -18,6 +19,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
     uint64 fee0 = 0;
     uint64 fee1 = 0;
     bool expectRejectedError = false;
+    bytes expectSwapError;
     address toOverride;
     address swapHookOverride;
     bool setSwapHookOverride = false;
@@ -39,12 +41,15 @@ contract EulerSwapHooks is EulerSwapTestBase {
 
     uint64 beforeSwapCounter = 0;
 
+    bytes bs_throwError;
     uint256 bs_amount0Out;
     uint256 bs_amount1Out;
     address bs_msgSender;
     address bs_to;
 
     function beforeSwap(uint256 amount0Out, uint256 amount1Out, address msgSender, address to) external {
+        if (bs_throwError.length > 0) RevertBytes.revertBytes(bs_throwError);
+
         beforeSwapCounter++;
 
         bs_amount0Out = amount0Out;
@@ -53,6 +58,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
         bs_to = to;
     }
 
+    bytes gf_throwError;
     uint64 getFeeCounter = 0;
     uint112 gf_reserve0;
     uint112 gf_reserve1;
@@ -62,6 +68,8 @@ contract EulerSwapHooks is EulerSwapTestBase {
         returns (uint64 fee)
     {
         if (!readOnly) {
+            if (gf_throwError.length > 0) RevertBytes.revertBytes(gf_throwError);
+
             getFeeCounter++;
 
             gf_reserve0 = reserve0;
@@ -85,6 +93,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
     uint256 as_reserve1;
 
     uint64 as_reconfigure_fee0;
+    uint8 as_reconfigure_swapHookedOperations;
 
     function afterSwap(
         uint256 amount0In,
@@ -125,6 +134,16 @@ contract EulerSwapHooks is EulerSwapTestBase {
             // called from hook, not eulerAccount!
             eulerSwap.reconfigure(p, initial);
         }
+
+        if (as_reconfigure_swapHookedOperations != 0) {
+            EulerSwap.InitialState memory initial;
+            (initial.reserve0, initial.reserve1,) = eulerSwap.getReserves(); // confirms re-entrancy lock released
+
+            EulerSwap.DynamicParams memory p = eulerSwap.getDynamicParams();
+
+            p.swapHookedOperations = as_reconfigure_swapHookedOperations;
+            eulerSwap.reconfigure(p, initial);
+        }
     }
 
     function doSwap(bool exactIn, TestERC20 assetIn, TestERC20 assetOut, uint256 amount, uint256 expectedAmount)
@@ -149,6 +168,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
         assetIn.transfer(address(eulerSwap), amountIn);
 
         if (expectRejectedError) vm.expectRevert(QuoteLib.SwapRejected.selector);
+        if (expectSwapError.length > 0) vm.expectRevert(expectSwapError);
 
         address to = toOverride == address(0) ? address(this) : toOverride;
 
@@ -157,6 +177,8 @@ contract EulerSwapHooks is EulerSwapTestBase {
         } else {
             eulerSwap.swap(amountOut, 0, to, "");
         }
+
+        if (expectRejectedError || expectSwapError.length > 0) return;
 
         assertEq(assetOut.balanceOf(to), amountOut);
     }
@@ -220,6 +242,14 @@ contract EulerSwapHooks is EulerSwapTestBase {
         assertEq(bs_to, toOverride);
     }
 
+    function test_beforeSwapError() public {
+        setHook(EULER_SWAP_HOOK_BEFORE_SWAP, 0, 0);
+        bs_throwError = bytes("oops!");
+
+        expectSwapError = abi.encodeWithSelector(SwapLib.HookError.selector, EULER_SWAP_HOOK_BEFORE_SWAP, bs_throwError);
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
+    }
+
     // getFee hook
 
     function test_getFeeHook1() public {
@@ -253,6 +283,14 @@ contract EulerSwapHooks is EulerSwapTestBase {
         setHook(EULER_SWAP_HOOK_GET_FEE, 1e18, 1e18);
         fee1 = 0.01e18;
         doSwap(true, assetTST2, assetTST, 1e18, 0.9875e18); // 1% fee
+    }
+
+    function test_getFeeHookError() public {
+        setHook(EULER_SWAP_HOOK_GET_FEE, 0, 0);
+        gf_throwError = bytes("oh no!");
+
+        expectSwapError = abi.encodeWithSelector(SwapLib.HookError.selector, EULER_SWAP_HOOK_GET_FEE, gf_throwError);
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
     }
 
     // Hooks, but hook returns sentinel value, indicating to use default fee
@@ -333,6 +371,18 @@ contract EulerSwapHooks is EulerSwapTestBase {
 
         EulerSwap.DynamicParams memory p = eulerSwap.getDynamicParams();
         assertEq(p.fee0, 0.077e18);
+    }
+
+    function test_afterSwapReconfigureError() public {
+        setHook(EULER_SWAP_HOOK_AFTER_SWAP, 0, 0);
+        as_reconfigure_swapHookedOperations = 100;
+
+        expectSwapError = abi.encodeWithSelector(
+            SwapLib.HookError.selector,
+            EULER_SWAP_HOOK_AFTER_SWAP,
+            abi.encodeWithSelector(EulerSwap.BadDynamicParam.selector)
+        );
+        doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
     }
 
     // Multiple hooks
