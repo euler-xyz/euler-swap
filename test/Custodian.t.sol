@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {
-    IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapRegistry, TestERC20
+    IEVC, IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapRegistry, TestERC20
 } from "./EulerSwapTestBase.t.sol";
 
 contract CuratorTest is EulerSwapTestBase {
@@ -78,5 +78,25 @@ contract CuratorTest is EulerSwapTestBase {
         eulerSwap = createEulerSwap(1000e18, 1000e18, 0, 1e18, 1e18, 0.9999e18, 0.9999e18);
 
         assertEq(eulerSwapRegistry.validityBond(address(eulerSwap)), 0.2e18);
+    }
+
+    function test_bondsSubAccount() public {
+        (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
+            getEulerSwapParams(1000e18, 1000e18, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
+        IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 1000e18, reserve1: 1000e18});
+
+        sParams.eulerAccount = address(uint160(holder) ^ 1);
+
+        vm.deal(holder, 0.123e18);
+        eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
+
+        assertEq(holder.balance, 0);
+
+        vm.prank(holder);
+        evc.setAccountOperator(sParams.eulerAccount, address(eulerSwap), false);
+        vm.prank(holder);
+        IEVC(evc).call(address(eulerSwapRegistry), sParams.eulerAccount, 0, abi.encodeCall(EulerSwapRegistry.unregisterPool, ()));
+
+        assertEq(holder.balance, 0.123e18);
     }
 }
