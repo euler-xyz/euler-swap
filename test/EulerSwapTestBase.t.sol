@@ -156,18 +156,20 @@ contract EulerSwapTestBase is EVaultTestBase {
         address predictedAddr = eulerSwapFactory.computePoolAddress(sParams, salt);
 
         vm.prank(holder);
-        evc.setAccountOperator(holder, predictedAddr, true);
+        evc.setAccountOperator(sParams.eulerAccount, predictedAddr, true);
         installedOperator = predictedAddr;
 
         uint256 ethBalance = holder.balance;
+
         vm.prank(holder);
         if (expectAccountLiquidityRevert) vm.expectRevert(E_AccountLiquidity.selector);
-        EulerSwap eulerSwap = EulerSwap(eulerSwapFactory.deployPool(sParams, dParams, initialState, salt));
-        if (expectAccountLiquidityRevert) return eulerSwap;
+        bytes memory result = IEVC(evc).call(address(eulerSwapFactory), sParams.eulerAccount, 0, abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt)));
+        if (expectAccountLiquidityRevert) return EulerSwap(address(0)); // Just to return to test
+        EulerSwap eulerSwap = EulerSwap(abi.decode(result, (address)));
 
         vm.prank(holder);
         if (expectInsufficientValidityBondRevert) vm.expectRevert(EulerSwapRegistry.InsufficientValidityBond.selector);
-        eulerSwapRegistry.registerPool{value: ethBalance}(address(eulerSwap));
+        IEVC(evc).call{value: ethBalance}(address(eulerSwapRegistry), sParams.eulerAccount, ethBalance, abi.encodeCall(EulerSwapRegistry.registerPool, (address(eulerSwap))));
 
         return eulerSwap;
     }

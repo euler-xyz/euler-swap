@@ -314,6 +314,8 @@ contract EulerSwapRegistry is IEulerSwapRegistry, EVCUtil {
         bondAmount = validityBonds[pool];
 
         if (bondAmount != 0) {
+            address owner = evc.getAccountOwner(recipient);
+            if (owner != address(0)) recipient = owner;
             validityBonds[pool] = 0;
             (bool success,) = recipient.call{value: bondAmount}("");
             require(success, ChallengeMissingBond());
