@@ -14,6 +14,7 @@ import {
 
 import {IEVault} from "evk/EVault/IEVault.sol";
 
+import {EulerSwapBase} from "./EulerSwapBase.sol";
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
 import {CtxLib} from "./libraries/CtxLib.sol";
 import {QuoteLib} from "./libraries/QuoteLib.sol";
@@ -21,20 +22,16 @@ import {CurveLib} from "./libraries/CurveLib.sol";
 import {FundsLib} from "./libraries/FundsLib.sol";
 import {SwapLib} from "./libraries/SwapLib.sol";
 
-contract UniswapHook is BaseHook {
+abstract contract UniswapHook is EulerSwapBase, BaseHook {
     using SafeCast for uint256;
-
-    address private immutable evc;
 
     PoolKey internal _poolKey;
 
-    error LockedHook();
+    constructor(address evc_, address _poolManager) EulerSwapBase(evc_) BaseHook(IPoolManager(_poolManager)) {}
 
-    constructor(address evc_, address _poolManager) BaseHook(IPoolManager(_poolManager)) {
-        evc = evc_;
-    }
+    function activateHook(IEulerSwap.StaticParams memory sParams) internal nonReentrant {
+        if (address(poolManager) == address(0)) return;
 
-    function activateHook(IEulerSwap.StaticParams memory sParams) internal {
         Hooks.validateHookPermissions(this, getHookPermissions());
 
         address asset0Addr = IEVault(sParams.supplyVault0).asset();
@@ -44,7 +41,7 @@ contract UniswapHook is BaseHook {
             currency0: Currency.wrap(asset0Addr),
             currency1: Currency.wrap(asset1Addr),
             fee: 0, // hard-coded fee since it may change
-            tickSpacing: 1, // hard-coded tick spacing, as its unused
+            tickSpacing: 1, // hard-coded tick spacing, as it's unused
             hooks: IHooks(address(this))
         });
 
@@ -62,16 +59,6 @@ contract UniswapHook is BaseHook {
     /// in activateHook().
     function validateHookAddress(BaseHook _this) internal pure override {}
 
-    modifier nonReentrant() {
-        CtxLib.State storage s = CtxLib.getState();
-        require(s.status == 1, LockedHook());
-        s.status = 2;
-
-        _;
-
-        s.status = 1;
-    }
-
     function _beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata params, bytes calldata)
         internal
         override
@@ -87,10 +74,11 @@ contract UniswapHook is BaseHook {
 
         if (isExactInput) {
             amountIn = uint256(-params.amountSpecified);
-            amountOut = QuoteLib.computeQuote(evc, ctx.sParams, ctx.dParams, params.zeroForOne, amountIn, true);
+            amountOut = QuoteLib.computeQuote(address(evc), ctx.sParams, ctx.dParams, params.zeroForOne, amountIn, true);
         } else {
             amountOut = uint256(params.amountSpecified);
-            amountIn = QuoteLib.computeQuote(evc, ctx.sParams, ctx.dParams, params.zeroForOne, amountOut, false);
+            amountIn =
+                QuoteLib.computeQuote(address(evc), ctx.sParams, ctx.dParams, params.zeroForOne, amountOut, false);
         }
 
         if (params.zeroForOne) {

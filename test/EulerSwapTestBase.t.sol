@@ -4,7 +4,9 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {EVaultTestBase, TestERC20, IRMTestDefault} from "evk-test/unit/evault/EVaultTestBase.t.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
-import {IEulerSwap, IEVC, EulerSwap} from "../src/EulerSwap.sol";
+import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
+import {IEulerSwap, EulerSwap} from "../src/EulerSwap.sol";
+import {EulerSwapManagement} from "../src/EulerSwapManagement.sol";
 import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwapFactory} from "../src/EulerSwapFactory.sol";
 import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
@@ -26,6 +28,7 @@ contract EulerSwapTestBase is EVaultTestBase {
     TestERC20 assetTST3;
     IEVault public eTST3;
 
+    address public eulerSwapManagementImpl;
     address public eulerSwapImpl;
     PerspectiveMock public validVaultPerspective;
     EulerSwapFactory public eulerSwapFactory;
@@ -47,7 +50,8 @@ contract EulerSwapTestBase is EVaultTestBase {
 
     function deployEulerSwap(address poolManager_) public {
         validVaultPerspective = new PerspectiveMock();
-        eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_));
+        eulerSwapManagementImpl = address(new EulerSwapManagement(address(evc)));
+        eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_, eulerSwapManagementImpl));
         eulerSwapFactory = new EulerSwapFactory(address(evc), eulerSwapImpl, address(this), address(this));
         eulerSwapRegistry =
             new EulerSwapRegistry(address(evc), address(eulerSwapFactory), address(validVaultPerspective), curator);
@@ -163,13 +167,23 @@ contract EulerSwapTestBase is EVaultTestBase {
 
         vm.prank(holder);
         if (expectAccountLiquidityRevert) vm.expectRevert(E_AccountLiquidity.selector);
-        bytes memory result = IEVC(evc).call(address(eulerSwapFactory), sParams.eulerAccount, 0, abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt)));
+        bytes memory result = IEVC(evc).call(
+            address(eulerSwapFactory),
+            sParams.eulerAccount,
+            0,
+            abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
+        );
         if (expectAccountLiquidityRevert) return EulerSwap(address(0)); // Just to return to test
         EulerSwap eulerSwap = EulerSwap(abi.decode(result, (address)));
 
         vm.prank(holder);
         if (expectInsufficientValidityBondRevert) vm.expectRevert(EulerSwapRegistry.InsufficientValidityBond.selector);
-        IEVC(evc).call{value: ethBalance}(address(eulerSwapRegistry), sParams.eulerAccount, ethBalance, abi.encodeCall(EulerSwapRegistry.registerPool, (address(eulerSwap))));
+        IEVC(evc).call{value: ethBalance}(
+            address(eulerSwapRegistry),
+            sParams.eulerAccount,
+            ethBalance,
+            abi.encodeCall(EulerSwapRegistry.registerPool, (address(eulerSwap)))
+        );
 
         return eulerSwap;
     }

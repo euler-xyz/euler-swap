@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
+import {
+    IEVault,
+    IEulerSwap,
+    EulerSwapTestBase,
+    EulerSwap,
+    EulerSwapManagement,
+    TestERC20
+} from "./EulerSwapTestBase.t.sol";
 import {QuoteLib} from "../src/libraries/QuoteLib.sol";
 import {SwapLib} from "../src/libraries/SwapLib.sol";
 import "../src/interfaces/IEulerSwapHookTarget.sol";
@@ -35,7 +42,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
 
         if (setSwapHookOverride) pc.dParams.swapHook = swapHookOverride;
 
-        if (expectBadDynamicParamError) vm.expectRevert(EulerSwap.BadDynamicParam.selector);
+        if (expectBadDynamicParamError) vm.expectRevert(EulerSwapManagement.BadDynamicParam.selector);
         reconfigurePool(eulerSwap, pc);
     }
 
@@ -380,7 +387,7 @@ contract EulerSwapHooks is EulerSwapTestBase {
         expectSwapError = abi.encodeWithSelector(
             SwapLib.HookError.selector,
             EULER_SWAP_HOOK_AFTER_SWAP,
-            abi.encodeWithSelector(EulerSwap.BadDynamicParam.selector)
+            abi.encodeWithSelector(EulerSwapManagement.BadDynamicParam.selector)
         );
         doSwap(true, assetTST, assetTST2, 1e18, 0.9974e18);
     }

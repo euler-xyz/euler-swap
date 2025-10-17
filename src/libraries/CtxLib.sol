@@ -8,6 +8,7 @@ library CtxLib {
         uint112 reserve0;
         uint112 reserve1;
         uint32 status; // 0 = unactivated, 1 = unlocked, 2 = locked
+        mapping(address manager => bool installed) managers;
     }
 
     // keccak256("eulerSwap.state") - 1

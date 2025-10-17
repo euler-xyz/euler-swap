@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import {IEVC, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20, console} from "./EulerSwapTestBase.t.sol";
+import {
+    IEVC, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapManagement, TestERC20
+} from "./EulerSwapTestBase.t.sol";
 
 contract Reconfigure is EulerSwapTestBase {
     EulerSwap public eulerSwap;
@@ -23,7 +25,7 @@ contract Reconfigure is EulerSwapTestBase {
 
         p.priceX = 2e18;
 
-        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.expectRevert(EulerSwapManagement.Unauthorized.selector);
         eulerSwap.reconfigure(p, initial);
 
         vm.prank(sp.eulerAccount);
@@ -53,7 +55,7 @@ contract Reconfigure is EulerSwapTestBase {
 
         // Manager
 
-        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.expectRevert(EulerSwapManagement.Unauthorized.selector);
         vm.prank(address(987654));
         eulerSwap.reconfigure(p, initial);
 
@@ -71,17 +73,17 @@ contract Reconfigure is EulerSwapTestBase {
         vm.prank(sp.eulerAccount);
         eulerSwap.setManager(address(987654), false);
 
-        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.expectRevert(EulerSwapManagement.Unauthorized.selector);
         vm.prank(address(987654));
         eulerSwap.reconfigure(p, initial);
 
         // Only eulerAccount owner can set managers
 
-        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.expectRevert(EulerSwapManagement.Unauthorized.selector);
         eulerSwap.setManager(address(987654), true);
 
         vm.prank(address(1234));
-        vm.expectRevert(EulerSwap.Unauthorized.selector);
+        vm.expectRevert(EulerSwapManagement.Unauthorized.selector);
         eulerSwap.setManager(address(987654), true);
     }
 
@@ -94,7 +96,7 @@ contract Reconfigure is EulerSwapTestBase {
 
         p.swapHookedOperations = 100;
 
-        vm.expectRevert(EulerSwap.BadDynamicParam.selector);
+        vm.expectRevert(EulerSwapManagement.BadDynamicParam.selector);
         vm.prank(sp.eulerAccount);
         eulerSwap.reconfigure(p, initial);
     }

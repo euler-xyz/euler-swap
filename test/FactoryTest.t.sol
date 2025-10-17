@@ -10,6 +10,7 @@ import {EulerSwapTestBase, IEulerSwap, IEVC, EulerSwap} from "./EulerSwapTestBas
 import {EulerSwapFactory, IEulerSwapFactory} from "../src/EulerSwapFactory.sol";
 import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwap} from "../src/EulerSwap.sol";
+import {EulerSwapManagement} from "../src/EulerSwapManagement.sol";
 import {MetaProxyDeployer} from "../src/utils/MetaProxyDeployer.sol";
 import {ProtocolFee} from "../src/utils/ProtocolFee.sol";
 
@@ -262,7 +263,7 @@ contract FactoryTest is EulerSwapTestBase {
         evc.setAccountOperator(holder, hookAddress, true);
 
         vm.prank(holder);
-        vm.expectRevert(EulerSwap.AssetsOutOfOrderOrEqual.selector);
+        vm.expectRevert(EulerSwapManagement.AssetsOutOfOrderOrEqual.selector);
         eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
@@ -280,7 +281,7 @@ contract FactoryTest is EulerSwapTestBase {
         evc.setAccountOperator(holder, hookAddress, true);
 
         vm.prank(holder);
-        vm.expectRevert(EulerSwap.BadDynamicParam.selector);
+        vm.expectRevert(EulerSwapManagement.BadDynamicParam.selector);
         eulerSwapFactory.deployPool(sParams, dParams, initialState, salt);
     }
 
