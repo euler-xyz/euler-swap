@@ -2,7 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {
-    IEVC, IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, EulerSwapRegistry, TestERC20
+    IEVC,
+    IEVault,
+    IEulerSwap,
+    EulerSwapTestBase,
+    EulerSwap,
+    EulerSwapRegistry,
+    TestERC20
 } from "./EulerSwapTestBase.t.sol";
 
 contract CuratorTest is EulerSwapTestBase {
@@ -95,7 +101,9 @@ contract CuratorTest is EulerSwapTestBase {
         vm.prank(holder);
         evc.setAccountOperator(sParams.eulerAccount, address(eulerSwap), false);
         vm.prank(holder);
-        IEVC(evc).call(address(eulerSwapRegistry), sParams.eulerAccount, 0, abi.encodeCall(EulerSwapRegistry.unregisterPool, ()));
+        IEVC(evc).call(
+            address(eulerSwapRegistry), sParams.eulerAccount, 0, abi.encodeCall(EulerSwapRegistry.unregisterPool, ())
+        );
 
         assertEq(holder.balance, 0.123e18);
     }

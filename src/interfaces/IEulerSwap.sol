@@ -48,6 +48,11 @@ interface IEulerSwap {
     /// @param installed Whether the manager should be installed or uninstalled
     function setManager(address manager, bool installed) external;
 
+    /// @notice Addresses configured as managers. Managers can reconfigure the pool parameters.
+    /// @param manager Address to check
+    /// @return installed Whether the address is currently a manager of this pool
+    function managers(address manager) external view returns (bool installed);
+
     /// @notice Reconfigured the pool's parameters. Only callable by the owner (eulerAccount)
     /// or a manager.
     function reconfigure(DynamicParams calldata dParams, InitialState calldata initialState) external;

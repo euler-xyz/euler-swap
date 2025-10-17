@@ -4,175 +4,61 @@ pragma solidity ^0.8.27;
 import {IERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IEulerSwapCallee} from "./interfaces/IEulerSwapCallee.sol";
-import {EVCUtil} from "evc/utils/EVCUtil.sol";
-import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
 import {UniswapHook} from "./UniswapHook.sol";
 import {CtxLib} from "./libraries/CtxLib.sol";
-import {FundsLib} from "./libraries/FundsLib.sol";
-import {CurveLib} from "./libraries/CurveLib.sol";
 import {QuoteLib} from "./libraries/QuoteLib.sol";
 import {SwapLib} from "./libraries/SwapLib.sol";
 
-contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
+contract EulerSwap is IEulerSwap, UniswapHook {
     bytes32 public constant curve = bytes32("EulerSwap v2");
+    address public immutable managementImpl;
 
-    error Unauthorized();
-    error Locked();
-    error AlreadyActivated();
-    error BadStaticParam();
-    error BadDynamicParam();
     error AmountTooBig();
-    error AssetsOutOfOrderOrEqual();
-    error InvalidAssets();
-
-    /// @notice Addresses configured as managers. Managers can reconfigure the pool parameters.
-    mapping(address manager => bool installed) public managers;
 
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
     event EulerSwapConfigured(DynamicParams dParams, InitialState initialState);
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
     event EulerSwapManagerSet(address indexed manager, bool installed);
 
-    constructor(address evc_, address poolManager_) EVCUtil(evc_) UniswapHook(evc_, poolManager_) {
-        CtxLib.State storage s = CtxLib.getState();
-
-        s.status = 2; // can only be used via delegatecall proxy
+    constructor(address evc_, address poolManager_, address managementImpl_) UniswapHook(evc_, poolManager_) {
+        managementImpl = managementImpl_;
     }
 
-    modifier nonReentrantView() {
-        CtxLib.State storage s = CtxLib.getState();
-        require(s.status != 2, Locked());
-
-        _;
-    }
-
-    function installDynamicParams(
-        CtxLib.State storage s,
-        DynamicParams memory dParams,
-        InitialState memory initialState
-    ) internal {
-        require(dParams.minReserve0 <= dParams.equilibriumReserve0, BadDynamicParam());
-        require(dParams.minReserve1 <= dParams.equilibriumReserve1, BadDynamicParam());
-        require(dParams.minReserve0 <= initialState.reserve0, BadDynamicParam());
-        require(dParams.minReserve1 <= initialState.reserve1, BadDynamicParam());
-
-        require(dParams.priceX > 0 && dParams.priceY > 0, BadDynamicParam());
-        require(dParams.priceX <= 1e24 && dParams.priceY <= 1e24, BadDynamicParam());
-        require(dParams.concentrationX <= 1e18 && dParams.concentrationY <= 1e18, BadDynamicParam());
-
-        require(dParams.fee0 <= 1e18 && dParams.fee1 <= 1e18, BadDynamicParam());
-
-        require(dParams.swapHookedOperations <= 7, BadDynamicParam());
-        require(dParams.swapHookedOperations == 0 || dParams.swapHook != address(0), BadDynamicParam());
-
-        require(CurveLib.verify(dParams, initialState.reserve0, initialState.reserve1), SwapLib.CurveViolation());
-
-        CtxLib.writeDynamicParamsToStorage(dParams);
-        s.reserve0 = initialState.reserve0;
-        s.reserve1 = initialState.reserve1;
-
-        emit EulerSwapConfigured(dParams, initialState);
+    function delegateToManagementImpl() internal {
+        (bool success, bytes memory result) = managementImpl.delegatecall(msg.data);
+        if (!success) {
+            assembly {
+                revert(add(32, result), mload(result))
+            }
+        }
     }
 
     /// @inheritdoc IEulerSwap
-    function activate(DynamicParams calldata dParams, InitialState calldata initialState) external {
-        CtxLib.State storage s = CtxLib.getState();
-        StaticParams memory sParams = CtxLib.getStaticParams();
-
-        require(s.status == 0, AlreadyActivated());
-        s.status = 1;
-
-        // Static parameters
-
-        {
-            address asset0Addr = IEVault(sParams.supplyVault0).asset();
-            address asset1Addr = IEVault(sParams.supplyVault1).asset();
-
-            require(
-                sParams.borrowVault0 == address(0) || IEVault(sParams.borrowVault0).asset() == asset0Addr,
-                InvalidAssets()
-            );
-            require(
-                sParams.borrowVault1 == address(0) || IEVault(sParams.borrowVault1).asset() == asset1Addr,
-                InvalidAssets()
-            );
-
-            require(asset0Addr != address(0) && asset1Addr != address(0), InvalidAssets());
-            require(asset0Addr < asset1Addr, AssetsOutOfOrderOrEqual());
-        }
-
-        require(sParams.eulerAccount != sParams.feeRecipient, BadStaticParam()); // set feeRecipient to 0 instead
-
-        // Dynamic parameters
-
-        if (initialState.reserve0 != 0) {
-            require(
-                !CurveLib.verify(dParams, initialState.reserve0 - 1, initialState.reserve1), SwapLib.CurveViolation()
-            );
-        }
-        if (initialState.reserve1 != 0) {
-            require(
-                !CurveLib.verify(dParams, initialState.reserve0, initialState.reserve1 - 1), SwapLib.CurveViolation()
-            );
-        }
-
-        installDynamicParams(s, dParams, initialState);
-
-        // Configure external contracts
-
-        FundsLib.approveVault(sParams.supplyVault0);
-        FundsLib.approveVault(sParams.supplyVault1);
-
-        if (sParams.borrowVault0 != address(0) && sParams.borrowVault0 != sParams.supplyVault0) {
-            FundsLib.approveVault(sParams.borrowVault0);
-        }
-        if (sParams.borrowVault1 != address(0) && sParams.borrowVault1 != sParams.supplyVault1) {
-            FundsLib.approveVault(sParams.borrowVault1);
-        }
-
-        if (
-            !IEVC(evc).isCollateralEnabled(sParams.eulerAccount, sParams.supplyVault0)
-                && sParams.borrowVault1 != address(0)
-        ) {
-            IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault0);
-        }
-        if (
-            !IEVC(evc).isCollateralEnabled(sParams.eulerAccount, sParams.supplyVault1)
-                && sParams.borrowVault0 != address(0)
-        ) {
-            IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault1);
-        }
+    function activate(DynamicParams calldata, InitialState calldata) external {
+        delegateToManagementImpl();
 
         // Uniswap hook activation
 
-        if (address(poolManager) != address(0)) activateHook(sParams);
+        activateHook(CtxLib.getStaticParams());
     }
 
     /// @inheritdoc IEulerSwap
-    function setManager(address manager, bool installed) external {
-        StaticParams memory sParams = CtxLib.getStaticParams();
-
-        require(_msgSender() == sParams.eulerAccount, Unauthorized());
-        managers[manager] = installed;
-
-        emit EulerSwapManagerSet(manager, installed);
+    function setManager(address, bool) external {
+        delegateToManagementImpl();
     }
 
     /// @inheritdoc IEulerSwap
-    function reconfigure(DynamicParams calldata dParams, InitialState calldata initialState) external nonReentrant {
+    function reconfigure(DynamicParams calldata, InitialState calldata) external {
+        delegateToManagementImpl();
+    }
+
+    /// @inheritdoc IEulerSwap
+    function managers(address manager) external view returns (bool installed) {
         CtxLib.State storage s = CtxLib.getState();
-        StaticParams memory sParams = CtxLib.getStaticParams();
-        DynamicParams memory oldDParams = CtxLib.getDynamicParams();
-
-        {
-            address sender = _msgSender();
-            require(sender == sParams.eulerAccount || managers[sender] || sender == oldDParams.swapHook, Unauthorized());
-        }
-
-        installDynamicParams(s, dParams, initialState);
+        return s.managers[manager];
     }
 
     /// @inheritdoc IEulerSwap
@@ -204,7 +90,7 @@ contract EulerSwap is IEulerSwap, EVCUtil, UniswapHook {
     function isInstalled() external view nonReentrantView returns (bool) {
         StaticParams memory sParams = CtxLib.getStaticParams();
 
-        return IEVC(evc).isAccountOperatorAuthorized(sParams.eulerAccount, address(this));
+        return evc.isAccountOperatorAuthorized(sParams.eulerAccount, address(this));
     }
 
     /// @inheritdoc IEulerSwap
