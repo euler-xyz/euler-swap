@@ -6,7 +6,6 @@ import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol"
 
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
-import {Errors as EVKErrors} from "evk/EVault/shared/Errors.sol";
 
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 
@@ -14,6 +13,9 @@ library FundsLib {
     using SafeERC20 for IERC20;
 
     error DepositFailure(bytes reason);
+
+    error E_ZeroShares(); // EVK error
+    error ZeroShares(); // Euler Earn error
 
     /// @notice Approves tokens for a given vault, supporting both standard approvals and permit2
     /// @param vault The address of the vault to approve the token for
@@ -97,7 +99,10 @@ library FundsLib {
         if (amount > 0) {
             try IEVault(supplyVault).deposit(amount, eulerAccount) {}
             catch (bytes memory reason) {
-                require(bytes4(reason) == EVKErrors.E_ZeroShares.selector, DepositFailure(reason));
+                require(
+                    bytes4(reason) == E_ZeroShares.selector || bytes4(reason) == ZeroShares.selector,
+                    DepositFailure(reason)
+                );
                 amount = 0;
             }
 
