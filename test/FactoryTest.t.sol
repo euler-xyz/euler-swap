@@ -12,7 +12,6 @@ import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwap} from "../src/EulerSwap.sol";
 import {EulerSwapManagement} from "../src/EulerSwapManagement.sol";
 import {MetaProxyDeployer} from "../src/utils/MetaProxyDeployer.sol";
-import {ProtocolFee} from "../src/utils/ProtocolFee.sol";
 
 interface ImmutablePoolManager {
     function poolManager() external view returns (IPoolManager);
@@ -40,7 +39,7 @@ contract FactoryTest is EulerSwapTestBase {
             IEulerSwap.InitialState memory initialState
         )
     {
-        (sParams, dParams) = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0), 0, address(0));
+        (sParams, dParams) = getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0));
         initialState = IEulerSwap.InitialState({reserve0: 1e18, reserve1: 1e18});
     }
 
@@ -431,92 +430,5 @@ contract FactoryTest is EulerSwapTestBase {
             assertEq(ps.length, 1);
             assertEq(ps[0], bobPool);
         }
-    }
-
-    /// @dev test that all conditions are required for the protocol fee timebomb
-    function test_valid_protocolFee_timebomb(address anyone, address feeRecipient) public {
-        vm.assume(feeRecipient != address(0));
-        vm.expectRevert(ProtocolFee.InvalidFee.selector);
-        vm.prank(anyone);
-        eulerSwapFactory.enableProtocolFee();
-
-        skip(365 days);
-        vm.expectRevert(ProtocolFee.InvalidFee.selector);
-        vm.prank(anyone);
-        eulerSwapFactory.enableProtocolFee();
-
-        vm.expectEmit(true, true, true, true);
-        emit ProtocolFee.ProtocolFeeRecipientSet(feeRecipient);
-        vm.prank(eulerSwapFactory.recipientSetter());
-        eulerSwapFactory.setProtocolFeeRecipient(feeRecipient);
-
-        vm.expectEmit(true, true, true, true);
-        emit ProtocolFee.ProtocolFeeSet(eulerSwapFactory.MIN_PROTOCOL_FEE());
-        vm.prank(anyone);
-        eulerSwapFactory.enableProtocolFee();
-
-        assertEq(eulerSwapFactory.protocolFee(), eulerSwapFactory.MIN_PROTOCOL_FEE());
-    }
-
-    /// @dev test that protocol fee timebomb can not decrease a valid fee
-    function test_revert_protocolFee_timebomb(address anyone, address feeRecipient) public {
-        vm.assume(feeRecipient != address(0));
-        vm.prank(eulerSwapFactory.recipientSetter());
-        eulerSwapFactory.setProtocolFeeRecipient(feeRecipient);
-
-        // fee is set
-        vm.prank(eulerSwapFactory.owner());
-        eulerSwapFactory.setProtocolFee(0.2e18);
-        assertEq(eulerSwapFactory.protocolFee(), 0.2e18);
-
-        // fee cannot be decreased with timebomb
-        skip(365 days);
-        vm.expectRevert(ProtocolFee.InvalidFee.selector);
-        vm.prank(anyone);
-        eulerSwapFactory.enableProtocolFee();
-    }
-
-    /// @dev test protocol fee timebomb cannot be reverted
-    function test_protocolFee_minimum(address anyone, address feeRecipient) public {
-        vm.assume(feeRecipient != address(0));
-        skip(365 days);
-        vm.expectEmit(true, true, true, true);
-        emit ProtocolFee.ProtocolFeeRecipientSet(feeRecipient);
-        vm.prank(eulerSwapFactory.recipientSetter());
-        eulerSwapFactory.setProtocolFeeRecipient(feeRecipient);
-
-        vm.prank(anyone);
-        eulerSwapFactory.enableProtocolFee();
-
-        vm.expectRevert(ProtocolFee.InvalidFee.selector);
-        eulerSwapFactory.setProtocolFee(0.05e18);
-
-        // fee can be increased
-        vm.expectEmit(true, true, true, true);
-        emit ProtocolFee.ProtocolFeeSet(0.2e18);
-        vm.prank(eulerSwapFactory.owner());
-        eulerSwapFactory.setProtocolFee(0.2e18);
-        assertEq(eulerSwapFactory.protocolFee(), 0.2e18);
-    }
-
-    /// @dev test protocol fee timebomb does not work if poolManager is not set
-    function test_revert_protocolFee_timebomb_noPoolManager(address anyone, address feeRecipient) public {
-        vm.assume(feeRecipient != address(0));
-        skip(365 days);
-        vm.prank(eulerSwapFactory.recipientSetter());
-        eulerSwapFactory.setProtocolFeeRecipient(feeRecipient);
-
-        // assume poolManager is not set
-        EulerSwap eulerSwapImpl = EulerSwap(eulerSwapFactory.eulerSwapImpl());
-        vm.mockCall(
-            address(eulerSwapImpl),
-            abi.encodeWithSelector(ImmutablePoolManager.poolManager.selector),
-            abi.encode(address(0))
-        );
-        assertEq(address(eulerSwapImpl.poolManager()), address(0));
-
-        vm.expectRevert(ProtocolFee.InvalidFee.selector);
-        vm.prank(anyone);
-        eulerSwapFactory.enableProtocolFee();
     }
 }

@@ -5,13 +5,12 @@ import {IEulerSwapFactory, IEulerSwap} from "./interfaces/IEulerSwapFactory.sol"
 import {EVCUtil} from "ethereum-vault-connector/utils/EVCUtil.sol";
 
 import {EulerSwap} from "./EulerSwap.sol";
-import {ProtocolFee} from "./utils/ProtocolFee.sol";
 import {MetaProxyDeployer} from "./utils/MetaProxyDeployer.sol";
 
 /// @title EulerSwapFactory contract
 /// @custom:security-contact security@euler.xyz
 /// @author Euler Labs (https://www.eulerlabs.com/)
-contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
+contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
     /// @dev The EulerSwap code instance that will be proxied to
     address public immutable eulerSwapImpl;
 
@@ -20,12 +19,8 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
 
     error Unauthorized();
     error OperatorNotInstalled();
-    error InvalidProtocolFee();
 
-    constructor(address evc, address eulerSwapImpl_, address feeOwner_, address feeRecipientSetter_)
-        EVCUtil(evc)
-        ProtocolFee(feeOwner_, feeRecipientSetter_)
-    {
+    constructor(address evc, address eulerSwapImpl_) EVCUtil(evc) {
         eulerSwapImpl = eulerSwapImpl_;
     }
 
@@ -37,10 +32,6 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
         bytes32 salt
     ) external returns (address) {
         require(_msgSender() == sParams.eulerAccount, Unauthorized());
-        require(
-            sParams.protocolFee == protocolFee && sParams.protocolFeeRecipient == protocolFeeRecipient,
-            InvalidProtocolFee()
-        );
 
         EulerSwap pool = EulerSwap(MetaProxyDeployer.deployMetaProxy(eulerSwapImpl, abi.encode(sParams), salt));
         deployedPools[address(pool)] = true;
@@ -66,10 +57,5 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil, ProtocolFee {
                 )
             )
         );
-    }
-
-    /// @dev For ProtocolFee access
-    function _eulerSwapImpl() internal view override returns (address) {
-        return eulerSwapImpl;
     }
 }

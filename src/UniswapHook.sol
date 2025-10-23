@@ -25,9 +25,16 @@ import {SwapLib} from "./libraries/SwapLib.sol";
 abstract contract UniswapHook is EulerSwapBase, BaseHook {
     using SafeCast for uint256;
 
+    address public immutable protocolFeeConfig;
+
     PoolKey internal _poolKey;
 
-    constructor(address evc_, address _poolManager) EulerSwapBase(evc_) BaseHook(IPoolManager(_poolManager)) {}
+    constructor(address evc_, address protocolFeeConfig_, address _poolManager)
+        EulerSwapBase(evc_)
+        BaseHook(IPoolManager(_poolManager))
+    {
+        protocolFeeConfig = protocolFeeConfig_;
+    }
 
     function activateHook(IEulerSwap.StaticParams memory sParams) internal nonReentrant {
         if (address(poolManager) == address(0)) return;
@@ -65,7 +72,7 @@ abstract contract UniswapHook is EulerSwapBase, BaseHook {
         nonReentrant
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), sender, msg.sender);
+        SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), protocolFeeConfig, sender, msg.sender);
 
         uint256 amountIn;
         uint256 amountOut;

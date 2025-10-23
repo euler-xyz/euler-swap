@@ -6,6 +6,7 @@ import {EVaultTestBase, TestERC20, IRMTestDefault} from "evk-test/unit/evault/EV
 import {IEVault} from "evk/EVault/IEVault.sol";
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEulerSwap, EulerSwap} from "../src/EulerSwap.sol";
+import {EulerSwapProtocolFeeConfig} from "../src/EulerSwapProtocolFeeConfig.sol";
 import {EulerSwapManagement} from "../src/EulerSwapManagement.sol";
 import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwapFactory} from "../src/EulerSwapFactory.sol";
@@ -24,10 +25,12 @@ contract EulerSwapTestBase is EVaultTestBase {
     address public recipient = makeAddr("recipient");
     address public anyone = makeAddr("anyone");
     address public curator = makeAddr("curator");
+    address public protocolFeeAdmin = makeAddr("protocolFeeAdmin");
 
     TestERC20 assetTST3;
     IEVault public eTST3;
 
+    EulerSwapProtocolFeeConfig public protocolFeeConfig;
     address public eulerSwapManagementImpl;
     address public eulerSwapImpl;
     PerspectiveMock public validVaultPerspective;
@@ -50,9 +53,11 @@ contract EulerSwapTestBase is EVaultTestBase {
 
     function deployEulerSwap(address poolManager_) public {
         validVaultPerspective = new PerspectiveMock();
+        protocolFeeConfig = new EulerSwapProtocolFeeConfig(address(evc), protocolFeeAdmin);
         eulerSwapManagementImpl = address(new EulerSwapManagement(address(evc)));
-        eulerSwapImpl = address(new EulerSwap(address(evc), poolManager_, eulerSwapManagementImpl));
-        eulerSwapFactory = new EulerSwapFactory(address(evc), eulerSwapImpl, address(this), address(this));
+        eulerSwapImpl =
+            address(new EulerSwap(address(evc), address(protocolFeeConfig), poolManager_, eulerSwapManagementImpl));
+        eulerSwapFactory = new EulerSwapFactory(address(evc), eulerSwapImpl);
         eulerSwapRegistry =
             new EulerSwapRegistry(address(evc), address(eulerSwapFactory), address(validVaultPerspective), curator);
         periphery = new EulerSwapPeriphery();
@@ -142,7 +147,7 @@ contract EulerSwapTestBase is EVaultTestBase {
         returns (EulerSwap)
     {
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, px, py, cx, cy, fee, address(0), 0, address(0));
+            getEulerSwapParams(reserve0, reserve1, px, py, cx, cy, fee, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
         return createEulerSwapFull(sParams, dParams, initialState);
@@ -268,9 +273,7 @@ contract EulerSwapTestBase is EVaultTestBase {
         uint64 cx,
         uint64 cy,
         uint64 fee,
-        address feeRecipient,
-        uint64 protocolFee,
-        address protocolFeeRecipient
+        address feeRecipient
     ) internal view returns (EulerSwap.StaticParams memory sParams, EulerSwap.DynamicParams memory dParams) {
         sParams = IEulerSwap.StaticParams({
             supplyVault0: address(eTST),
@@ -278,9 +281,7 @@ contract EulerSwapTestBase is EVaultTestBase {
             supplyVault1: address(eTST2),
             borrowVault1: address(eTST2),
             eulerAccount: holder,
-            feeRecipient: feeRecipient,
-            protocolFeeRecipient: protocolFeeRecipient,
-            protocolFee: protocolFee
+            feeRecipient: feeRecipient
         });
 
         dParams = IEulerSwap.DynamicParams({

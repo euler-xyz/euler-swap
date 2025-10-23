@@ -9,6 +9,7 @@ import {CtxLib} from "./CtxLib.sol";
 import {CurveLib} from "./CurveLib.sol";
 import {FundsLib} from "./FundsLib.sol";
 import {QuoteLib} from "./QuoteLib.sol";
+import {EulerSwapProtocolFeeConfig} from "../EulerSwapProtocolFeeConfig.sol";
 import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
 import "../interfaces/IEulerSwapHookTarget.sol";
 
@@ -40,6 +41,7 @@ library SwapLib {
     struct SwapContext {
         // Populated by init
         address evc;
+        address protocolFeeConfig;
         IEulerSwap.StaticParams sParams;
         IEulerSwap.DynamicParams dParams;
         address asset0;
@@ -56,8 +58,13 @@ library SwapLib {
         uint256 amount1In; // full minus fees
     }
 
-    function init(address evc, address sender, address to) internal view returns (SwapContext memory ctx) {
+    function init(address evc, address protocolFeeConfig, address sender, address to)
+        internal
+        view
+        returns (SwapContext memory ctx)
+    {
         ctx.evc = evc;
+        ctx.protocolFeeConfig = protocolFeeConfig;
         ctx.sParams = CtxLib.getStaticParams();
         ctx.dParams = CtxLib.getDynamicParams();
 
@@ -170,14 +177,19 @@ library SwapLib {
 
         // Slice off protocol fee
 
-        if (ctx.sParams.protocolFeeRecipient != address(0)) {
-            uint256 protocolFeeAmount = feeAmount * ctx.sParams.protocolFee / 1e18;
+        {
+            (address protocolFeeRecipient, uint64 protocolFee) =
+                EulerSwapProtocolFeeConfig(ctx.protocolFeeConfig).getProtocolFee(address(this));
 
-            if (protocolFeeAmount != 0) {
-                IERC20(assetInput).safeTransfer(ctx.sParams.protocolFeeRecipient, protocolFeeAmount);
+            if (protocolFee != 0) {
+                uint256 protocolFeeAmount = feeAmount * protocolFee / 1e18;
 
-                amount -= protocolFeeAmount;
-                feeAmount -= protocolFeeAmount;
+                if (protocolFeeAmount != 0) {
+                    IERC20(assetInput).safeTransfer(protocolFeeRecipient, protocolFeeAmount);
+
+                    amount -= protocolFeeAmount;
+                    feeAmount -= protocolFeeAmount;
+                }
             }
         }
 

@@ -64,7 +64,7 @@ contract CollateralSwap is EulerSwapTestBase {
         uint112 reserve1 = 60e18;
 
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
+            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
         sParams.supplyVault0 = address(eTST_alt);
@@ -80,7 +80,7 @@ contract CollateralSwap is EulerSwapTestBase {
         uint112 reserve1 = 60e18;
 
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
+            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
         sParams.supplyVault0 = address(eTST_alt);
@@ -98,7 +98,7 @@ contract CollateralSwap is EulerSwapTestBase {
         uint112 reserve1 = 60e18;
 
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
+            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
         sParams.supplyVault1 = address(eTST2_alt);
@@ -114,7 +114,7 @@ contract CollateralSwap is EulerSwapTestBase {
         uint112 reserve1 = 60e18;
 
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
+            getEulerSwapParams(reserve0, reserve1, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: reserve0, reserve1: reserve1});
 
         sParams.supplyVault1 = address(eTST2_alt);

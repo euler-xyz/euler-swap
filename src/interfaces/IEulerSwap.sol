@@ -10,8 +10,6 @@ interface IEulerSwap {
         address borrowVault1;
         address eulerAccount;
         address feeRecipient;
-        address protocolFeeRecipient;
-        uint64 protocolFee;
     }
 
     /// @dev Reconfigurable pool parameters, loaded from storage.

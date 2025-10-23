@@ -23,7 +23,9 @@ contract EulerSwap is IEulerSwap, UniswapHook {
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
     event EulerSwapManagerSet(address indexed manager, bool installed);
 
-    constructor(address evc_, address poolManager_, address managementImpl_) UniswapHook(evc_, poolManager_) {
+    constructor(address evc_, address protocolFeeConfig_, address poolManager_, address managementImpl_)
+        UniswapHook(evc_, protocolFeeConfig_, poolManager_)
+    {
         managementImpl = managementImpl_;
     }
 
@@ -140,7 +142,7 @@ contract EulerSwap is IEulerSwap, UniswapHook {
 
         // Setup context
 
-        SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), _msgSender(), to);
+        SwapLib.SwapContext memory ctx = SwapLib.init(address(evc), protocolFeeConfig, _msgSender(), to);
         SwapLib.setAmountsOut(ctx, amount0Out, amount1Out);
         SwapLib.invokeBeforeSwapHook(ctx);
 

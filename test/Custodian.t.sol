@@ -88,7 +88,7 @@ contract CuratorTest is EulerSwapTestBase {
 
     function test_bondsSubAccount() public {
         (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-            getEulerSwapParams(1000e18, 1000e18, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0), 0, address(0));
+            getEulerSwapParams(1000e18, 1000e18, 1e18, 1e18, 0.85e18, 0.85e18, 0, address(0));
         IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 1000e18, reserve1: 1000e18});
 
         sParams.eulerAccount = address(uint160(holder) ^ 1);
