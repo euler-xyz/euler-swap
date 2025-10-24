@@ -20,6 +20,14 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
     error Unauthorized();
     error OperatorNotInstalled();
 
+    event PoolDeployed(
+        address indexed asset0,
+        address indexed asset1,
+        address indexed eulerAccount,
+        address pool,
+        IEulerSwap.StaticParams sParams
+    );
+
     constructor(address evc, address eulerSwapImpl_) EVCUtil(evc) {
         eulerSwapImpl = eulerSwapImpl_;
     }
@@ -37,6 +45,9 @@ contract EulerSwapFactory is IEulerSwapFactory, EVCUtil {
         deployedPools[address(pool)] = true;
 
         require(evc.isAccountOperatorAuthorized(sParams.eulerAccount, address(pool)), OperatorNotInstalled());
+
+        (address asset0, address asset1) = pool.getAssets();
+        emit PoolDeployed(asset0, asset1, sParams.eulerAccount, address(pool), sParams);
 
         pool.activate(dParams, initialState);
 

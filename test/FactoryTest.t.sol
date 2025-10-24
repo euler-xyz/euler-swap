@@ -134,6 +134,14 @@ contract FactoryTest is EulerSwapTestBase {
             data: abi.encodeCall(EulerSwapRegistry.registerPool, (predictedAddress))
         });
 
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapFactory.PoolDeployed(address(assetTST), address(assetTST2), holder, predictedAddress, sParams);
+
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapRegistry.PoolRegistered(
+            address(assetTST), address(assetTST2), holder, predictedAddress, sParams, 0
+        );
+
         vm.prank(holder);
         evc.batch(items);
 
@@ -387,6 +395,9 @@ contract FactoryTest is EulerSwapTestBase {
         // Unregister pool for Alice
         vm.startPrank(alice);
         evc.setAccountOperator(alice, alicePool, false);
+
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapRegistry.PoolUnregistered(address(assetTST), address(assetTST2), alice, alicePool);
         eulerSwapRegistry.unregisterPool();
 
         assertFalse(EulerSwap(alicePool).isInstalled());
