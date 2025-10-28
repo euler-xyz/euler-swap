@@ -120,7 +120,7 @@ In order to challenge a pool to retrieve the validity bond, a challenger invokes
 * The swap is actually performed by taking the input tokens from the challenger. The challenger must've given appropriate token approval to the registry. In all cases, the funds will be returned to the challenger, meaning they can be sourced with a flash loan.
   * If this swap succeeds, the entire transaction is reverted (including the swap) and the challenge is rejected.
   * If the swap failed for any reason other than `E_AccountLiquidity()` or `HookError()` then the challenge is rejected. This check is necessary because some vaults can fail for other expected reasons, such as unpopulated pull oracles.
-* At this point, the challenge has succeeded. The validity bond is sent to the `recipient` address provided by the challenger, and the pool is unregistered.
+* At this point, the challenge has succeeded. The validity bond is sent to the `recipient` address provided by the challenger, and the pool is unregistered. The challenger should ensure `recipent` is an address that can access native tokens.
 
 
 
