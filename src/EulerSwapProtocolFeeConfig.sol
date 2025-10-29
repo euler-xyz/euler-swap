@@ -29,6 +29,7 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
     mapping(address pool => Override) public overrides;
 
     error Unauthorized();
+    error InvalidAdminAddress();
     error InvalidProtocolFee();
     error InvalidProtocolFeeRecipient();
 
@@ -42,6 +43,8 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
     event OverrideRemoved(address indexed pool);
 
     constructor(address evc, address admin_) EVCUtil(evc) {
+        _validateAdminAddress(admin_);
+
         emit AdminUpdated(address(0), admin_);
 
         admin = admin_;
@@ -58,6 +61,8 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
 
     /// @inheritdoc IEulerSwapProtocolFeeConfig
     function setAdmin(address newAdmin) external onlyAdmin {
+        _validateAdminAddress(newAdmin);
+
         emit AdminUpdated(admin, newAdmin);
 
         admin = newAdmin;
@@ -103,5 +108,11 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
             recipient = defaultRecipient;
             fee = defaultFee;
         }
+    }
+
+    /// @dev Ensures the admin is not a known sub-account, since they are not allowed
+    function _validateAdminAddress(address addr) internal view {
+        address owner = evc.getAccountOwner(addr);
+        require(owner == addr || owner == address(0), InvalidAdminAddress());
     }
 }

@@ -314,11 +314,19 @@ contract FeesTest is EulerSwapTestBase {
     }
 
     function test_fees_protocolFees_setAdmin() public {
+        // Register owner with EVC
+        evc.enableCollateral(address(this), address(0));
+
         address origAdmin = protocolFeeConfig.admin();
         assertEq(origAdmin, protocolFeeAdmin);
 
         vm.expectRevert(EulerSwapProtocolFeeConfig.Unauthorized.selector);
         protocolFeeConfig.setDefault(address(8888), 0.1e18);
+
+        // Can't set a subaccount
+        vm.expectRevert(EulerSwapProtocolFeeConfig.InvalidAdminAddress.selector);
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setAdmin(address(uint160(address(this)) ^ 1));
 
         vm.expectEmit(true, true, true, true);
         emit EulerSwapProtocolFeeConfig.AdminUpdated(origAdmin, address(this));
