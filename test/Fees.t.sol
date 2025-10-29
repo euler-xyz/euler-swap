@@ -221,6 +221,10 @@ contract FeesTest is EulerSwapTestBase {
         vm.expectRevert(EulerSwapProtocolFeeConfig.InvalidProtocolFee.selector);
         protocolFeeConfig.setDefault(address(8888), 0.15000001e18);
 
+        vm.prank(protocolFeeAdmin);
+        vm.expectRevert(EulerSwapProtocolFeeConfig.InvalidProtocolFeeRecipient.selector);
+        protocolFeeConfig.setDefault(address(0), 0.1e18);
+
         // Set a default
 
         vm.prank(protocolFeeAdmin);
@@ -274,6 +278,17 @@ contract FeesTest is EulerSwapTestBase {
             (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
             assertEq(recipient, address(7777));
             assertEq(fee, 0.12e18);
+        }
+
+        // Change override back to 0s
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setDefault(address(0), 0);
+
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(0));
+            assertEq(fee, 0);
         }
     }
 

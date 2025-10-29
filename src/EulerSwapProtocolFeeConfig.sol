@@ -30,6 +30,7 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
 
     error Unauthorized();
     error InvalidProtocolFee();
+    error InvalidProtocolFeeRecipient();
 
     constructor(address evc, address admin_) EVCUtil(evc) {
         admin = admin_;
@@ -52,6 +53,7 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
     /// @inheritdoc IEulerSwapProtocolFeeConfig
     function setDefault(address recipient, uint64 fee) external onlyAdmin {
         require(fee <= MAX_PROTOCOL_FEE, InvalidProtocolFee());
+        require(fee == 0 || recipient != address(0), InvalidProtocolFeeRecipient());
 
         defaultRecipient = recipient;
         defaultFee = fee;
