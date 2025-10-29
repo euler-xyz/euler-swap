@@ -7,8 +7,6 @@ import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol"
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault, IBorrowing, IERC4626, IRiskManager} from "evk/EVault/IEVault.sol";
 
-import {IEulerSwap} from "../interfaces/IEulerSwap.sol";
-
 library FundsLib {
     using SafeERC20 for IERC20;
 

@@ -18,11 +18,6 @@ contract EulerSwap is IEulerSwap, UniswapHook {
 
     error AmountTooBig();
 
-    /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
-    event EulerSwapConfigured(DynamicParams dParams, InitialState initialState);
-    /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
-    event EulerSwapManagerSet(address indexed manager, bool installed);
-
     constructor(address evc_, address protocolFeeConfig_, address poolManager_, address managementImpl_)
         UniswapHook(evc_, protocolFeeConfig_, poolManager_)
     {

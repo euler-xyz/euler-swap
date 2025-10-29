@@ -16,10 +16,7 @@ import {IEVault} from "evk/EVault/IEVault.sol";
 
 import {EulerSwapBase} from "./EulerSwapBase.sol";
 import {IEulerSwap} from "./interfaces/IEulerSwap.sol";
-import {CtxLib} from "./libraries/CtxLib.sol";
 import {QuoteLib} from "./libraries/QuoteLib.sol";
-import {CurveLib} from "./libraries/CurveLib.sol";
-import {FundsLib} from "./libraries/FundsLib.sol";
 import {SwapLib} from "./libraries/SwapLib.sol";
 
 abstract contract UniswapHook is EulerSwapBase, BaseHook {
