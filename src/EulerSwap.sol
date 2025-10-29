@@ -24,18 +24,9 @@ contract EulerSwap is IEulerSwap, UniswapHook {
         managementImpl = managementImpl_;
     }
 
-    function delegateToManagementImpl() internal {
-        (bool success, bytes memory result) = managementImpl.delegatecall(msg.data);
-        if (!success) {
-            assembly {
-                revert(add(32, result), mload(result))
-            }
-        }
-    }
-
     /// @inheritdoc IEulerSwap
     function activate(DynamicParams calldata, InitialState calldata) external {
-        delegateToManagementImpl();
+        _delegateToManagementImpl();
 
         // Uniswap hook activation
 
@@ -44,12 +35,12 @@ contract EulerSwap is IEulerSwap, UniswapHook {
 
     /// @inheritdoc IEulerSwap
     function setManager(address, bool) external {
-        delegateToManagementImpl();
+        _delegateToManagementImpl();
     }
 
     /// @inheritdoc IEulerSwap
     function reconfigure(DynamicParams calldata, InitialState calldata) external {
-        delegateToManagementImpl();
+        _delegateToManagementImpl();
     }
 
     /// @inheritdoc IEulerSwap
@@ -159,5 +150,14 @@ contract EulerSwap is IEulerSwap, UniswapHook {
         // Verify curve invariant is satisfied
 
         SwapLib.finish(ctx);
+    }
+
+    function _delegateToManagementImpl() internal {
+        (bool success, bytes memory result) = managementImpl.delegatecall(msg.data);
+        if (!success) {
+            assembly {
+                revert(add(32, result), mload(result))
+            }
+        }
     }
 }
