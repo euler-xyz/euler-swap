@@ -238,6 +238,8 @@ contract FeesTest is EulerSwapTestBase {
 
         // Override
 
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapProtocolFeeConfig.OverrideSet(address(eulerSwap), address(9999), 0.07e18);
         vm.prank(protocolFeeAdmin);
         protocolFeeConfig.setOverride(address(eulerSwap), address(9999), 0.07e18);
 
@@ -271,6 +273,8 @@ contract FeesTest is EulerSwapTestBase {
 
         // Remove override
 
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapProtocolFeeConfig.OverrideRemoved(address(eulerSwap));
         vm.prank(protocolFeeAdmin);
         protocolFeeConfig.removeOverride(address(eulerSwap));
 
@@ -293,17 +297,28 @@ contract FeesTest is EulerSwapTestBase {
     }
 
     function test_fees_protocolFees_setAdmin() public {
-        assertEq(protocolFeeConfig.admin(), protocolFeeAdmin);
+        address origAdmin = protocolFeeConfig.admin();
+        assertEq(origAdmin, protocolFeeAdmin);
 
         vm.expectRevert(EulerSwapProtocolFeeConfig.Unauthorized.selector);
         protocolFeeConfig.setDefault(address(8888), 0.1e18);
 
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapProtocolFeeConfig.AdminUpdated(origAdmin, address(this));
         vm.prank(protocolFeeAdmin);
         protocolFeeConfig.setAdmin(address(this));
 
         assertEq(protocolFeeConfig.admin(), address(this));
+    }
 
-        protocolFeeConfig.setDefault(address(8888), 0.1e18);
+    function test_fees_protocolFees_defaults() public {
+        address origFefaultRecipient = protocolFeeConfig.defaultRecipient();
+        uint64 origDefaultFee = protocolFeeConfig.defaultFee();
+
+        vm.expectEmit(true, true, true, true);
+        emit EulerSwapProtocolFeeConfig.DefaultUpdated(origFefaultRecipient, address(7654), origDefaultFee, 0.071e18);
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setDefault(address(7654), 0.071e18);
     }
 
     function test_fuzzFeeRounding(uint256 amount, uint256 fee) public pure {

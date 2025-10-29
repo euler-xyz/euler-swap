@@ -32,7 +32,18 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
     error InvalidProtocolFee();
     error InvalidProtocolFeeRecipient();
 
+    /// @notice Emitted when admin is set/changed
+    event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+    /// @notice Emitted when the default configuration is changed
+    event DefaultUpdated(address indexed oldRecipient, address indexed newRecipient, uint64 oldFee, uint64 newFee);
+    /// @notice Emitted when a per-pool override is created or changed
+    event OverrideSet(address indexed pool, address indexed recipient, uint64 fee);
+    /// @notice Emitted when a per-pool override is removed (and thus falls back to the default)
+    event OverrideRemoved(address indexed pool);
+
     constructor(address evc, address admin_) EVCUtil(evc) {
+        emit AdminUpdated(address(0), admin_);
+
         admin = admin_;
     }
 
@@ -47,6 +58,8 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
 
     /// @inheritdoc IEulerSwapProtocolFeeConfig
     function setAdmin(address newAdmin) external onlyAdmin {
+        emit AdminUpdated(admin, newAdmin);
+
         admin = newAdmin;
     }
 
@@ -54,6 +67,8 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
     function setDefault(address recipient, uint64 fee) external onlyAdmin {
         require(fee <= MAX_PROTOCOL_FEE, InvalidProtocolFee());
         require(fee == 0 || recipient != address(0), InvalidProtocolFeeRecipient());
+
+        emit DefaultUpdated(defaultRecipient, recipient, defaultFee, fee);
 
         defaultRecipient = recipient;
         defaultFee = fee;
@@ -63,11 +78,15 @@ contract EulerSwapProtocolFeeConfig is IEulerSwapProtocolFeeConfig, EVCUtil {
     function setOverride(address pool, address recipient, uint64 fee) external onlyAdmin {
         require(fee <= MAX_PROTOCOL_FEE, InvalidProtocolFee());
 
+        emit OverrideSet(pool, recipient, fee);
+
         overrides[pool] = Override({exists: true, recipient: recipient, fee: fee});
     }
 
     /// @inheritdoc IEulerSwapProtocolFeeConfig
     function removeOverride(address pool) external onlyAdmin {
+        emit OverrideRemoved(pool);
+
         delete overrides[pool];
     }
 
