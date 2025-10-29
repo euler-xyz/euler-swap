@@ -64,7 +64,7 @@ contract EulerSwapManagement is EulerSwapBase {
         IEulerSwap.StaticParams memory sParams = CtxLib.getStaticParams();
 
         require(s.status == 0, AlreadyActivated());
-        s.status = 1;
+        s.status = 2; // Keep pool locked during activation
 
         // Static parameters
 
@@ -126,6 +126,8 @@ contract EulerSwapManagement is EulerSwapBase {
         ) {
             IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault1);
         }
+
+        s.status = 1; // unlock pool
     }
 
     function setManager(address manager, bool installed) external nonReentrant {
