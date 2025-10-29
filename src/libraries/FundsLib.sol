@@ -72,7 +72,7 @@ library FundsLib {
     /// @param amount The total amount to deposit
     /// @return The amount of assets successfully deposited (may be less than requested)
     /// @dev This function attempts to deposit assets into the specified vault.
-    /// @dev If the deposit fails with E_ZeroShares error, it safely returns 0 (this happens with very small amounts).
+    /// @dev If the deposit fails with E_ZeroShares or ZeroShares error, it safely returns 0 (this happens with very small amounts).
     /// @dev After successful deposit, if the user has any outstanding controller-enabled debt, it attempts to repay it.
     /// @dev If all debt is repaid, the controller is automatically disabled to reduce gas costs in future operations.
     function depositAssets(address evc, address eulerAccount, address supplyVault, address borrowVault, uint256 amount)

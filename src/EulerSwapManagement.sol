@@ -11,6 +11,9 @@ import {FundsLib} from "./libraries/FundsLib.sol";
 import {CurveLib} from "./libraries/CurveLib.sol";
 import {SwapLib} from "./libraries/SwapLib.sol";
 
+/// @title EulerSwapManagement contract
+/// @custom:security-contact security@euler.xyz
+/// @author Euler Labs (https://www.eulerlabs.com/)
 contract EulerSwapManagement is EulerSwapBase {
     error Unauthorized();
     error AlreadyActivated();
