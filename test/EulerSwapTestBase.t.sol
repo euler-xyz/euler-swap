@@ -42,6 +42,7 @@ contract EulerSwapTestBase is EVaultTestBase {
     address installedOperator;
     bool expectInsufficientValidityBondRevert = false;
     bool expectAccountLiquidityRevert = false;
+    bool expectBadFeeRecipient = false;
 
     error E_AccountLiquidity();
 
@@ -172,13 +173,14 @@ contract EulerSwapTestBase is EVaultTestBase {
 
         vm.prank(holder);
         if (expectAccountLiquidityRevert) vm.expectRevert(E_AccountLiquidity.selector);
+        if (expectBadFeeRecipient) vm.expectRevert(EulerSwapManagement.BadFeeRecipient.selector);
         bytes memory result = IEVC(evc).call(
             address(eulerSwapFactory),
             sParams.eulerAccount,
             0,
             abi.encodeCall(EulerSwapFactory.deployPool, (sParams, dParams, initialState, salt))
         );
-        if (expectAccountLiquidityRevert) return EulerSwap(address(0)); // Just to return to test
+        if (expectAccountLiquidityRevert || expectBadFeeRecipient) return EulerSwap(address(0)); // Just to return to test
         EulerSwap eulerSwap = EulerSwap(abi.decode(result, (address)));
 
         vm.prank(holder);

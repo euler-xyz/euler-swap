@@ -163,6 +163,23 @@ contract FeesTest is EulerSwapTestBase {
         assertEq(assetTST.balanceOf(address(54321)), amountIn - amountInNoFees);
     }
 
+    function test_altFeeRecipient_subAccount() public {
+        address recipient = makeAddr("feeRecipient");
+
+        // Register owner with EVC
+        vm.prank(recipient);
+        evc.enableCollateral(recipient, address(0));
+
+        address subAccount = address(uint160(recipient) ^ 1);
+
+        (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
+            getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.9e18, 0.9e18, 0.01e18, subAccount);
+        IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
+
+        expectBadFeeRecipient = true;
+        eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
+    }
+
     function test_fees_protocolFees_swap() public {
         uint256 fee = 0.05e18;
         uint256 protocolFee = 0.1e18;

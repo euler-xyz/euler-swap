@@ -21,6 +21,7 @@ contract EulerSwapManagement is EulerSwapBase {
     error BadDynamicParam();
     error AssetsOutOfOrderOrEqual();
     error InvalidAssets();
+    error BadFeeRecipient();
 
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
     event EulerSwapConfigured(IEulerSwap.DynamicParams dParams, IEulerSwap.InitialState initialState);
@@ -86,6 +87,11 @@ contract EulerSwapManagement is EulerSwapBase {
         }
 
         require(sParams.eulerAccount != sParams.feeRecipient, BadStaticParam()); // set feeRecipient to 0 instead
+
+        if (sParams.feeRecipient != address(0)) {
+            address owner = evc.getAccountOwner(sParams.feeRecipient);
+            require(owner == sParams.feeRecipient || owner == address(0), BadFeeRecipient());
+        }
 
         // Dynamic parameters
 
