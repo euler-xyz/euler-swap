@@ -8,6 +8,7 @@ library CtxLib {
         uint112 reserve0;
         uint112 reserve1;
         uint32 status; // 0 = unactivated, 1 = unlocked, 2 = locked
+        mapping(address manager => bool installed) managers;
     }
 
     // keccak256("eulerSwap.state") - 1
@@ -59,11 +60,11 @@ library CtxLib {
 
     /// @dev Unpacks encoded Params from trailing calldata. Loosely based on
     /// the implementation from EIP-3448 (except length is hard-coded).
-    /// 256 is the size of the StaticParams struct after ABI encoding.
+    /// 192 is the size of the StaticParams struct after ABI encoding.
     function getStaticParams() internal pure returns (IEulerSwap.StaticParams memory p) {
-        require(msg.data.length >= 256, InsufficientCalldata());
+        require(msg.data.length >= 192, InsufficientCalldata());
         unchecked {
-            return abi.decode(msg.data[msg.data.length - 256:], (IEulerSwap.StaticParams));
+            return abi.decode(msg.data[msg.data.length - 192:], (IEulerSwap.StaticParams));
         }
     }
 }

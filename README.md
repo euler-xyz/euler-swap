@@ -50,7 +50,7 @@ forge doc --serve --port 4000
 
 ## Deployment Addresses
 
-On networks where Uniswap v4 is deployed, EulerSwap is deployed using a factory variant that creates Uniswap v4 hook compatible instances. Elsewhere, the original 'OG' version of EulerSwap factory is deployed. The deployed addresses can be found in [Contract Addresses](https://docs.euler.finance/developers/contract-addresses) section of Euler docs. To check which version is deployed, call `poolManager` on the EulerSwap implementation contract (`eulerSwapV1Implementation`). If it returns zero-address then 'OG' version is deployed.
+Deployed addresses can be found in [Contract Addresses](https://docs.euler.finance/developers/contract-addresses) section of Euler docs.
 
 ## Getting Started
 
@@ -80,11 +80,13 @@ Note that these limits are enforced by the quoting functions, which will revert 
 
 ### Creating and Decomissioning Pools
 
-The EulerSwap pools are created by the `EulerSwapFactory` contract, which emits a [PoolDeployed](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/EulerSwapFactory.sol#L32) event and provides functions to list existing instances.
+EulerSwap pools are created by the `EulerSwapFactory` contract, which emits a `PoolDeployed` event and provides functions to list existing instances.
 
-Pools can also be uninstalled by LPs, for example during rebalancing, in which case the factory emits a [PoolUninstalled](https://github.com/euler-xyz/euler-swap/blob/1f73f5cb07f2e64e8c9815076749574b1b54e204/src/EulerSwapFactory.sol#L34) event.
+Afterwards, pools can optionally be registered in the `EulerSwapRegistry` contract, which advertises them as ready for swapping. Doing so may require the posting of a small validity bond.
 
-However, note that EulerSwap instances are installed on top of regular accounts within the Euler lending platform—they do not control these accounts. This means an LP can abandon an EulerSwap instance simply by withdrawing their position from the lending vaults. In such cases, the factory has no indication that the pool is no longer operational, but quoting functions or swap simulations will start reverting. If a pool continually fails to return quotes or reverts in simulation, it should likely be blacklisted.
+Note that EulerSwap instances are installed on top of regular accounts within the Euler lending platform. This means an LP can abandon an EulerSwap instance simply by withdrawing their position from the lending vaults. In such cases, the registry has no indication that the pool is no longer operational, but quoting functions or swap simulations will start reverting. If a pool is misconfigured and unable to fulfil swaps it is claiming via its `getLimits()` function, the bond may be forfeit and the misconfigured pool removed from the registry.
+
+When a pool is decomissioned, it is recommended to remove from the registry in order to recover the validity bond.
 
 ## Safety
 

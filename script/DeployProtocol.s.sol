@@ -6,7 +6,9 @@ import {EulerSwapFactory} from "../src/EulerSwapFactory.sol";
 import {EulerSwapRegistry} from "../src/EulerSwapRegistry.sol";
 import {EulerSwapPeriphery} from "../src/EulerSwapPeriphery.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {EulerSwapProtocolFeeConfig} from "../src/EulerSwapProtocolFeeConfig.sol";
 import {EulerSwap} from "../src/EulerSwap.sol";
+import {EulerSwapManagement} from "../src/EulerSwapManagement.sol";
 
 /// @title Script to deploy EulerSwapFactory & EulerSwapPeriphery.
 contract DeployProtocol is ScriptUtil {
@@ -21,16 +23,17 @@ contract DeployProtocol is ScriptUtil {
 
         address evc = vm.parseJsonAddress(json, ".evc");
         address poolManager = vm.parseJsonAddress(json, ".poolManager");
-        address evkFactory = vm.parseJsonAddress(json, ".evkFactory");
-        address feeOwner = vm.parseJsonAddress(json, ".feeOwner");
-        address feeRecipientSetter = vm.parseJsonAddress(json, ".feeRecipientSetter");
+        address protocolFeeAdmin = vm.parseJsonAddress(json, ".protocolFeeAdmin");
         address validVaultPerspective = vm.parseJsonAddress(json, ".validVaultPerspective");
         address curator = vm.parseJsonAddress(json, ".curator");
 
         vm.startBroadcast(deployerAddress);
 
-        address eulerSwapImpl = address(new EulerSwap(evc, poolManager));
-        address eulerSwapFactory = address(new EulerSwapFactory(evc, eulerSwapImpl, feeOwner, feeRecipientSetter));
+        address eulerSwapProtocolFeeConfig = address(new EulerSwapProtocolFeeConfig(evc, protocolFeeAdmin));
+        address eulerSwapManagementImpl = address(new EulerSwapManagement(evc));
+        address eulerSwapImpl =
+            address(new EulerSwap(evc, eulerSwapProtocolFeeConfig, poolManager, eulerSwapManagementImpl));
+        address eulerSwapFactory = address(new EulerSwapFactory(evc, eulerSwapImpl));
         new EulerSwapRegistry(evc, eulerSwapFactory, validVaultPerspective, curator);
         new EulerSwapPeriphery();
         vm.stopBroadcast();

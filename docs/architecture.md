@@ -15,9 +15,13 @@ Swapping can be performed by invoking the EulerSwap instance, either through a U
 EulerSwap is split into the following main contracts:
 
 * `EulerSwap`: Contract that is installed as an EVC operator by liquidity providers, and is also invoked by swappers in order to execute a swap.
-  * `UniswapHook`: The functions required so that the EulerSwap instance can function as a Uniswap4 hook.
-* `EulerSwapFactory`: Factory contract for creating `EulerSwap` instances and for querying existing instances.
-* `EulerSwapPeriphery`: This is a wrapper contract for quoting and performing swaps, while handling approvals, slippage, etc.
+  * `UniswapHook`: Internal contract implementing the functionality for EulerSwap instances to function as a Uniswap4 hook.
+  * `EulerSwapManagement`: Internal contract that implements management functionality for EulerSwap instances to reduce code size. `EulerSwap` uses delegatecall to this contract.
+  * `EulerSwapBase`: Internal base class used to share functionality between `EulerSwap` and `EulerSwapManagement`
+* `EulerSwapFactory`: Factory contract for creating `EulerSwap` instances.
+* `EulerSwapRegistry`: Registry contract for advertising `EulerSwap` instances that are available for swapping.
+* `EulerSwapPeriphery`: Wrapper contract for quoting and performing swaps, while handling approvals, slippage, etc.
+* `EulerSwapProtocolFeeConfig`: A contract queried to determine the protocol fee in effect for a given swap.
 
 The above contracts depend on libraries:
 
@@ -25,27 +29,28 @@ The above contracts depend on libraries:
 * `FundsLib`: Moving tokens: approvals and transfers in/out
 * `CurveLib`: Mathematical routines for calculating the EulerSwap curve
 * `QuoteLib`: Computing quotes. This involves invoking the logic from `CurveLib`, as well as taking into account other limitations such as vault utilisation, supply caps, etc.
+* `SwapLib`: Routines for actually performing swaps
 
 And some utilities:
 
 * `MetaProxyDeployer`: Deploys EIP-3448-style proxies.
-* `ProtocolFee`: The factory stores protocol fee parameters that will affect subsequently created `EulerSwap` instances. These can be changed by an owner.
 
 ## Operational flow
 
 The following steps outline how an EulerSwap operator is created and configured:
 
 1. Deposit initial liquidity into one or both of the underlying credit vaults to enable swaps.
-1. Choose the desired pool parameters (`IEulerSwap.Params` struct). The `protocolFee` and `protocolFeeRecipient` must be read from the factory.
+1. Choose the desired pool parameters (`IEulerSwap.StaticParams` and `IEulerSwap.DynamicParams` structs)
 1. [Mine](https://docs.uniswap.org/contracts/v4/guides/hooks/hook-deployment#hook-miner) a salt such that the predicted address of the `EulerSwap` instance will be deployed with the correct flags.
 1. Install the above address as an EVC operator, ensuring that any previous `EulerSwap` operators are uninstalled.
 1. Invoke `deployPool()` on the EulerSwap factory.
+1. Optional: Register the pool in the EulerSwapRegistry.
 
 ## Metaproxies
 
 Each `EulerSwap` instance is a lightweight proxy, roughly modelled after [EIP-3448](https://eips.ethereum.org/EIPS/eip-3448). The only difference is that EIP-3448 appends the length of the metadata, whereas we don't, since it is a fixed size.
 
-When an `EulerSwap` instance is created, the `IEulerSwap.Params` struct is ABI encoded and provided as the proxy metadata. This is provided to the implementation contract as trailing calldata via `delegatecall`. This allows the parameters to be accessed cheaply when servicing a swap, compared to if they had to be read from storage.
+When an `EulerSwap` instance is created, the `IEulerSwap.StaticParams` struct is ABI encoded and provided as the proxy metadata. This is provided to the implementation contract as trailing calldata via `delegatecall`. This allows the parameters to be accessed cheaply when servicing a swap, compared to if they had to be read from storage.
 
 ## Curve Parameters
 
@@ -78,7 +83,7 @@ Note that there may be a race condition when removing one swap operator and inst
 
 Swapping fees are charged by requiring the swapper to pay slightly more of the input token than is required by the curve parameters. This extra amount is simply directly deposited into the vaults on behalf of the EulerSwap account. This means that it has the effect of increasing the account's NAV, but does not change the shape of the curve itself. The curve is always static, per EulerSwap instance.
 
-When an EulerSwap instance is created, a **protocol fee** parameter may be installed by the factory. This portion of the collected fees are routed to a protocol fee recipient. An administrator of the factory can change the the protocol fee and recipient for future created EulerSwap instances, although previously created instances will not be updated retroactively.
+When a swap is performed, the `EulerSwapProtocolFeeConfig` contract is queried to determine the protocol fee in effect. This proportion of the LP fees are instead sent to a protocol fee recipient chosen by the Euler DAO. This proportion cannot exceed 15%.
 
 
 ## Reserve desynchronisation
@@ -103,7 +108,7 @@ Although the virtual reserves specify a hard limit for swaps, there may be other
 * The vaults have supply and/or borrow caps
 * The operator may have been uninstalled
 
-There is a function `getLimits` that can take these into account. This function itself is an upper-bound and the values it returns may not be swappable either, in particular if the curve shape does not allow it. However, it makes a best effort and this function can be used to rapidly exclude pools that are definitely unable to service a given size swap.
+There is a function `getLimits` that can take these into account. This function is intended to return quotes that are swappable, but under some conditions may not be, if the pool is configured with larger reserves than the underlying Euler account's liquidity can handle. In these cases, the pool is eligible from being removed from the Registry.
 
 
 ## Swapper Security

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.24;
 
-import {EulerSwapTestBase, EulerSwap, IEulerSwap} from "./EulerSwapTestBase.t.sol";
+import {EulerSwapTestBase, EulerSwap, EulerSwapManagement, IEulerSwap} from "./EulerSwapTestBase.t.sol";
+import {EulerSwapBase} from "../src/EulerSwapBase.sol";
 import {CtxLib} from "../src/libraries/CtxLib.sol";
 
 contract CtxTest is EulerSwapTestBase {
@@ -20,8 +21,8 @@ contract CtxTest is EulerSwapTestBase {
 
     function test_staticParamSize() public view {
         (IEulerSwap.StaticParams memory sParams,) =
-            getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0), 0, address(0));
-        assertEq(abi.encode(sParams).length, 256);
+            getEulerSwapParams(1e18, 1e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0));
+        assertEq(abi.encode(sParams).length, 192);
     }
 
     function test_insufficientCalldata() public {
@@ -37,14 +38,14 @@ contract CtxTest is EulerSwapTestBase {
         bool success;
         IEulerSwap.DynamicParams memory dParams;
 
-        vm.expectRevert(EulerSwap.AlreadyActivated.selector);
+        vm.expectRevert(EulerSwapManagement.AlreadyActivated.selector);
         (success,) = eulerSwapImpl.call(
             padCalldata(
                 abi.encodeCall(EulerSwap.activate, (dParams, IEulerSwap.InitialState({reserve0: 1e18, reserve1: 1e18})))
             )
         );
 
-        vm.expectRevert(EulerSwap.Locked.selector);
+        vm.expectRevert(EulerSwapBase.Locked.selector);
         (success,) = eulerSwapImpl.call(padCalldata(abi.encodeCall(EulerSwap.getReserves, ())));
     }
 

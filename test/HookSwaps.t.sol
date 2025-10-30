@@ -47,7 +47,7 @@ contract HookSwapsTest is EulerSwapTestBase {
 
         {
             (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0), 0, address(0));
+                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.4e18, 0.85e18, 0, address(0));
             IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
 
             eulerSwap = createEulerSwapHookFull(sParams, dParams, initialState);

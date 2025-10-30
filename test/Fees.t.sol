@@ -2,7 +2,14 @@
 pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
-import {IEVault, IEulerSwap, EulerSwapTestBase, EulerSwap, TestERC20} from "./EulerSwapTestBase.t.sol";
+import {
+    IEVault,
+    IEulerSwap,
+    EulerSwapTestBase,
+    EulerSwap,
+    EulerSwapProtocolFeeConfig,
+    TestERC20
+} from "./EulerSwapTestBase.t.sol";
 import {SwapLib} from "../src/libraries/SwapLib.sol";
 
 contract FeesTest is EulerSwapTestBase {
@@ -131,7 +138,7 @@ contract FeesTest is EulerSwapTestBase {
 
         {
             (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
-                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.9e18, 0.9e18, fee, address(54321), 0, address(0));
+                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.9e18, 0.9e18, fee, address(54321));
             IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
 
             eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
@@ -154,6 +161,134 @@ contract FeesTest is EulerSwapTestBase {
 
         // Alt fee recipient received their fees
         assertEq(assetTST.balanceOf(address(54321)), amountIn - amountInNoFees);
+    }
+
+    function test_fees_protocolFees_swap() public {
+        uint256 fee = 0.05e18;
+        uint256 protocolFee = 0.1e18;
+
+        {
+            (IEulerSwap.StaticParams memory sParams, IEulerSwap.DynamicParams memory dParams) =
+                getEulerSwapParams(60e18, 60e18, 1e18, 1e18, 0.9e18, 0.9e18, uint64(fee), address(54321));
+            IEulerSwap.InitialState memory initialState = IEulerSwap.InitialState({reserve0: 60e18, reserve1: 60e18});
+
+            eulerSwap = createEulerSwapFull(sParams, dParams, initialState);
+        }
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setDefault(address(8888), uint64(protocolFee));
+
+        uint256 amountInNoFees = 1e18;
+
+        uint256 amountIn = amountInNoFees * 1e18 / (1e18 - fee);
+        uint256 amountOut =
+            periphery.quoteExactInput(address(eulerSwap), address(assetTST), address(assetTST2), amountIn);
+
+        // Actually execute swap
+
+        assetTST.mint(address(this), amountIn);
+        assetTST.transfer(address(eulerSwap), amountIn);
+
+        eulerSwap.swap(0, amountOut, address(this), "");
+
+        // Swapper received their quoted amount:
+        assertEq(assetTST2.balanceOf(address(this)), amountOut);
+
+        uint256 feeAmount = amountIn - amountInNoFees;
+        uint256 protocolFeeAmount = feeAmount * protocolFee / 1e18;
+        uint256 lpFeeAmount = feeAmount - protocolFeeAmount;
+
+        // LP fee recipient received their fees
+        assertEq(assetTST.balanceOf(address(54321)), lpFeeAmount);
+
+        // Protocol fee recipient received their fees
+        assertEq(assetTST.balanceOf(address(8888)), protocolFeeAmount);
+    }
+
+    function test_fees_protocolFees_admin() public {
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(0));
+            assertEq(fee, 0);
+        }
+
+        // Error cases
+
+        vm.expectRevert(EulerSwapProtocolFeeConfig.Unauthorized.selector);
+        protocolFeeConfig.setDefault(address(8888), 0.1e18);
+
+        vm.prank(protocolFeeAdmin);
+        vm.expectRevert(EulerSwapProtocolFeeConfig.InvalidProtocolFee.selector);
+        protocolFeeConfig.setDefault(address(8888), 0.15000001e18);
+
+        // Set a default
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setDefault(address(8888), 0.08e18);
+
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(8888));
+            assertEq(fee, 0.08e18);
+        }
+
+        // Override
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setOverride(address(eulerSwap), address(9999), 0.07e18);
+
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(9999));
+            assertEq(fee, 0.07e18);
+        }
+
+        // Fallback to default address
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setOverride(address(eulerSwap), address(0), 0.07e18);
+
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(8888)); // default recipient
+            assertEq(fee, 0.07e18); // overridden fee
+        }
+
+        // ...which is affected by changes to the default
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setDefault(address(7777), 0.12e18);
+
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(7777)); // new default recipient
+            assertEq(fee, 0.07e18); // same overridden fee
+        }
+
+        // Remove override
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.removeOverride(address(eulerSwap));
+
+        {
+            (address recipient, uint64 fee) = protocolFeeConfig.getProtocolFee(address(eulerSwap));
+            assertEq(recipient, address(7777));
+            assertEq(fee, 0.12e18);
+        }
+    }
+
+    function test_fees_protocolFees_setAdmin() public {
+        assertEq(protocolFeeConfig.admin(), protocolFeeAdmin);
+
+        vm.expectRevert(EulerSwapProtocolFeeConfig.Unauthorized.selector);
+        protocolFeeConfig.setDefault(address(8888), 0.1e18);
+
+        vm.prank(protocolFeeAdmin);
+        protocolFeeConfig.setAdmin(address(this));
+
+        assertEq(protocolFeeConfig.admin(), address(this));
+
+        protocolFeeConfig.setDefault(address(8888), 0.1e18);
     }
 
     function test_fuzzFeeRounding(uint256 amount, uint256 fee) public pure {

@@ -1,7 +1,0 @@
-{
-    "evc": "0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383",
-    "poolManager": "0x000000000004444c5dc75cB358380D2e3dE08A90",
-    "evkFactory": "0x29a56a1b8214D9Cf7c5561811750D5cBDb45CC8e",
-    "feeOwner": "0xcAD001c30E96765aC90307669d578219D4fb1DCe",
-    "feeRecipientSetter": "0xceF02dff42ac3b2462DD4ebB509c29fCF331A49c"
-}
