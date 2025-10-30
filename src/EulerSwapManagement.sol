@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {IERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-
-import {IEulerSwapCallee} from "./interfaces/IEulerSwapCallee.sol";
 import {IEVC} from "evc/interfaces/IEthereumVaultConnector.sol";
 import {IEVault} from "evk/EVault/IEVault.sol";
 
@@ -14,14 +11,17 @@ import {FundsLib} from "./libraries/FundsLib.sol";
 import {CurveLib} from "./libraries/CurveLib.sol";
 import {SwapLib} from "./libraries/SwapLib.sol";
 
+/// @title EulerSwapManagement contract
+/// @custom:security-contact security@euler.xyz
+/// @author Euler Labs (https://www.eulerlabs.com/)
 contract EulerSwapManagement is EulerSwapBase {
     error Unauthorized();
     error AlreadyActivated();
     error BadStaticParam();
     error BadDynamicParam();
-    error AmountTooBig();
     error AssetsOutOfOrderOrEqual();
     error InvalidAssets();
+    error BadFeeRecipient();
 
     /// @notice Emitted upon EulerSwap instance creation or reconfiguration.
     event EulerSwapConfigured(IEulerSwap.DynamicParams dParams, IEulerSwap.InitialState initialState);
@@ -65,7 +65,7 @@ contract EulerSwapManagement is EulerSwapBase {
         IEulerSwap.StaticParams memory sParams = CtxLib.getStaticParams();
 
         require(s.status == 0, AlreadyActivated());
-        s.status = 1;
+        s.status = 2; // Keep pool locked during activation
 
         // Static parameters
 
@@ -87,6 +87,11 @@ contract EulerSwapManagement is EulerSwapBase {
         }
 
         require(sParams.eulerAccount != sParams.feeRecipient, BadStaticParam()); // set feeRecipient to 0 instead
+
+        if (sParams.feeRecipient != address(0)) {
+            address owner = evc.getAccountOwner(sParams.feeRecipient);
+            require(owner == sParams.feeRecipient || owner == address(0), BadFeeRecipient());
+        }
 
         // Dynamic parameters
 
@@ -127,6 +132,8 @@ contract EulerSwapManagement is EulerSwapBase {
         ) {
             IEVC(evc).enableCollateral(sParams.eulerAccount, sParams.supplyVault1);
         }
+
+        s.status = 1; // unlock pool
     }
 
     function setManager(address manager, bool installed) external nonReentrant {
