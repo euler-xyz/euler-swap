@@ -1,0 +1,216 @@
+# Collateral, Debt, and Health on the X Side
+
+This document describes how collateral, debt, and liquidation health evolve for a position as swaps move along the AMM curve from the equilibrium point \((x_0, y_0)\) towards the y-axis. The direction of travel is **swap X out, swap Y in**, so \(x\) decreases from \(x_0\) towards 0 and \(y\) increases from \(y_0\).
+
+The model is designed to match the following assumptions and contract-level invariants:
+
+- Incoming liquidity is always used to repay debt in that asset before accumulating as excess collateral.
+- Outgoing liquidity is always taken from excess collateral before increasing debt.
+- Only **one debt asset** can be active at any time.
+- There is **no self-collateralisation** on the X side, so only Y collateral contributes to X-side health.
+- The AMM curve is singular at \(x=0\), so all quantities are defined on \(0 < x \le x_0\).
+
+---
+
+## 1. AMM Curve and Swap Deltas
+
+The AMM curve on the X side is
+
+\[
+y = f_1(x), \qquad 0 < x \le x_0,
+\]
+with \(f_1(x_0)=y_0\). In this model,
+\[
+f_1(x)
+=
+y_{0}
++
+\frac{p_{x}}{p_{y}}
+(x_{0}-x)
+\left(
+c_{x}
++
+(1-c_{x})\frac{x_{0}}{x}
+\right).
+\]
+
+Define the realised swap deltas:
+
+- **X paid out**
+\[
+x_{\Delta}(x)=x_0-x \quad \{0<x\le x_0\}.
+\]
+
+- **Y received**
+\[
+y_{\Delta}(x)=f_1(x)-y_0 \quad \{0<x\le x_0\}.
+\]
+
+Both deltas are non-negative along this path.
+
+---
+
+## 2. Y-Debt Repayment Threshold \(x_c(x_0)\)
+
+Let \(y_d\) denote any pre-existing Y debt on the X side. The Y debt is fully repaid at the first point \(x=x_c(x_0)\) such that
+\[
+y_{\Delta}(x)=y_d,
+\]
+or equivalently,
+\[
+f_1(x_c(x_0))=y_0+y_d.
+\]
+
+Define
+\[
+k = y_d \cdot \frac{p_y}{p_x}.
+\]
+
+Closed-form expressions:
+
+### Linear case (\(c_x=0\))
+\[
+x_c(x_0)
+=
+\frac{x_0^2}{x_0+k}.
+\]
+
+### Non-linear case (\(0<c_x\le 1\))
+\[
+x_c(x_0)
+=
+\frac{
+x_0(2c_x-1)-k
++
+\sqrt{\left(k-x_0(2c_x-1)\right)^2+4c_x(1-c_x)x_0^2}
+}{
+2c_x
+}.
+\]
+
+The threshold \(x_c(x_0)\) enforces the **single active debt** invariant: X debt is only permitted once Y debt has been fully repaid.
+
+---
+
+## 3. Collateral and Debt Accounting (X Side)
+
+Let:
+
+- \(x_r, y_r\): excess collateral at equilibrium,
+- \(x_d, y_d\): debt at equilibrium,
+- \(C_{AB}\): collateral in asset \(A\) on side \(B\),
+- \(D_{AB}\): debt in asset \(A\) on side \(B\).
+
+All expressions below are defined on \(0 < x \le x_0\).
+
+### 3.1 X Collateral on the X Side
+
+Outgoing X is withdrawn from excess collateral first:
+\[
+C_{XX}(x,x_0)=\max(x_r-x_{\Delta}(x),0).
+\]
+
+### 3.2 Y Collateral on the X Side
+
+Incoming Y first repays Y debt, then accumulates as excess collateral:
+\[
+C_{YX}(x,x_0)=y_r+\max(y_{\Delta}(x)-y_d,0).
+\]
+
+### 3.3 Y Debt on the X Side
+
+Y debt decreases monotonically until it reaches zero:
+\[
+D_{YX}(x,x_0)=\max(y_d-y_{\Delta}(x),0).
+\]
+
+### 3.4 X Debt on the X Side (Single-Debt Enforcement)
+
+X debt is only defined after Y debt is fully repaid, and only increases once X collateral is exhausted:
+\[
+D_{XX}(x,x_0)
+=
+\left(x_d+\max(x_{\Delta}(x)-x_r,0)\right)\{0<x\le x_c(x_0)\}.
+\]
+
+For \(x>x_c(x_0)\), this expression is **undefined**, reflecting that X debt cannot coexist with active Y debt.
+
+---
+
+## 4. Price Conversion
+
+Health is measured in X units.
+
+Along the curve, the marginal price of X in units of Y is
+\[
+P_{X\to Y}(x)=-f_1'(x),
+\]
+which is positive on this branch.
+
+The conversion from Y units to X units is therefore
+\[
+P_{Y\to X}(x)=\frac{1}{-f_1'(x)}.
+\]
+
+In formulas, this appears as division by \(-f_{1d}(x)\), where \(f_{1d}(x)=f_1'(x)\).
+
+---
+
+## 5. Health Score on the X Side
+
+Let \(L_{YX}\) be the LTV factor applied to Y collateral when computing X-side health. There is no self-collateralisation, so \(L_{XX}=0\).
+
+Because only one debt asset can be active at a time, the health score is piecewise:
+
+- For \(0<x\le x_c(x_0)\): Y debt is cleared and X debt (if any) is active.
+- For \(x_c(x_0)<x\le x_0\): Y debt may be active and X debt is disallowed.
+
+The final definition is:
+
+\[
+H_{X}\left(x,\ x_{0}\right)=
+\left\{
+\begin{array}{ll}
+0<x\le x_{c}\left(x_{0}\right):
+&
+L_{YX}\cdot
+\frac{
+\frac{C_{YX}\left(x,\ x_{0}\right)}{-f_{1d}\left(x\right)}
+}{
+D_{XX}\left(x,\ x_{0}\right)
+}
+\left\{D_{XX}\left(x,\ x_{0}\right)>0\right\},
+\\[10pt]
+x_{c}\left(x_{0}\right)<x\le x_{0}:
+&
+L_{YX}\cdot
+\frac{
+C_{YX}\left(x,\ x_{0}\right)
+}{
+D_{YX}\left(x,\ x_{0}\right)
+}
+\left\{D_{YX}\left(x,\ x_{0}\right)>0\right\}
+\end{array}
+\right\}
+\left\{0<x\le x_{0}\right\}.
+\]
+
+### Interpretation
+
+- The guards \(\{D_{XX}>0\}\) and \(\{D_{YX}>0\}\) avoid divide-by-zero in no-debt regions. In those regions, health is conceptually infinite.
+- In the Y-debt-active region, both collateral and debt are denominated in Y, so price conversion cancels:
+  \[
+  H_X = L_{YX}\cdot \frac{C_{YX}}{D_{YX}}.
+  \]
+- In the X-debt-active region, Y collateral is converted into X using the curve-implied spot price.
+
+---
+
+## 6. Liquidation Condition
+
+A position becomes liquidatable when
+\[
+H_X(x,x_0)\le 1.
+\]
+
+When plotting or simulating, regions where \(H_X\) is undefined should be interpreted as **economically unreachable states** under the contract invariants, not as healthy or unhealthy positions.
