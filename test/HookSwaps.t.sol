@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {EulerSwapTestBase, EulerSwap, EulerSwapPeriphery, IEulerSwap} from "./EulerSwapTestBase.t.sol";
 import {TestERC20} from "evk-test/unit/evault/EVaultTestBase.t.sol";
-import {EulerSwap} from "../src/EulerSwap.sol";
 import {UniswapHook} from "../src/UniswapHook.sol";
 
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
