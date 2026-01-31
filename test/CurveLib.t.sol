@@ -91,6 +91,57 @@ contract CurveLibTest is EulerSwapTestBase {
         }
     }
 
+    function test_fuzzfInverseConstantSum(
+        uint256 x,
+        uint256 px,
+        uint256 py,
+        uint256 x0,
+        uint256 y0,
+        uint256 cy
+    ) public pure {
+        px = 1;
+        py = bound(py, 1, 1e24);
+        x0 = bound(x0, 1, 1e28);
+        y0 = bound(y0, 0, 1e28);
+        cy = bound(cy, 0, 1e18);
+
+        uint256 cx = 1e18;
+
+        IEulerSwap.DynamicParams memory p = IEulerSwap.DynamicParams({
+            equilibriumReserve0: uint112(x0),
+            equilibriumReserve1: uint112(y0),
+            minReserve0: 0,
+            minReserve1: 0,
+            priceX: uint80(px),
+            priceY: uint80(py),
+            concentrationX: uint64(cx),
+            concentrationY: uint64(cy),
+            fee0: 0,
+            fee1: 0,
+            expiration: 0,
+            swapHookedOperations: 0,
+            swapHook: address(0)
+        });
+
+        x = bound(x, 1, x0);
+
+        uint256 y = CurveLib.f(x, px, py, x0, y0, cx);
+        if (y == type(uint256).max) return;
+
+        uint256 xCalc = CurveLib.fInverse(y, px, py, x0, y0, cx);
+        uint256 xBin = binarySearch(p, y, 1, x0);
+
+        if (x < type(uint112).max && y < type(uint112).max) {
+            assert(CurveLib.verify(p, xCalc, y));
+            if (xCalc >= x) {
+                assert(xCalc - x <= 1);
+            } else {
+                assert(x - xCalc <= 1);
+            }
+            assert(xCalc - xBin <= 2 || xBin - xCalc <= 2);
+        }
+    }
+
     function test_fuzzFEquillibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
         public
         pure
