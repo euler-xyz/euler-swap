@@ -48,10 +48,6 @@ forge coverage
 forge doc --serve --port 4000
 ```
 
-## Deployment Addresses
-
-Deployed addresses can be found in [Contract Addresses](https://docs.euler.finance/build/contract-addresses) section of Euler docs.
-
 ## Getting Started
 
 The `script` folder contains scripts for deploying pools, as well as executing test trades on them. See the dedicated [README](./script/README.md)
