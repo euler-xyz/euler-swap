@@ -61,6 +61,8 @@ In addition, the initial state of the the reserves are provided.
 * `expiration`: A timestamp after which swaps can no longer be performed on this pool. This is useful for pools that implement limit orders.
 * `swapHookedOperations` and `swapHook`: See [Hooks](#hooks).
 
+When either execution fee is `1e18`, even a one-unit donation of that input token can make allowed-direction direct and periphery swaps revert with `SwapRejected` despite positive quotes, because direct swaps collect both token balances. Using `1e18 - 1` avoids this fee rejection but does not strictly disable that direction; for strict one-way swaps, use the [beforeSwap hook](#before-swap-hook) with zero execution fees.
+
 ### Initial State
 
 This allows the `reserve0` and `reserve1` state variables to be set to arbitrary values. In most cases these can just be set to be the same as `equilibriumReserve0` and `equilibriumReserve1`. However, if you wish for the pool to start at point on the swapping curve different from the equilibrium point, different values can be selected.
@@ -126,11 +128,11 @@ In order to challenge a pool to retrieve the validity bond, a challenger invokes
 
 ## Hooks
 
-Custom behaviour can be added to an EulerSwap instance via the hook mechanism. There are two hooks, one that runs before the swap is performed (and during quoting), and one that runs after a swap has been performed.
+Custom behaviour can be added to an EulerSwap instance via the hook mechanism. There are three hooks: `beforeSwap`, `getFee`, and `afterSwap`; only `getFee` runs during quoting.
 
-Pool operators who want to ensure their pool remains in a registry must ensure that the hooks they install do not revert. If they do revert, they may be challenged and removed. To prevent a swap temporarily, the `getFee` hook can return `1e18` (see below).
+Pool operators who want to ensure their pool remains in a registry must ensure that their hooks do not reject otherwise valid quotes. If they do, their pools may be challenged and removed. To prevent a swap temporarily, the `getFee` hook can return `1e18` (see below).
 
-The `swapHookedOperations` is a bitmask that controls which of the two hooks should be invoked. The `IEulerSwapHookTarget.sol` file contains 3 constants that should be bitwise OR'ed together to select which hooks should be invoked:
+The `swapHookedOperations` is a bitmask that controls which hooks should be invoked. The `IEulerSwapHookTarget.sol` file contains 3 constants that should be bitwise OR'ed together to select which hooks should be invoked:
 
 * `EULER_SWAP_HOOK_BEFORE_SWAP`
 * `EULER_SWAP_HOOK_GET_FEE`
@@ -139,6 +141,8 @@ The `swapHookedOperations` is a bitmask that controls which of the two hooks sho
 ### Before Swap Hook
 
 This hook is invoked before the swap actually starts. No tokens will have yet been taken or sent.
+
+To allow only asset0 to asset1 swaps, reject `amount0Out != 0` and set both execution fees to zero; do not reject incidental asset1 input balances, which can include donations. Enable `EULER_SWAP_HOOK_BEFORE_SWAP | EULER_SWAP_HOOK_GET_FEE` and have `getFee` return `1e18` for the disabled direction only when `readOnly == true`, and `0` otherwise, so reverse quotes and limits are disabled without rejecting donations during execution.
 
 The hook is invoked with a regular `call`, meaning that it may perform state-changing operations. However, it is not allowed to call back into the EulerSwap instance, because it holds a reentrancy lock.
 
